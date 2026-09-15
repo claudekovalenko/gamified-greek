@@ -1,0 +1,61 @@
+name: Sync content and deploy
+
+# Keeps data/content.json in step with the two source apps and republishes.
+#
+#   - repository_dispatch  the source repos ping this the moment they change
+#                          (their notify-gamified-greek.yml workflow)
+#   - schedule             a safety net every six hours, in case a ping is lost
+#   - workflow_dispatch    run it by hand from the Actions tab
+#
+# A push made with GITHUB_TOKEN does not start other workflows, so this one
+# deploys Pages itself after committing rather than relying on pages.yml.
+
+on:
+  repository_dispatch:
+    types: [content-updated]
+  schedule:
+    - cron: '17 */6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Pull the latest content from both source repos
+        id: sync
+        run: |
+          node tools/sync.mjs | tee sync.log
+          echo "changed=$(tail -n1 sync.log)" >> "$GITHUB_OUTPUT"
+          rm sync.log
+      - name: Commit the new bundle
+        if: steps.sync.outputs.changed == 'changed'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/content.json sw.js
+          git commit -m "Sync content from the vocab and concepts apps"
+          git push
+      - uses: actions/configure-pages@v5
+        with:
+          enablement: true
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: .
+      - id: deployment
+        uses: actions/deploy-pages@v4

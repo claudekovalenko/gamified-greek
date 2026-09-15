@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Greek Quest</title>
+    <meta
+      name="description"
+      content="A game for remembering Going Deeper with New Testament Greek — every word from the vocab app and every concept from the cases app, as quests, boss battles and a collection to fill."
+    />
+    <meta name="theme-color" content="#0f1222" />
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="icon" href="./icons/icon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="./icons/icon-180.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Greek Quest" />
+    <link rel="stylesheet" href="./css/styles.css?v=v1" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand-mark">Ω</span>
+        <span>
+          <strong>Greek Quest</strong>
+          <small id="brand-sub">Going Deeper, gamified</small>
+        </span>
+      </div>
+      <div class="topbar-right">
+        <span class="chip streak" id="hud-streak" title="Day streak">🔥 0</span>
+        <select id="whoami" class="whoami" aria-label="Who is playing"></select>
+      </div>
+    </header>
+
+    <main id="app" class="app">
+      <section class="card"><p class="note">Loading the game…</p></section>
+    </main>
+
+    <nav class="tabbar" id="tabbar">
+      <button class="tab on" data-view="journey"><span class="tab-ic">🗺️</span>Journey</button>
+      <button class="tab" data-view="play"><span class="tab-ic">🎮</span>Play</button>
+      <button class="tab" data-view="collection"><span class="tab-ic">📖</span>Collection</button>
+      <button class="tab" data-view="me"><span class="tab-ic">🏅</span>Me</button>
+    </nav>
+
+    <div id="toasts" class="toasts" aria-live="polite"></div>
+    <canvas id="confetti" class="confetti" aria-hidden="true"></canvas>
+
+    <script type="module" src="./js/app.js?v=v1"></script>
+  </body>
+</html>
