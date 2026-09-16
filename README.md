@@ -39,7 +39,7 @@ Three layers, so it is never stale:
 
 1. **In the browser.** On every launch, on coming back online and on returning to the tab, the app fetches both source files straight from GitHub (the repos' default branches), rebuilds the bundle and swaps it in if anything changed. Progress survives, because it is keyed by lemma and card id.
 2. **`tools/sync.mjs`** writes the same bundle to `data/content.json` — the copy that ships with the app and works offline — and bumps the service-worker cache name so installed phones pick it up.
-3. **`.github/workflows/sync.yml`** runs that script every six hours, on a manual run, and the moment either source repo pushes (they send a `repository_dispatch`), commits the result and redeploys Pages.
+3. **`.github/workflows/sync.yml`** runs that script every six hours, on a manual run, and the moment either source repo pushes (they send a `repository_dispatch`), and commits the result. Pages publishes the branch, so the commit is the deploy.
 
 For step 3's instant pings, each source repo carries `.github/workflows/notify-gamified-greek.yml`. It needs one secret, **`GAMIFIED_GREEK_TOKEN`**: a fine-grained personal access token with *Contents: read and write* on `gamified-greek`, added under each source repo's Settings → Secrets → Actions. Without it the workflow skips quietly and the six-hour schedule does the job instead.
 
@@ -56,7 +56,7 @@ Static files, no build, no dependencies. Serve the folder (a `file://` URL will 
 python3 -m http.server 8000
 ```
 
-It is a full PWA: install it from the browser's share / install menu and it runs offline. Publishing is `.github/workflows/pages.yml` on every push.
+It is live at **https://claudekovalenko.github.io/gamified-greek/** — GitHub Pages publishes the branch on every push. It is a full PWA: install it from the browser's share / install menu and it runs offline.
 
 Everything is stored in `localStorage` on the device, one entry per person (`gq.v1:<id>`, roster in `gq.people`, the latest content bundle in `gq.content`). Nothing is uploaded.
 

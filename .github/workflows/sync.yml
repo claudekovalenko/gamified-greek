@@ -1,4 +1,4 @@
-name: Sync content and deploy
+name: Sync content
 
 # Keeps data/content.json in step with the two source apps and republishes.
 #
@@ -7,8 +7,8 @@ name: Sync content and deploy
 #   - schedule             a safety net every six hours, in case a ping is lost
 #   - workflow_dispatch    run it by hand from the Actions tab
 #
-# A push made with GITHUB_TOKEN does not start other workflows, so this one
-# deploys Pages itself after committing rather than relying on pages.yml.
+# Pages is set to publish this branch, so the commit this makes is all it
+# takes: GitHub's own "pages build and deployment" picks it up.
 
 on:
   repository_dispatch:
@@ -19,19 +19,14 @@ on:
 
 permissions:
   contents: write
-  pages: write
-  id-token: write
 
 concurrency:
-  group: pages
+  group: sync
   cancel-in-progress: false
 
 jobs:
   sync:
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -51,11 +46,3 @@ jobs:
           git add data/content.json sw.js
           git commit -m "Sync content from the vocab and concepts apps"
           git push
-      - uses: actions/configure-pages@v5
-        with:
-          enablement: true
-      - uses: actions/upload-pages-artifact@v3
-        with:
-          path: .
-      - id: deployment
-        uses: actions/deploy-pages@v4
