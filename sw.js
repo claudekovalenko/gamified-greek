@@ -1,14 +1,15 @@
 // Offline copy of the whole game. The cache name carries the app build and the
 // content hash: tools/sync.mjs rewrites the hash whenever the source apps have
 // changed, so a content update invalidates the offline copy exactly like a
-// code update does. Bump the "v1" part by hand alongside BUILD in js/app.js.
-const CACHE = 'greek-quest-v1-857f231c';
+// code update does. Bump the "v2" part by hand alongside BUILD in js/app.js.
+const CACHE = 'greek-quest-v2-857f231c';
 
 const SHELL = [
   './',
   './index.html',
-  './css/styles.css?v=v1',
-  './js/app.js?v=v1',
+  './css/styles.css?v=v2',
+  './js/app.js?v=v2',
+  './js/dash.js',
   './js/normalize.js',
   './js/sources.js',
   './data/content.json',

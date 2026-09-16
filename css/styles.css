@@ -368,3 +368,31 @@ input.txt { padding: 9px 10px; border-radius: 10px; border: 1px solid var(--line
 .levelup .box { background: var(--bg-elev); border: 2px solid var(--gold); border-radius: 22px; padding: 24px 28px; text-align: center; max-width: 320px; box-shadow: var(--shadow); }
 .levelup .big { font-size: 64px; font-family: var(--greek); color: var(--gold); line-height: 1; }
 .levelup h2 { margin: 8px 0 2px; }
+
+/* ---------- temple dash ---------- */
+.card.dash { padding: 0; overflow: hidden; }
+.dash-q { padding: 10px 14px 8px; min-height: 60px; }
+.dash-q .kind { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; font-weight: 700; margin-bottom: 2px; }
+.dash-q .prompt { font-size: 18px; font-weight: 700; line-height: 1.3; margin: 2px 0; }
+.dash-q .prompt.gk { font-size: 26px; font-weight: 500; }
+.dash-q .prompt.sent { font-size: 19px; font-weight: 500; }
+.dash-q .sub { color: var(--muted); font-size: 13.5px; }
+.dash-q .ref { color: var(--muted); font-size: 12px; }
+.dash-q .ask { margin: 4px 0 0; font-weight: 700; font-size: 14px; }
+.dash-stage { position: relative; height: min(46vh, 380px); min-height: 220px; background: #0b0d1c; }
+.dash-stage canvas { display: block; width: 100%; height: 100%; touch-action: none; user-select: none; -webkit-user-select: none; }
+.dash-combo { position: absolute; top: 8px; right: 10px; font-weight: 800; color: var(--warn); font-size: 15px; text-shadow: 0 2px 6px rgba(0, 0, 0, 0.7); pointer-events: none; }
+.dash-overlay { position: absolute; inset: 0; display: none; align-items: center; justify-content: center; padding: 12px; background: rgba(0, 0, 0, 0.5); animation: fade 0.2s ease; }
+.dash-overlay.show { display: flex; }
+.dash-overlay .feedback { margin: 0; width: 100%; max-width: 440px; max-height: 100%; overflow: auto; background: var(--bg-elev); border: 1px solid var(--line); }
+.dash-overlay .feedback.bad { border-color: var(--bad); }
+.dash-overlay .feedback .h { justify-content: space-between; }
+.dash-opts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; padding: 10px 10px 6px; }
+.dash-opts .opt { flex-direction: column; text-align: center; justify-content: center; gap: 4px; padding: 8px 6px; min-height: 68px; font-size: 14px; line-height: 1.2; }
+.dash-opts .opt.gk { font-size: 18px; }
+.dash-opts .opt .k { width: 22px; height: 22px; font-size: 11px; }
+.dash-opts .opt.on { border-color: var(--accent); background: var(--accent-soft); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 30%, transparent); }
+.dash-opts .opt.wall { opacity: 0.4; }
+.dash-opts .opt.right { border-color: var(--ok); background: var(--ok-soft); box-shadow: none; }
+.dash-opts .opt.wrong { border-color: var(--bad); background: var(--bad-soft); box-shadow: none; }
+.dash-hint { text-align: center; font-size: 12px; color: var(--muted); padding: 0 12px 10px; }

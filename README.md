@@ -12,12 +12,15 @@ Nothing is typed in here. The content is pulled from those two repos, so a chapt
 
 ## How it plays
 
-**Journey** — one street per chapter. Word packs of ten, then the chapter's concept sets (the Spa, Swamp Road, the Harbour…), then a **boss**. Each stop is a ten-question lesson mixing Greek→English, English→Greek, hook hunts, sentence sleuthing, match-up boards, spot-it on real verses, acrostic ladders and confusion duels. Score 60 % for one star, 80 % for two, a clean run for three; a star opens the next stop. The boss is fifteen mixed questions on three hearts — beat it and the chapter is **crowned**.
+**Journey** — one street per chapter. Word packs of ten, then the chapter's concept sets (the Spa, Swamp Road, the Harbour…), then a **boss**. Each stop is a **run**: you sprint down a temple corridor with three lanes, and every gate across it is a question — Greek→English, English→Greek, hook hunts, sentence sleuthing, spot-it on real verses, confusion duels. The answers hang over the lanes; swipe, tap or press 1 · 2 · 3 to be in the right one before the gate arrives. Right lane and you run on, faster. Wrong lane and you crash, lose a heart, see what it was, and that gate comes back later in the run — you have to answer to get through. Stops run on five hearts, bosses on three. Score 60 % of gates first time for one star, 80 % for two, a clean run for three; a star opens the next stop. Beat the boss and the chapter is **crowned**.
+
+Prefer the old ten-question lesson with match-up boards and acrostic ladders? Flip *Stops play as* to **Quiz** on the Journey page.
 
 **Play** — the arcade, no gates. Pick chapters and words / concepts / both, then:
 
 | | |
 |---|---|
+| 🏃 Temple Dash | the corridor, endless, three hearts — how many gates? |
 | ⚡ Quick Fire | sixty seconds, combos multiply XP |
 | 🧩 Match-Up | four boards of five pairs against the clock |
 | 🔍 Spot It | the verse first, in Greek — which use is it? |
@@ -69,6 +72,7 @@ Code change: bump `BUILD` in `js/app.js`, the `?v=` in `index.html`, and the `v1
 ```
 index.html            shell
 js/app.js             the game — one module, nothing chapter-specific
+js/dash.js            Temple Dash: the corridor, the gates and the runner (canvas)
 js/normalize.js       source files → bundle (shared by the app and the sync script)
 js/sources.js         where the two source files are
 data/content.json     the bundled copy of the content

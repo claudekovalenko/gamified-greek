@@ -9,8 +9,9 @@
 
 import { normalize } from './normalize.js';
 import { SOURCES } from './sources.js';
+import { Dash } from './dash.js';
 
-const BUILD = 'v1 · 2026-09-15';
+const BUILD = 'v2 · 2026-09-16';
 const CONTENT_URL = './data/content.json';
 const PEOPLE_KEY = 'gq.people';
 const CONTENT_KEY = 'gq.content';
@@ -112,8 +113,8 @@ const freshState = () => ({
   streak: { count: 0, last: null, best: 0 },
   daily: null,
   badges: {},
-  stats: { right: 0, wrong: 0, lessons: 0, bosses: 0, bestCombo: 0, bestQuick: 0, bestRush: 0, perfects: 0, matchBest: null },
-  settings: { sound: true, chapter: null }
+  stats: { right: 0, wrong: 0, lessons: 0, bosses: 0, bestCombo: 0, bestQuick: 0, bestRush: 0, bestDash: 0, perfects: 0, matchBest: null },
+  settings: { sound: true, chapter: null, stops: 'run' }
 });
 let S = loadState();
 function loadState() {
@@ -399,6 +400,7 @@ const BADGES = [
   { id: 'perfect5', ic: '💎', name: 'Flawless', how: '5 three-star lessons', test: () => S.stats.perfects >= 5 },
   { id: 'quick30', ic: '⏱️', name: 'Quick draw', how: '30 right in one Quick Fire', test: () => S.stats.bestQuick >= 30 },
   { id: 'rush25', ic: '🛡️', name: 'Survivor', how: 'Survive 25 in Boss Rush', test: () => S.stats.bestRush >= 25 },
+  { id: 'dash20', ic: '🏃', name: 'Marathon', how: '20 gates in one Temple Dash', test: () => S.stats.bestDash >= 20 },
   { id: 'lvl5', ic: 'Ε', name: 'Epsilon', how: 'Reach level 5', test: () => levelInfo().L >= 5 },
   { id: 'lvl12', ic: 'Μ', name: 'Mu', how: 'Reach level 12', test: () => levelInfo().L >= 12 },
   { id: 'lvl24', ic: 'Ω', name: 'Omega', how: 'Reach level 24', test: () => levelInfo().L >= 24 }
@@ -463,6 +465,8 @@ function sfx(kind) {
     else if (kind === 'quest' || kind === 'badge') { tone(523, 0, 0.12); tone(659, 0.1, 0.12); tone(784, 0.2, 0.2); }
     else if (kind === 'levelup' || kind === 'win') { [523, 659, 784, 1047].forEach((f, i) => tone(f, i * 0.11, 0.25)); }
     else if (kind === 'lose') { tone(300, 0, 0.3, 'sawtooth', 0.05); tone(220, 0.25, 0.4, 'sawtooth', 0.05); }
+    else if (kind === 'crash') { tone(120, 0, 0.35, 'sawtooth', 0.08); tone(90, 0.05, 0.4, 'square', 0.05); }
+    else if (kind === 'gate') { tone(660, 0, 0.1); tone(880, 0.08, 0.12); tone(1320, 0.16, 0.18); }
   } catch {
     /* no audio: fine */
   }
@@ -520,9 +524,10 @@ function distractors(pool, answer, n, key, prefer = () => false) {
   return uniqBy(a.concat(b), key).slice(0, n);
 }
 
-const wordOpt = (w) => ({ id: w.id, html: `<span class="gk">${esc(w.g)}</span>`, cls: 'gk' });
-const glossOpt = (w) => ({ id: w.id, html: esc(w.gloss) });
-const cardOpt = (c) => ({ id: c.id, html: `<span>${esc(c.pic)}</span> ${esc(c.name)}` });
+// `text` is the short form a Temple Dash gate sign carries.
+const wordOpt = (w) => ({ id: w.id, html: `<span class="gk">${esc(w.g)}</span>`, cls: 'gk', text: lemma(w.g) });
+const glossOpt = (w) => ({ id: w.id, html: esc(w.gloss), text: glossShort(w.gloss) });
+const cardOpt = (c) => ({ id: c.id, html: `<span>${esc(c.pic)}</span> ${esc(c.name)}`, text: `${c.pic} ${c.short}` });
 const wordExplain = (w) =>
   `<span>${esc(w.icon)}</span> <b class="gk">${esc(w.g)}</b> — ${esc(w.gloss)}${w.mn ? `<br><span class="muted">${esc(w.mn)}</span>` : ''}`;
 const cardExplain = (c, note) =>
@@ -781,10 +786,60 @@ function planForNode(node) {
 }
 
 /* ================================================================
+ *  TEMPLE DASH: the corridor where every gate is a question
+ * ================================================================ */
+
+/**
+ * Turn a multiple-choice step into a gate: three lanes, the answer in one of
+ * them, distractors in the others. A two-option question (a confusion duel)
+ * bricks the middle lane up, so the runner has to move.
+ */
+function dashify(step) {
+  if (!step || step.kind !== 'mc') return null;
+  const answer = step.options.find((o) => o.id === step.answer);
+  if (!answer || !answer.text) return null;
+  const others = step.options.filter((o) => o.id !== step.answer && o.text);
+  let lanes;
+  if (others.length >= 2) lanes = shuffle([answer, ...others.slice(0, 2)]);
+  else if (others.length === 1) lanes = Math.random() < 0.5 ? [answer, null, others[0]] : [others[0], null, answer];
+  else return null;
+  return { ...step, lanes, answerLane: lanes.findIndex((o) => o && o.id === answer.id), retry: false };
+}
+
+/** The gates for one Journey stop: questions only, no boards or ladders in a corridor. */
+function dashPlan(node) {
+  const steps = [];
+  if (node.kind === 'pack') {
+    const pool = wordPool([node.chapter]);
+    pickItems(node.words, 10).forEach((w) => steps.push(stepForWord(w, pool)));
+  } else if (node.kind === 'concept') {
+    const pool = cardPool([node.chapter]).length >= 4 ? cardPool([node.chapter]) : cardPool();
+    const duels = C.confusions.filter((cf) => cf.pair.every((id) => node.cards.some((c) => c.id === id)));
+    const nDuels = Math.min(2, duels.length);
+    pickItems(node.cards, 10 - nDuels).forEach((c) => steps.push(stepForCard(c, pool)));
+    shuffle(duels).slice(0, nDuels).forEach((cf) => { const q = qDuel(cf); if (q) steps.splice(Math.floor(Math.random() * (steps.length + 1)), 0, q); });
+  } else {
+    const scope = makeScope([node.chapter]);
+    pickItems(scope.words, 9).forEach((w) => steps.push(stepForWord(w, scope.words)));
+    pickItems(scope.cards, 5).forEach((c) => steps.push(stepForCard(c, scope.cards)));
+    if (scope.confusions.length) { const q = qDuel(pick(scope.confusions)); if (q) steps.push(q); }
+    return shuffle(steps.map(dashify).filter(Boolean)).slice(0, 15);
+  }
+  return steps.map(dashify).filter(Boolean);
+}
+
+const DASH_PACE = {
+  lesson: { speed0: 8, speed1: 13, time0: 7, time1: 4, ramp: 10 },
+  boss: { speed0: 10, speed1: 16, time0: 5.5, time1: 3.2, ramp: 12 },
+  endless: { speed0: 8, speed1: 17, time0: 6.5, time1: 2.8, ramp: 30 }
+};
+
+/* ================================================================
  *  THE ARCADE: free play over any scope
  * ================================================================ */
 
 const GAMES = [
+  { id: 'dash', ic: '🏃', name: 'Temple Dash', desc: 'Run the corridor. Every gate is a question — be in the right lane. Three hearts.', needs: 'any', best: () => S.stats.bestDash, bestLabel: 'gates' },
   { id: 'quick', ic: '⚡', name: 'Quick Fire', desc: '60 seconds, as many as you can. Combos multiply XP.', needs: 'any', best: () => S.stats.bestQuick, bestLabel: 'right' },
   { id: 'match', ic: '🧩', name: 'Match-Up', desc: 'Four boards of five pairs. Beat your time.', needs: 'any', best: () => S.stats.matchBest, bestLabel: 's', fmt: (v) => `${(v / 1000).toFixed(1)}` },
   { id: 'spot', ic: '🔍', name: 'Spot It', desc: 'Real Greek. Which use is it?', needs: 'concepts' },
@@ -801,6 +856,11 @@ function arcadeRun(gameId, scope) {
   const weighted = () => pickItems(shuffle(pool).slice(0, 12), 1)[0];
   const stream = (fn) => ({ next: fn, total: null });
   switch (gameId) {
+    case 'dash':
+      return { title: 'Temple Dash', game: 'dash', hearts: 3, dash: true, pace: DASH_PACE.endless, steps: stream(() => {
+        if (Math.random() < 0.12 && scope.confusions.length) return dashify(qDuel(pick(scope.confusions)));
+        return dashify(stepForItem(weighted(), scope));
+      }) };
     case 'quick':
       return { title: 'Quick Fire', game: 'quick', timer: 60, autoNext: true, steps: stream(() => stepForItem(weighted(), scope)) };
     case 'rush':
@@ -851,10 +911,12 @@ function startRun(cfg, node = null) {
     cfg, node, list, next: cfg.steps.next || null, total: list ? list.length : null,
     i: 0, step: null, answered: false, over: false,
     hearts: cfg.hearts ?? null, timeLeft: cfg.timer ?? null, tick: null, t0: Date.now(),
-    combo: 0, bestCombo: 0, xp: 0, right: 0, wrong: 0, points: 0, missed: new Set(), ms: null
+    combo: 0, bestCombo: 0, xp: 0, right: 0, wrong: 0, points: 0, missed: new Set(), ms: null,
+    dash: null, queue: list ? list.slice() : []
   };
   if (node && node.kind === 'boss') bumpQuest('boss');
   $('#tabbar').classList.add('hidden');
+  if (cfg.dash) return renderDash();
   if (cfg.timer || cfg.stopwatch) {
     run.tick = setInterval(() => {
       if (!run || run.over) return;
@@ -888,12 +950,16 @@ function nextStep() {
   renderRun();
 }
 
-function stepDone(right, { points = right ? 1 : 0, perPair = null } = {}) {
+function stepDone(right, { points = right ? 1 : 0, perPair = null, retry = false } = {}) {
   if (!run || run.answered) return;
   run.answered = true;
   const step = run.step;
-  run.i += 1;
-  run.points += points;
+  // A gate asked again after a crash still teaches and still pays XP, but it
+  // does not move the progress bar or count towards stars.
+  if (!retry) {
+    run.i += 1;
+    run.points += points;
+  }
   // mastery
   if (perPair) {
     for (const [id, ok] of Object.entries(perPair)) { recordAnswer(id, ok); if (!ok) run.missed.add(id); }
@@ -1066,7 +1132,128 @@ function runHud() {
   return run.combo >= 3 ? `<span class="combo big">🔥 ×${multiplier(run.combo)}</span>` : `<span class="combo">${run.combo ? `🔥 ${run.combo}` : ''}</span>`;
 }
 
+/* ---- Temple Dash: the run screen around the canvas ---- */
+
+function renderDash() {
+  const pct = run.total ? Math.round((run.i / run.total) * 100) : Math.min(100, run.right * 4);
+  $('#app').innerHTML = `
+    <div class="run-top">
+      <button class="x" data-act="quit" aria-label="Quit">✕</button>
+      <div class="prog" id="run-prog"><i style="--p:${pct}%"></i></div>
+      <div id="run-hud">${runHud()}</div>
+    </div>
+    <section class="card dash">
+      <div class="dash-q" id="dash-q"><div class="kind">${esc(run.cfg.title)}</div><div class="ask">Get ready…</div></div>
+      <div class="dash-stage">
+        <canvas id="dash-cv" aria-label="The corridor"></canvas>
+        <div class="dash-combo" id="dash-combo"></div>
+        <div class="dash-overlay" id="dash-overlay"></div>
+      </div>
+      <div class="dash-opts" id="dash-opts"></div>
+      <div class="dash-hint">Swipe, tap a lane or a sign, or press 1 · 2 · 3. Be in the right lane when the gate arrives.</div>
+    </section>`;
+  window.scrollTo(0, 0);
+  run.dash = new Dash($('#dash-cv'), {
+    nextGate: dashNextGate,
+    onPass: dashPass,
+    onFinish: () => endRun('done'),
+    onLane: paintLanes,
+    sfx
+  }, run.cfg.pace || (run.node && run.node.kind === 'boss' ? DASH_PACE.boss : DASH_PACE.lesson));
+}
+
+function dashNextGate() {
+  let step = run.queue.shift() || null;
+  for (let tries = 0; !step && run.next && tries < 6; tries++) step = run.next();
+  if (!step) return null;
+  run.step = step;
+  run.answered = false;
+  const q = $('#dash-q');
+  if (q) {
+    q.innerHTML = `
+      <div class="kind">${esc(step.label)}${step.retry ? ' · again' : ''}</div>
+      <div class="prompt ${step.promptClass || ''}">${step.prompt}</div>
+      ${step.sub ? `<div class="sub">${step.sub}</div>` : ''}
+      ${step.ref ? `<div class="ref">${esc(step.ref)}</div>` : ''}
+      <div class="ask">${esc(step.ask || '')}</div>`;
+  }
+  const o = $('#dash-opts');
+  if (o) {
+    o.innerHTML = step.lanes.map((opt, i) => (opt
+      ? `<button class="opt ${opt.cls || ''}" data-act="lane" data-lane="${i}"><span class="k">${i + 1}</span><span>${opt.html}</span></button>`
+      : `<button class="opt wall" data-act="lane" data-lane="${i}" disabled><span class="k">${i + 1}</span><span>🧱 wall</span></button>`)).join('');
+  }
+  paintLanes(run.dash ? run.dash.lane : 1);
+  return step;
+}
+
+function paintLanes(lane) {
+  $$('#dash-opts .opt').forEach((el, i) => el.classList.toggle('on', i === lane));
+}
+
+function dashHud() {
+  const hb = $('#run-hud');
+  if (hb) hb.innerHTML = runHud();
+  const pr = $('#run-prog i');
+  if (pr) pr.style.setProperty('--p', `${run.total ? Math.round((run.i / run.total) * 100) : Math.min(100, run.right * 4)}%`);
+  const cb = $('#dash-combo');
+  if (cb) cb.innerHTML = run.combo >= 3 ? `🔥 ×${multiplier(run.combo)}` : run.combo ? `🔥 ${run.combo}` : '';
+}
+
+function dashPass(step, lane, right) {
+  if (!run || run.dash === null) return;
+  const gained = stepDone(right, { retry: step.retry, points: right ? 1 : 0 });
+  $$('#dash-opts .opt').forEach((el, i) => {
+    el.classList.toggle('right', i === step.answerLane);
+    el.classList.toggle('wrong', !right && i === lane);
+  });
+  if (right) {
+    sfx('gate');
+    const mult = multiplier(run.combo);
+    run.dash.floater(`+${gained} XP${mult > 1 ? ` 🔥×${mult}` : ''}`);
+  } else {
+    sfx('crash');
+    // Answer to proceed: the gate comes back later in the run.
+    step.retry = true;
+    run.queue.push(step);
+    const dead = run.hearts !== null && run.hearts <= 0;
+    const ov = $('#dash-overlay');
+    if (ov) {
+      ov.innerHTML = `
+        <div class="feedback bad">
+          <div class="h"><span>💥 Crash!</span>${run.hearts !== null ? `<span class="hearts small">${'❤️'.repeat(Math.max(0, run.hearts))}</span>` : ''}</div>
+          <div class="b">${step.explain || ''}</div>
+          ${dead ? '' : '<button class="btn primary wide" data-act="dash-resume" style="margin-top:10px">Run on ▶</button>'}
+        </div>`;
+      ov.classList.add('show');
+      const nb = $('[data-act="dash-resume"]');
+      if (nb) nb.focus();
+    }
+    if (dead) setTimeout(() => endRun('dead'), 1100);
+  }
+  dashHud();
+}
+
+function dashResume() {
+  if (!run || !run.dash || run.dash.over) return;
+  if (run.hearts !== null && run.hearts <= 0) return;
+  const ov = $('#dash-overlay');
+  if (ov) { ov.classList.remove('show'); ov.innerHTML = ''; }
+  run.dash.resume();
+}
+
+function dashPause() {
+  if (!run || !run.dash || run.dash.over || run.dash.paused) return;
+  run.dash.pause();
+  const ov = $('#dash-overlay');
+  if (ov) {
+    ov.innerHTML = '<div class="feedback"><div class="h"><span>⏸ Paused</span></div><button class="btn primary wide" data-act="dash-resume" style="margin-top:10px">Run on ▶</button></div>';
+    ov.classList.add('show');
+  }
+}
+
 function renderRun() {
+  if (run.cfg.dash) return; // the corridor draws itself
   const step = run.step;
   const pct = run.total ? Math.round((run.i / run.total) * 100) : run.cfg.timer ? Math.round((run.timeLeft / run.cfg.timer) * 100) : Math.min(100, run.right * 4);
   const comboLine = run.hearts !== null || run.cfg.timer ? (run.combo >= 3 ? `<div class="combo big" style="margin-bottom:6px">🔥 combo ×${multiplier(run.combo)}</div>` : '') : '';
@@ -1117,6 +1304,7 @@ function endRun(reason) {
   if (!run || run.over) return;
   run.over = true;
   clearInterval(run.tick);
+  if (run.dash) run.dash.destroy();
   const r = run;
   const node = r.node;
   const elapsed = Date.now() - r.t0;
@@ -1149,7 +1337,8 @@ function endRun(reason) {
       if (stars === 3) { S.stats.perfects += 1; bumpQuest('perfect'); }
       title = stars === 3 ? 'Perfect lesson!' : stars ? 'Lesson complete!' : 'Almost — try it again';
       big = stars === 3 ? '🌟' : stars ? '⭐' : '💪';
-    } else { title = 'Left early'; big = '🚪'; }
+    } else if (reason === 'dead') { title = 'Out of hearts — run it again'; big = '💔'; }
+    else { title = 'Left early'; big = '🚪'; }
     const rec = S.nodes[node.id] || { stars: 0, best: 0, plays: 0 };
     rec.stars = Math.max(rec.stars, stars);
     rec.best = Math.max(rec.best || 0, Math.round(pctPts * 100));
@@ -1159,6 +1348,13 @@ function endRun(reason) {
     const g = r.cfg.game;
     if (g === 'quick') { S.stats.bestQuick = Math.max(S.stats.bestQuick, r.right); title = 'Time’s up!'; big = '⏱️'; bonus = r.right >= 20 ? 30 : 0; }
     else if (g === 'rush') { S.stats.bestRush = Math.max(S.stats.bestRush, r.right); title = reason === 'dead' ? 'Out of hearts' : 'Rush over'; big = reason === 'dead' ? '💔' : '🛡️'; }
+    else if (g === 'dash') {
+      const best = r.right > (S.stats.bestDash || 0);
+      S.stats.bestDash = Math.max(S.stats.bestDash || 0, r.right);
+      title = reason === 'dead' ? (best ? 'New best run!' : 'The temple keeps the gold') : 'Run over';
+      big = reason === 'dead' ? (best ? '🏆' : '💔') : '🏃';
+      bonus = r.right >= 10 ? 10 + 2 * r.right : 0;
+    }
     else if (g === 'match') {
       if (reason === 'done') { S.stats.matchBest = S.stats.matchBest ? Math.min(S.stats.matchBest, elapsed) : elapsed; title = 'All boards clear!'; big = '🧩'; bonus = 20; }
       else { title = 'Left early'; big = '🚪'; }
@@ -1194,6 +1390,7 @@ function renderEnd({ r, node, stars, bonus, title, big, elapsed, reason }) {
         <div><b>${r.right}</b><small>right</small></div>
         <div><b>${r.cfg.stopwatch && reason === 'done' ? `${(elapsed / 1000).toFixed(1)}s` : `${acc}%`}</b><small>${r.cfg.stopwatch && reason === 'done' ? 'time' : 'accuracy'}</small></div>
       </div>
+      ${r.cfg.dash ? `<p class="note">${r.right} gate${r.right === 1 ? '' : 's'} passed · ${r.wrong} crash${r.wrong === 1 ? '' : 'es'}</p>` : ''}
       ${r.bestCombo >= 3 ? `<p class="note">Best combo: 🔥 ${r.bestCombo}</p>` : ''}
       ${missed.length ? `<h3>Worth another look</h3><div class="missed">${missed.map((it) => `<button class="chip ${isWord(it) ? 'gk' : ''}" data-act="item" data-id="${esc(it.id)}">${esc(isWord(it) ? it.icon : it.pic)} ${esc(isWord(it) ? lemma(it.g) : it.short)}</button>`).join('')}</div>` : ''}
       <div class="btn-row">
@@ -1279,6 +1476,7 @@ function renderJourney() {
   const d = today();
   const week = C.chapters.filter((c) => c.classDate && c.classDate >= d).sort((a, b) => a.classDate.localeCompare(b.classDate))[0];
   const sets = ch.conceptSets.map((id) => IX.setById.get(id)).filter(Boolean);
+  const stops = S.settings.stops === 'quiz' ? 'quiz' : 'run';
   $('#app').innerHTML = `
     ${hudCard()}
     ${questsCard()}
@@ -1301,7 +1499,16 @@ function renderJourney() {
           </button>`;
         }).join('')}
       </div>
-      <p class="note">Earn a star on a stop to open the next one. Beat the boss to crown the chapter. Everything else is free to play under <b>Play</b>.</p>
+      <div class="row between wrap" style="margin-top:8px">
+        <span class="small muted">Stops play as</span>
+        <span class="chips">
+          <button class="chip ${stops === 'run' ? 'on' : ''}" data-act="stops" data-v="run">🏃 Run</button>
+          <button class="chip ${stops === 'quiz' ? 'on' : ''}" data-act="stops" data-v="quiz">📝 Quiz</button>
+        </span>
+      </div>
+      <p class="note">${stops === 'run'
+        ? 'Every gate in the corridor is a question — be in the right lane to run on, or crash and lose a heart. A crashed gate comes back until you pass it.'
+        : 'Ten questions a stop, with match-up boards and ladders.'} Earn a star on a stop to open the next one. Beat the boss to crown the chapter. Everything else is free to play under <b>Play</b>.</p>
     </section>`;
 }
 
@@ -1423,6 +1630,7 @@ function renderMe() {
         <span>Best combo</span><b>🔥 ${S.stats.bestCombo}</b>
         <span>Best Quick Fire</span><b>${S.stats.bestQuick} right</b>
         <span>Best Boss Rush</span><b>${S.stats.bestRush} survived</b>
+        <span>Best Temple Dash</span><b>${S.stats.bestDash || 0} gates</b>
         <span>Words met / gold</span><b>${countMet('w')} / ${countMastered('w')}</b>
         <span>Concepts met / gold</span><b>${countMet('c')} / ${countMastered('c')}</b>
       </div>
@@ -1540,6 +1748,14 @@ function startNode(id) {
   const i = nodes.findIndex((n) => n.id === id);
   const node = nodes[i];
   if (nodeStatus(nodes, i).state === 'locked') { toast('Earn a star on the stop before this one first'); return; }
+  if (S.settings.stops !== 'quiz') {
+    // The corridor: answer every gate to get through. Bosses on three hearts, stops on five.
+    const steps = dashPlan(node);
+    const cfg = node.kind === 'boss'
+      ? { title: node.title, game: 'boss', hearts: 3, dash: true, steps: { list: steps } }
+      : { title: node.title, game: 'lesson', hearts: 5, dash: true, steps: { list: steps } };
+    return startRun(cfg, node);
+  }
   const steps = planForNode(node);
   const cfg = node.kind === 'boss'
     ? { title: node.title, game: 'boss', hearts: 3, steps: { list: steps } }
@@ -1585,6 +1801,9 @@ function onAction(el) {
       save(); return render();
     }
     case 'scope-kind': S.settings.scopeKind = el.dataset.kind; save(); return render();
+    case 'stops': S.settings.stops = el.dataset.v; save(); return render();
+    case 'lane': return run && run.dash && run.dash.setLane(Number(el.dataset.lane));
+    case 'dash-resume': return dashResume();
     case 'opt': return answerMC(id);
     case 'tile': return tapTile(el.dataset.side, id);
     case 'ord': return tapOrder(id);
@@ -1669,6 +1888,14 @@ function wire() {
   });
   $('#whoami').addEventListener('change', (e) => switchPerson(e.target.value));
   document.addEventListener('keydown', (e) => {
+    if (run && run.dash) {
+      if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') { e.preventDefault(); run.dash.move(-1); }
+      else if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') { e.preventDefault(); run.dash.move(1); }
+      else if (e.key >= '1' && e.key <= '3') run.dash.setLane(Number(e.key) - 1);
+      else if ((e.key === 'Enter' || e.key === ' ') && $('[data-act="dash-resume"]')) { e.preventDefault(); dashResume(); }
+      else if (e.key === 'Escape' || e.key === 'p' || e.key === 'P') { if (run.dash.paused) dashResume(); else dashPause(); }
+      return;
+    }
     if (!run || run.answered) {
       if (run && run.answered && (e.key === 'Enter' || e.key === ' ') && $('[data-act="next"]')) { e.preventDefault(); nextStep(); }
       return;
@@ -1684,7 +1911,10 @@ function wire() {
     if (v && v !== view && !run) go(v);
   });
   window.addEventListener('online', () => refreshFromSources());
-  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') refreshFromSources(); });
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') refreshFromSources();
+    else dashPause();
+  });
 }
 
 async function boot() {
