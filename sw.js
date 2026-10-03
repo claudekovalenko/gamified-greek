@@ -2,7 +2,7 @@
 // content hash: tools/sync.mjs rewrites the hash whenever the source apps have
 // changed, so a content update invalidates the offline copy exactly like a
 // code update does. Bump the "v1" part by hand alongside BUILD in js/app.js.
-const CACHE = 'greek-quest-v1-b23d1ea3';
+const CACHE = 'greek-quest-v1-cedcb343';
 
 const SHELL = [
   './',
