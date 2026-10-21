@@ -994,7 +994,8 @@ const canvas = renderer.domElement;
 canvas.addEventListener('pointerdown', e => {
   if (mode === 'stage') { stage.pointer(e); return; }
   canvas.setPointerCapture(e.pointerId);
-  if (e.pointerType === 'touch' && e.clientX < innerWidth * 0.45 && !input.joy) {
+  // walk with the right thumb, look around with the left
+  if (e.pointerType === 'touch' && e.clientX > innerWidth * 0.55 && !input.joy) {
     input.joy = { id: e.pointerId, x0: e.clientX, y0: e.clientY, dx: 0, dy: 0 };
     const j = $('wjoy'); j.style.left = (e.clientX - 60) + 'px'; j.style.top = (e.clientY - 60) + 'px'; j.classList.add('on');
   } else input.drag = { id: e.pointerId, x: e.clientX, y: e.clientY };

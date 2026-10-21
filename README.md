@@ -40,6 +40,7 @@ The [Koine Quest](https://github.com/claudekovalenko/gamefied-greek) 3D adventur
 - **One world per chapter.** Each concept set is a region with a mentor and a guardian (Chapter 6: the Roll Call, the Recording Booth, the Weather Station, the Clock Tower), then the Quiz Hall: the mix-ups, and a 20-question chapter exam.
 - **Lessons** teach each word with its icon and hook, and each use with its hook, example and warnings, then test them: Greek→English, hook hunts, sentence sleuth, spot-it on real verses, confusion duels, acrostic ladders, match-ups.
 - **Mini-games**: Word Rain (words), Sorting Spell (strike each Greek line with its use), Sentence Race (the vocab app's practice sentences, as scrolls).
+- On a phone: drag on the right to walk, on the left to look around; talk and jump buttons sit bottom-left.
 - Glowing words to pick up along the road, Shades of Forgetting (spaced review of words and uses), spells, loot, daily quests, an arcade, and Review drills for weak words, weak concepts and a whole-chapter cram.
 
 It reads the same `data/content.json`, so it stays in sync with the source apps. To open another chapter as a world, add its number to `KG.CHAPTERS` in `quest/js/content.js`.
