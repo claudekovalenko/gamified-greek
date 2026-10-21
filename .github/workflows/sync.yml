@@ -7,8 +7,8 @@ name: Sync content
 #   - schedule             a safety net every six hours, in case a ping is lost
 #   - workflow_dispatch    run it by hand from the Actions tab
 #
-# Pages is set to publish this branch, so the commit this makes is all it
-# takes: GitHub's own "pages build and deployment" picks it up.
+# The commit this makes doesn't fire a push event (it's pushed with
+# GITHUB_TOKEN), so deploy.yml runs off this workflow finishing instead.
 
 on:
   repository_dispatch:
