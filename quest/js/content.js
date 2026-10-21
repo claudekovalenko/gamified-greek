@@ -53,6 +53,9 @@ KG.CHAPTERS = [6];
     KG.partners = {};
     for (const cf of KG.confusions) { const [a, b] = cf.pair; (KG.partners[a] = KG.partners[a] || []).push(b); (KG.partners[b] = KG.partners[b] || []).push(a); }
     // Ladders: any group of three or more, in its hook's order
+    KG.groupById = {};
+    KG.setById = {};
+    for (const set of C.sets) if (chapters.includes(set.chapter)) { KG.setById[set.id] = set; for (const g of set.groups) KG.groupById[g.id] = g; }
     KG.ladders = [];
     for (const set of C.sets) if (chapters.includes(set.chapter)) for (const g of set.groups) {
       const cards = KG.cards.filter(c => c.group === g.id);
@@ -137,7 +140,7 @@ KG.CHAPTERS = [6];
         nodes.push({ id: `boss_${n}_${set.id}`, type: 'boss' });
         KG.units.push({
           id: `u${n}_${set.id}`, chapter: n, title: set.name, sub: set.subtitle || set.does, color: set.color,
-          place: set.placeName, icon: set.place, guard: `Keeper of ${set.placeName.replace(/^The /, 'the ')}`, nodes,
+          place: set.placeName, icon: set.place, hook: set.masterMnemonic, set: set.id, guard: `Keeper of ${set.placeName.replace(/^The /, 'the ')}`, nodes,
         });
         KG.story.arrive.push(`${set.scene} ${set.eli5}`);
         KG.story.guardian.push(`${set.masterMnemonic} ${set.masterMnemonicWhy || ''}`.trim());
@@ -191,7 +194,7 @@ KG.CHAPTERS = [6];
     function beatsFor(set, b, first) {
       const beats = [];
       for (const g of b.groups) {
-        beats.push({ say: `${first && g === b.groups[0] ? `${esc(set.place)} <b>${esc(set.placeName)}</b>: ${esc(set.bigIdea)}<br>` : ''}${esc(g.spot)} <b>${esc(g.name)}</b> — ${esc(g.mnemonic)}`, demo: g.expand || g.key });
+        beats.push({ say: `${first && g === b.groups[0] ? `${esc(set.place)} <b>${esc(set.placeName)}</b>: ${esc(set.bigIdea)}<br>🪝 <b>${esc(set.masterMnemonic)}</b>${set.masterMnemonicWhy ? ` <span class="muted">${esc(set.masterMnemonicWhy)}</span>` : ''}<br>` : ''}${esc(g.spot)} <b>${esc(g.name)}</b> — ${esc(g.mnemonic)}`, demo: g.expand || g.key });
         for (const c of b.cards.filter(x => x.group === g.id)) {
           const e = c.examples.find(x => x.greek) || c.examples[0];
           beats.push({

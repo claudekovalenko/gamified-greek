@@ -497,3 +497,15 @@ body.in-stage .main > .s3 { pointer-events: none; }
 .cc-pic { font-size: 1.3rem; }
 .cc-ex { font-size: 1.25rem; }
 .s3teach .t-say { line-height: 1.45; }
+.hintrow { display: flex; flex-direction: column; align-items: center; gap: 6px; margin: 4px 0 8px; }
+.hintbtn { border: 2px dashed var(--gold); background: transparent; color: inherit; border-radius: 999px; padding: 4px 14px; font: inherit; font-weight: 800; cursor: pointer; }
+.hintbox { background: #fff6d8; color: #3a2a10; border-left: 4px solid var(--gold); border-radius: 10px; padding: 8px 12px; font-size: .92rem; line-height: 1.4; }
+.s3tools .s3hint { position: fixed; left: 12px; right: 12px; bottom: calc(64px + env(safe-area-inset-bottom)); z-index: 5; box-shadow: 0 4px 14px rgba(0,0,0,.25); }
+.hookbook { background: var(--card); border: 2px solid var(--line); border-radius: 14px; padding: 10px 12px; margin: 10px 0; }
+.hookbook summary { cursor: pointer; }
+.hb-master { margin-top: 4px; font-weight: 700; }
+.hb-group { margin: 10px 0; }
+.hb-key { color: var(--gold); font-weight: 800; }
+.hookbook ul { margin: 6px 0; padding-left: 1.2em; }
+.lexhook { grid-column: 1 / -1; font-size: .78rem; color: var(--muted); }
+.wd-hook { background: rgba(224,165,38,.15); border-radius: 8px; padding: 6px 8px; }

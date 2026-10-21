@@ -235,10 +235,13 @@ window.KG = window.KG || {};
   const chapterWords = w => KG.vocab.filter(x => x.chapter === w.chapter);
   const sentence = R => R.words.map(w => w.w + w.p).join(' ');
   E.sentence = sentence;
+  // a hint that doesn't give the meaning away: just the sound-alike, e.g. ≈ "a-LEAF-o."
+  const soundOf = mn => { const m = String(mn || '').match(/^.*?≈\s*"[^"]*"(\s*\([^)]*\))?/); return m ? m[0] : ''; };
+  E.soundOf = soundOf;
   const wordExplain = w => `${esc(w.icon)} ${gk(w.lex)}: <b>${esc(w.en)}</b>${w.mn ? `<br><span class="muted">🪝 ${esc(w.mn)}</span>` : ''}`;
   E.vocabQ = (w, pool, dir) => vocabQ(w, pool, dir);
   function vocabQ(w, pool, dir) {
-    const explain = wordExplain(w), base = { vkey: w.g, speak: w.g, explain };
+    const explain = wordExplain(w), base = { vkey: w.g, speak: w.g, explain, hint: dir === 'hook' ? '' : soundOf(w.mn) };
     if (dir === 'e2g') return mc(`Which word means "<b>${esc(w.en)}</b>"?`, w.g, others(w.g, pool.map(x => x.g)), Object.assign({ greekOpts: true }, base));
     if (dir === 'hook' && w.mn) return mc(`🪝 Whose hook is this? “${esc(w.mn)}”`, w.g, others(w.g, pool.map(x => x.g)), Object.assign({ greekOpts: true }, base));
     if (dir === 'sleuth') {
@@ -290,6 +293,8 @@ window.KG = window.KG || {};
   }
   const cardExplain = (c, note) => `${esc(c.pic)} <b>${esc(c.name)}</b> — ${esc(c.oneLine)}${note ? `<br>${KG.mark(note)}` : ''}${c.mnemonic ? `<br><span class="muted">🪝 ${esc(c.mnemonic)}</span>` : ''}`;
   E.cardExplain = cardExplain;
+  // a hint for a use: its group's hook, which names every use in the group, not just this one
+  const groupHint = c => { const g = KG.groupById[c.group]; return g ? `${g.spot} ${g.name}: ${g.mnemonic}` : ''; };
   // the book's examples, then the practice items written for this card
   function examplesOf(c) {
     return c.examples.filter(e => e.greek || e.english).map(e => ({ greek: e.greek, english: e.english, ref: e.ref, note: e.note }))
@@ -300,7 +305,7 @@ window.KG = window.KG || {};
     if (!ex.length) return plainQ(c, pool);
     const e = U.pick(ex);
     return mc(`🔍 Which use is this?${e.ref ? ` <span class="muted">(${esc(e.ref)})</span>` : ''}`, cardName(c), cardOthers(c, pool),
-      { big: e.greek ? KG.guillemet(e.greek) : KG.plain(e.english), sub: e.greek ? KG.plain(e.english) : '', explain: cardExplain(c, e.note), cid: c.id, small: true });
+      { big: e.greek ? KG.guillemet(e.greek) : KG.plain(e.english), sub: e.greek ? KG.plain(e.english) : '', explain: cardExplain(c, e.note), cid: c.id, small: true, hint: groupHint(c) });
   }
   function hookQ(c, pool) {
     if (!c.mnemonic) return plainQ(c, pool);
@@ -308,7 +313,7 @@ window.KG = window.KG || {};
   }
   function plainQ(c, pool) {
     const text = c.eli5 || c.oneLine || c.bookDef;
-    return mc(`Which concept is this? “${esc(text)}”`, cardName(c), cardOthers(c, pool), { explain: cardExplain(c, c.eli5 && c.oneLine !== text ? c.bookDef : ''), cid: c.id });
+    return mc(`Which concept is this? “${esc(text)}”`, cardName(c), cardOthers(c, pool), { explain: cardExplain(c, c.eli5 && c.oneLine !== text ? c.bookDef : ''), cid: c.id, hint: groupHint(c) });
   }
   // the other way round: name → its example
   function exampleQ(c, pool) {
@@ -317,14 +322,14 @@ window.KG = window.KG || {};
     if (!mine.length || rivals.length < 2) return spotQ(c, pool);
     const e = U.pick(mine);
     return mc(`Which line shows <b>${esc(c.pic)} ${esc(c.name)}</b>?`, KG.guillemet(e.greek), others(KG.guillemet(e.greek), rivals.map(x => KG.guillemet(x.greek))),
-      { greekOpts: true, explain: cardExplain(c, `${e.english ? `“${e.english}” ` : ''}${e.note || ''}`), cid: c.id });
+      { greekOpts: true, explain: cardExplain(c, `${e.english ? `“${e.english}” ` : ''}${e.note || ''}`), cid: c.id, hint: c.mnemonic });
   }
   function duelQ(cf) {
     const cards = cf.pair.map(id => KG.cardById[id]);
     const c = U.pick(cards.filter(x => examplesOf(x).length)) || cards[0], rival = cards.find(x => x !== c);
     const ex = examplesOf(c), e = ex.length ? U.pick(ex) : { greek: '', english: c.eli5 };
     return mc(`⚔️ ${esc(cf.question)}`, cardName(c), [cardName(rival)],
-      { big: e.greek ? KG.guillemet(e.greek) : KG.plain(e.english), sub: e.greek ? KG.plain(e.english) : '', small: true, cid: c.id,
+      { big: e.greek ? KG.guillemet(e.greek) : KG.plain(e.english), sub: e.greek ? KG.plain(e.english) : '', small: true, cid: c.id, hint: `🔎 ${cf.test}`,
         explain: `${cardExplain(c, e.note)}<br><span class="muted">🔎 ${esc(cf.test)} ${esc(cf.answer)}</span>` });
   }
   function matchCards(cards) {

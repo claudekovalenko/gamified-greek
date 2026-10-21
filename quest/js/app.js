@@ -314,7 +314,8 @@
     const R = q.reading ? KG.readings[q.reading] : null;
     readerReading = R;
     const tools = `${q.speak ? `<button class="s3tool" data-act="say" data-arg="${esc(q.speak)}" aria-label="Listen">🔊</button>` : ''}
-      ${R ? `<button class="s3tool" data-act="hint" data-arg="${q.reading}" aria-label="Word help">💡</button><span class="s3ref">${esc(R.ref)}</span>` : ''}`;
+      ${R ? `<button class="s3tool" data-act="hint" data-arg="${q.reading}" aria-label="Word help">💡</button><span class="s3ref">${esc(R.ref)}</span>` : ''}
+      ${q.hint ? `<button class="s3tool" data-act="hook" aria-label="Show a hint">🪝</button>` : ''}<div id="hintbox" class="hintbox s3hint" hidden></div>`;
     let foot = '';
     if (q.type === 'order') foot = `<div class="muted center small s3help">${q.reading ? 'Tap the word-stones in order to build the bridge.' : 'Tap the stones in the order of the hook.'} Tap a placed stone to take it back.</div><button class="btn primary wide" data-act="checkOrder" id="checkbtn" disabled>Check</button>`;
     else if (q.type === 'free') foot = `<div class="s3free"><div class="s3q">${q.prompt}</div><textarea id="freetr" rows="3" placeholder="Type your translation…"></textarea><button class="btn primary wide" data-act="compare">Compare with a model translation</button></div>`;
@@ -343,6 +344,7 @@
       body = `<div class="prompt">${q.prompt}</div>
         ${q.big ? `<div class="bigword ${q.small ? 'small' : ''}"><span class="gk">${esc(q.big)}</span>${q.speak ? `<button class="say" data-act="say" data-arg="${esc(q.speak)}" aria-label="Listen">🔊</button>` : ''}</div>` : ''}
         ${q.sub ? `<div class="subword ${q.greekOpts || !q.small ? 'gk' : ''}">${esc(q.sub)}</div>` : ''}
+        ${q.hint ? `<div class="hintrow"><button class="hintbtn" data-act="hook">🪝 Hint</button><div id="hintbox" class="hintbox" hidden></div></div>` : ''}
         <div class="opts">${q.options.map((o, i) => `<button class="opt ${q.greekOpts ? 'gk' : ''}" data-act="pick" data-arg="${i}"><span class="k">${i + 1}</span>${q.greekOpts ? esc(o) : o}</button>`).join('')}</div>`;
     } else if (q.type === 'match') {
       const L = shuffle(q.pairs.map((p, i) => ({ t: p[0], i }))), R = shuffle(q.pairs.map((p, i) => ({ t: p[1], i })));
@@ -395,10 +397,11 @@
       if (ok) {
         P.correct++; P.combo++; P.maxCombo = Math.max(P.maxCombo, P.combo);
         if (P.trial && !q.guided) P.trial.correct++;
-        const base = P.mode === 'review' || P.mode === 'mistakes' ? 5 : 10;
-        const bonus = P.combo >= 10 ? 10 : P.combo >= 5 ? 5 : 0;
+        const hinted = P.hinted === P.i;
+        const base0 = (P.mode === 'review' || P.mode === 'mistakes' ? 5 : 10) / (hinted ? 2 : 1), base = Math.ceil(base0);
+        const bonus = hinted ? 0 : P.combo >= 10 ? 10 : P.combo >= 5 ? 5 : 0;
         P.xp += base + bonus;
-        floatXP(`+${base + bonus} XP`, $('.prompt'));
+        floatXP(`+${base + bonus} XP${hinted ? ' 🪝' : ''}`, $('.prompt'));
         sfx(P.combo > 0 && P.combo % 5 === 0 ? 'combo' : 'good');
         if (P.combo > 0 && P.combo % 5 === 0) toast(`⚡ ${P.combo}× combo! Bonus XP`);
       } else {
@@ -642,6 +645,16 @@
         return have ? `<button class="spellcard" data-act="learn" data-arg="${n.id}"><span class="sp-ic">${T.spell.icon}</span><b>${esc(T.spell.name)}</b><span>${esc(T.spell.desc)}</span></button>`
           : `<button class="spellcard locked" data-act="open" data-arg="${n.id}"><span class="sp-ic">🔒</span><b>Unknown spell</b><span>Learn it in “${esc(n.title)}”</span></button>`;
       }).join('')}</div>
+      <h2>🪝 Hook book</h2>
+      <p class="muted small">Every memory hook in the chapter, in one place. Read it top to bottom before the quiz.</p>
+      ${KG.units.filter(u => u.set).map(u => {
+        const set = KG.setById[u.set];
+        return `<details class="hookbook"><summary>${esc(set.place)} <b>${esc(set.name)}</b> <span class="muted small">${esc(set.placeName)}</span><div class="hb-master">🪝 ${esc(set.masterMnemonic)}</div></summary>
+          ${set.masterMnemonicWhy ? `<p class="small muted">${esc(set.masterMnemonicWhy)}</p>` : ''}
+          ${set.groups.map(g => `<div class="hb-group"><div><b>${esc(g.spot)} ${esc(g.name)}</b></div><div class="hb-key">${esc(g.key)} — ${esc(g.mnemonic)}</div>${g.scene ? `<div class="small muted">${esc(g.scene)}</div>` : ''}
+            <ul>${KG.cards.filter(c => c.group === g.id).map(c => `<li>${esc(c.pic)} <b>${esc(c.name)}</b>: ${esc(c.mnemonic)}</li>`).join('')}</ul></div>`).join('')}</details>`;
+      }).join('')}
+      ${KG.confusions.length ? `<details class="hookbook"><summary>⚔️ <b>The Mix-Ups</b> <span class="muted small">one test for each pair</span></summary><ul>${KG.confusions.map(cf => `<li><b>${esc(cf.question)}</b> 🔎 ${esc(cf.test)}</li>`).join('')}</ul></details>` : ''}
       <h2>Scroll collection</h2><div class="verses">${readings.map(n => {
         const R = KG.readings[n.reading], have = E.stars(n.id) > 0;
         return `<button class="vtile ${have ? '' : 'locked'}" data-act="${have ? 'readVerse' : 'open'}" data-arg="${have ? n.reading : n.id}">
@@ -660,7 +673,7 @@
     $('#lex').innerHTML = rows.map(w => {
       const r = S().vocab[w.g], box = r ? r.box : 0;
       return `<div class="lexrow ${r ? '' : 'unseen'}" data-act="say" data-arg="${esc(w.g)}" title="${esc(w.mn)}"><span class="gk">${esc(w.icon)} ${esc(w.lex)}</span><span>${esc(w.en)}</span>
-        <span class="dots" title="${r ? 'Box ' + box : 'Not studied yet'}">${[1, 2, 3, 4, 5, 6, 7].map(b => `<i class="${b <= box ? 'on' : ''}"></i>`).join('')}</span><span class="muted small">${w.f}×</span></div>`;
+        <span class="dots" title="${r ? 'Box ' + box : 'Not studied yet'}">${[1, 2, 3, 4, 5, 6, 7].map(b => `<i class="${b <= box ? 'on' : ''}"></i>`).join('')}</span><span class="muted small">${w.f}×</span>${w.mn ? `<span class="lexhook">🪝 ${esc(w.mn)}</span>` : ''}</div>`;
     }).join('') || '<p class="muted">No matches.</p>';
   }
   function readVerse(id) {
@@ -778,6 +791,12 @@
       next();
     },
     next: () => next(),
+    // a hook as a hint: half XP for that answer, no combo bonus
+    hook() {
+      if (!P || P.answered || !P.q.hint) return;
+      const box = $('#hintbox'); if (!box) return;
+      P.hinted = P.i; box.hidden = false; box.innerHTML = `🪝 ${esc(P.q.hint)}`; sfx('tap');
+    },
     review: () => startReview('review'), mistakes: () => startReview('mistakes'), weak: () => startReview('weak'), weakc: () => startReview('weakc'), cram: () => startReview('cram'),
     arcade: k => startArcade(k), apick: (i, el) => arcadePick(i, el),
     quitArcade: () => { if (A) clearInterval(A.timer); A = null; go('arcade'); },
@@ -815,7 +834,8 @@
     if (/^[1-4]$/.test(e.key)) {
       const opt = document.querySelectorAll(A ? '.opt' : '.opt:not(:disabled)')[+e.key - 1];
       if (opt) opt.click();
-    } else if (e.key === 'Enter') { const b = $('#nextbtn') || $('#checkbtn:not(:disabled)'); if (b) { e.preventDefault(); b.click(); } }
+    } else if (e.key === 'h' && P && !A) ACT.hook();
+    else if (e.key === 'Enter') { const b = $('#nextbtn') || $('#checkbtn:not(:disabled)'); if (b) { e.preventDefault(); b.click(); } }
     else if (e.key === 'Escape') closeSheet();
   });
 

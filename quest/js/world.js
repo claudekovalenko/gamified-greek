@@ -866,7 +866,7 @@ function worldMap() {
 }
 function showBanner(i) {
   const u = KG.units[i];
-  $('wbanner').innerHTML = `<div class="wb-k">Region ${i + 1} · ${esc(u.title)}</div><div class="wb-t">${esc(ZONES[i].name)}</div><div class="wb-s">${esc(u.sub)}</div>`;
+  $('wbanner').innerHTML = `<div class="wb-k">Region ${i + 1} · ${esc(u.title)}</div><div class="wb-t">${esc(ZONES[i].name)}</div><div class="wb-s">${esc(u.sub)}</div>${u.hook ? `<div class="wb-s">🪝 ${esc(u.hook)}</div>` : ''}`;
   $('wbanner').classList.add('on'); bannerT = 3;
 }
 
@@ -887,7 +887,8 @@ function talk(e) {
   app.sfx('tap');
   if (e.kind === 'mentor') {
     const t = questTarget(), mine = KG.units[e.zone].nodes.filter(n => n.type !== 'reading' && n.type !== 'boss');
-    const greet = `<p><span class="gk">${esc(Z.greet[0])}</span> <i>(${esc(Z.greet[1])})</i></p>`;
+    const U0 = KG.units[e.zone];
+    const greet = `<p><span class="gk">${esc(Z.greet[0])}</span> <i>(${esc(Z.greet[1])})</i></p>${U0.hook ? `<p class="wd-hook">🪝 Say it with me: <b>${esc(U0.hook)}</b></p>` : ''}`;
     let html = greet, btns = [];
     if (t.done) html += '<p>You have learned all I can teach. You are ready for the quiz, scribe!</p>';
     else if (t.ent === e) {
@@ -913,7 +914,7 @@ function talk(e) {
     const n = e.node;
     if (gateOpen(e.zone)) return dialog(esc(e.label), '<p><span class="gk">Πάρελθε.</span> <i>(Pass by.)</i> You have proven yourself, scribe. The way is open.</p>', [{ label: 'Rematch ⚔', fn: () => launch(n.id) }, { label: 'Onward' }]);
     if (!E.unlocked(n)) return dialog(esc(e.label), '<p><b>NONE SHALL PASS</b> who have not mastered the lessons of this land! Return when your mentor has taught you all.</p>', [{ label: 'Leave' }]);
-    dialog(esc(e.label), `<p><b>So, little scribe, you would pass my gate?</b> Answer my riddles. Fail three times and you are cast back!</p><p class="muted small">Boss battle: ${n.final ? `20 questions from the whole of Chapter ${KG.units[e.zone].chapter}` : `15 questions from all of ${esc(KG.units[e.zone].title)}`}, 3 hearts.</p>`,
+    dialog(esc(e.label), `<p><b>So, little scribe, you would pass my gate?</b> Answer my riddles. Fail three times and you are cast back!</p>${KG.units[e.zone].hook ? `<p class="wd-hook">🪝 Remember: <b>${esc(KG.units[e.zone].hook)}</b></p>` : ''}<p class="muted small">Boss battle: ${n.final ? `20 questions from the whole of Chapter ${KG.units[e.zone].chapter}` : `15 questions from all of ${esc(KG.units[e.zone].title)}`}, 3 hearts.</p>`,
       [{ label: 'Fight ⚔', cls: 'primary', fn: () => launch(n.id) }, { label: 'Not yet' }]);
   }
 }
