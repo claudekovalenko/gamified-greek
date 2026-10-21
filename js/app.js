@@ -1282,6 +1282,7 @@ function renderJourney() {
   $('#app').innerHTML = `
     ${hudCard()}
     ${questsCard()}
+    <a class="btn gold wide" href="./quest/" style="margin-bottom:14px;text-decoration:none">🏞️ 3D Quest: walk the chapter as a world ▶</a>
     <section class="card">
       <div class="chap-tabs">
         ${C.chapters.map((c) => `<button class="chip ${c.n === chN ? 'on' : ''}" data-act="chapter" data-n="${c.n}">${S.crowns[c.n] ? '👑 ' : ''}Ch. ${c.n}${week && week.n === c.n ? ' · this week' : ''}</button>`).join('')}

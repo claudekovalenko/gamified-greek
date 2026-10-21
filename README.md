@@ -33,6 +33,21 @@ Nothing is typed in here. The content is pulled from those two repos, so a chapt
 
 Every day brings three **quests** (earn 150 XP, climb three ladders, spot ten uses…) worth bonus XP. A right answer raises an item's mastery and schedules it further out; a wrong one drops it and brings it straight back. Weak and due items are asked first.
 
+## 3D Quest (`quest/`)
+
+The [Koine Quest](https://github.com/claudekovalenko/gamefied-greek) 3D adventure, carrying only this content. Live at **https://claudekovalenko.github.io/gamified-greek/quest/**, and from the gold button on the Journey screen.
+
+- **One world per chapter.** Each concept set is a region with a mentor and a guardian (Chapter 6: the Roll Call, the Recording Booth, the Weather Station, the Clock Tower), then the Quiz Hall: the mix-ups, and a 20-question chapter exam.
+- **Lessons** teach each word with its icon and hook, and each use with its hook, example and warnings, then test them: Greek→English, hook hunts, sentence sleuth, spot-it on real verses, confusion duels, acrostic ladders, match-ups.
+- **Mini-games**: Word Rain (words), Sorting Spell (strike each Greek line with its use), Sentence Race (the vocab app's practice sentences, as scrolls).
+- Glowing words to pick up along the road, Shades of Forgetting (spaced review of words and uses), spells, loot, daily quests, an arcade, and Review drills for weak words, weak concepts and a whole-chapter cram.
+
+It reads the same `data/content.json`, so it stays in sync with the source apps. To open another chapter as a world, add its number to `KG.CHAPTERS` in `quest/js/content.js`.
+
+```sh
+node --test quest/tests/*.test.mjs   # builds the game from content.json and checks every lesson
+```
+
 ## Keeping up with the source apps
 
 Three layers, so it is never stale:

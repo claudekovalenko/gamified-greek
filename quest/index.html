@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Going Deeper Quest</title>
+  <meta name="description" content="A 3D adventure through Going Deeper with New Testament Greek: the words and concepts from your study apps, one chapter world at a time.">
+  <meta name="theme-color" content="#1f3b5c">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Deeper Quest">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="../icons/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="../icons/icon-180.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Gentium+Plus:ital,wght@0,400;0,700;1,400&family=Nunito:wght@400;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div id="world" class="world"><div id="whud" class="whud"></div></div>
+  <header id="topbar" class="topbar"></header>
+  <main id="main" class="main"><div class="loading">Loading Chapter 6…</div></main>
+  <nav id="nav" class="nav">
+    <button data-act="go" data-arg="world"><span>🏞</span>World</button>
+    <button data-act="go" data-arg="path"><span>🗺</span>Path</button>
+    <button data-act="go" data-arg="review"><span>🔁</span>Review</button>
+    <button data-act="go" data-arg="arcade"><span>🎮</span>Arcade</button>
+    <button data-act="go" data-arg="codex"><span>📕</span>Codex</button>
+    <button data-act="go" data-arg="profile"><span>👤</span>Profile</button>
+  </nav>
+  <div id="toasts" class="toasts" aria-live="polite"></div>
+  <noscript>Going Deeper Quest needs JavaScript to run.</noscript>
+
+  <script src="js/content.js"></script>
+  <script src="js/boot.js"></script>
+</body>
+</html>

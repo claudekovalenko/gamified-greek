@@ -1,0 +1,806 @@
+// The 3D trial stage: every lesson, boss fight, review and arcade round is
+// played here. The hero faces an opponent on a floating island; questions
+// float overhead and answers are stone tablets you strike with light.
+import * as THREE from './vendor/three.module.min.js';
+
+export function createStage(ctx) {
+  const { renderer, person, golem, wispMesh, ZONES, KG } = ctx;
+  const U = KG.util;
+  const E_look = () => KG.engine.look();
+  const GK = '"Gentium Plus", "Noto Serif", Georgia, serif';
+  const UI = 'Nunito, system-ui, sans-serif';
+
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(55, 1, 0.1, 400);
+  scene.add(camera);
+  const S = { active: false, scene, camera, kind: 'mentor', unit: 0, picks: [], anims: [], q: null, h: null, shake: 0 };
+
+  // ── environment ────────────────────────────────────────────
+  const skyMat = new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.BackSide, fog: false, depthWrite: false });
+  const skyGeo = new THREE.SphereGeometry(300, 24, 12);
+  const sky = new THREE.Mesh(skyGeo, skyMat);
+  scene.add(sky);
+  function paintSky(top, mid, bot) {
+    const p = skyGeo.attributes.position, cols = [], T = new THREE.Color(top), M = new THREE.Color(mid), B = new THREE.Color(bot);
+    for (let i = 0; i < p.count; i++) {
+      const y = p.getY(i) / 300;
+      const c = y > 0 ? M.clone().lerp(T, Math.min(1, y * 1.5)) : M.clone().lerp(B, Math.min(1, -y * 3));
+      cols.push(c.r, c.g, c.b);
+    }
+    skyGeo.setAttribute('color', new THREE.Float32BufferAttribute(cols, 3));
+  }
+  scene.fog = new THREE.Fog(0xb8d8f0, 40, 160);
+  const hemi = new THREE.HemisphereLight(0xe8f4ff, 0x6a5a40, 1.15);
+  const sun = new THREE.DirectionalLight(0xffe2b0, 2.4);
+  sun.position.set(12, 22, 10); sun.castShadow = true;
+  sun.shadow.mapSize.set(1024, 1024);
+  Object.assign(sun.shadow.camera, { left: -18, right: 18, top: 18, bottom: -18, near: 1, far: 70 });
+  scene.add(hemi, sun);
+  const rim = new THREE.DirectionalLight(0x9fc4ff, 0.8); rim.position.set(-10, 8, -14); scene.add(rim);
+
+  const M = (color, o = {}) => new THREE.MeshStandardMaterial(Object.assign({ color, roughness: 0.85, flatShading: true }, o));
+  const shadowed = m => { m.castShadow = m.receiveShadow = true; return m; };
+
+  // floating island arena
+  const island = new THREE.Group(); scene.add(island);
+  {
+    const top = shadowed(new THREE.Mesh(new THREE.CylinderGeometry(15, 14, 1.2, 40), M(0xd9cdb0)));
+    top.position.y = -0.6; island.add(top);
+    const ring = shadowed(new THREE.Mesh(new THREE.TorusGeometry(9, 0.12, 6, 60), M(0xe0a526, { metalness: 0.6, roughness: 0.4 })));
+    ring.rotation.x = Math.PI / 2; ring.position.y = 0.02; island.add(ring);
+    const inner = shadowed(new THREE.Mesh(new THREE.CircleGeometry(8.9, 48), M(0xcbbd9c)));
+    inner.rotation.x = -Math.PI / 2; inner.position.y = 0.01; island.add(inner);
+    const grass = new THREE.Mesh(new THREE.TorusGeometry(14.6, 0.7, 6, 48), M(0x6fae4f));
+    grass.rotation.x = Math.PI / 2; grass.position.y = -0.1; grass.scale.z = 0.4; island.add(grass);
+    S.grass = grass;
+    const rock = new THREE.Mesh(new THREE.ConeGeometry(14.5, 16, 12), M(0x8a7a66));
+    rock.rotation.x = Math.PI; rock.position.y = -9.2; island.add(rock);
+    // columns around the back half
+    for (let i = 0; i < 9; i++) {
+      const a = Math.PI * (1.1 + i * 0.1) + Math.PI / 2;
+      const x = Math.cos(a) * 12.5, z = Math.sin(a) * 12.5;
+      const h = i % 3 === 1 ? 3.2 : 6;
+      const c = shadowed(new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.6, h, 12), M(0xeee6d4)));
+      c.position.set(x, h / 2, z); island.add(c);
+      const cap = shadowed(new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.35, 1.4), M(0xe0d6c0)));
+      cap.position.set(x, h + 0.17, z); island.add(cap);
+    }
+    // braziers with flames
+    S.flames = [];
+    for (const s of [-1, 1]) {
+      const b = shadowed(new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.3, 1.2, 10), M(0x6a5a4a, { metalness: 0.4 })));
+      b.position.set(s * 7.5, 0.6, -2); island.add(b);
+      const f = new THREE.Mesh(new THREE.ConeGeometry(0.42, 1.1, 8), new THREE.MeshBasicMaterial({ color: 0xffb040 }));
+      f.position.set(s * 7.5, 1.7, -2); island.add(f); S.flames.push(f);
+      const l = new THREE.PointLight(0xffa040, 6, 14, 1.6); l.position.set(s * 7.5, 2.4, -2); island.add(l); f.userData.light = l;
+    }
+  }
+  // distant floating islands and clouds
+  for (let i = 0; i < 9; i++) {
+    const a = i / 9 * Math.PI * 2, r = 55 + (i % 3) * 18;
+    const g = new THREE.Group();
+    const t = new THREE.Mesh(new THREE.CylinderGeometry(5, 4, 1, 9), M(0x7fae5f)); g.add(t);
+    const k = new THREE.Mesh(new THREE.ConeGeometry(4.5, 8, 8), M(0x8a7a66)); k.rotation.x = Math.PI; k.position.y = -4.5; g.add(k);
+    const tr = new THREE.Mesh(new THREE.IcosahedronGeometry(2, 0), M(0x4f8f3a)); tr.position.y = 2.4; g.add(tr);
+    g.position.set(Math.cos(a) * r, -6 + (i % 4) * 5, Math.sin(a) * r - 10);
+    scene.add(g);
+  }
+  const clouds = [];
+  for (let i = 0; i < 14; i++) {
+    const c = new THREE.Group();
+    for (let k = 0; k < 4; k++) { const s = new THREE.Mesh(new THREE.IcosahedronGeometry(2 + Math.random() * 2, 1), new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 1, flatShading: true })); s.position.set(k * 2.5 - 4, Math.random(), Math.random() * 2); c.add(s); }
+    c.position.set((Math.random() - 0.5) * 160, -14 - Math.random() * 10, -60 + Math.random() * 120);
+    scene.add(c); clouds.push(c);
+  }
+
+  // hero
+  const hero = ctx.applyLook(new THREE.Group());
+  hero.position.set(0, 0, 5.2); hero.rotation.y = Math.PI;
+  scene.add(hero);
+  let pet = null;
+  const aura = new THREE.Mesh(new THREE.TorusGeometry(1, 0.08, 8, 40), new THREE.MeshBasicMaterial({ color: 0xffd166, transparent: true, opacity: 0 }));
+  aura.rotation.x = Math.PI / 2; aura.position.set(0, 0.05, 5.2); scene.add(aura);
+
+  // opponent slot
+  let opp = null, hpBar = null;
+  const oppPos = new THREE.Vector3(0, 1.1, -8);
+  { const dais = shadowed(new THREE.Mesh(new THREE.CylinderGeometry(2.6, 3, 1.1, 24), M(0xe0d6c0))); dais.position.set(0, 0.55, -8); island.add(dais); }
+  function hpSprite(frac) {
+    const c = document.createElement('canvas'); c.width = 256; c.height = 36; const x = c.getContext('2d');
+    x.fillStyle = 'rgba(20,20,30,.8)'; x.beginPath(); x.roundRect(0, 0, 256, 36, 18); x.fill();
+    x.fillStyle = frac > 0.5 ? '#e0453a' : frac > 0.25 ? '#e2801d' : '#ffd166';
+    x.beginPath(); x.roundRect(5, 5, Math.max(0, 246 * frac), 26, 13); x.fill();
+    const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
+    return t;
+  }
+  function setOpponent(kind, unit) {
+    if (opp) scene.remove(opp);
+    const Z = ZONES[unit];
+    if (kind === 'guardian') { opp = golem([0x8a8a8a, 0x6a7a4a, 0xc9a43a, 0x4a6a8a, 0x6a6a7a, 0xa08060, 0xa0b0c0, 0xcfe0ff, 0xe0c060][unit]); opp.scale.setScalar(1.25); }
+    else if (kind === 'shade') { opp = wispMesh(); opp.scale.setScalar(2.6); opp.userData.float = 2.6; }
+    else if (kind === 'arcade') {
+      opp = new THREE.Group();
+      const crystal = new THREE.Mesh(new THREE.OctahedronGeometry(1.4, 0), new THREE.MeshStandardMaterial({ color: 0x7fd0ff, emissive: 0x2f80ff, emissiveIntensity: 0.8, metalness: 0.3, roughness: 0.2, flatShading: true }));
+      crystal.position.y = 3; opp.add(crystal); opp.userData.spin = crystal;
+      const base = shadowed(new THREE.Mesh(new THREE.CylinderGeometry(1, 1.3, 1, 8), M(0xe0d6c0))); base.position.y = 0.5; opp.add(base);
+    } else if (kind === 'scroll') {
+      opp = new THREE.Group();
+      const col = shadowed(new THREE.Mesh(new THREE.CylinderGeometry(0.6, 0.8, 1.6, 10), M(0xe8dfcc))); col.position.y = 0.8; opp.add(col);
+      const roll = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 2, 14), new THREE.MeshStandardMaterial({ color: 0xf5e6c0, emissive: 0x8a6a20, emissiveIntensity: 0.5 }));
+      roll.rotation.z = Math.PI / 2; roll.position.y = 2.6; opp.add(roll); opp.userData.spin = roll;
+    } else if (kind === 'dummy') {
+      opp = new THREE.Group();
+      const body = new THREE.Group(); opp.add(body);
+      const post = shadowed(new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.15, 3, 8), M(0x6a4a2a))); post.position.y = 1.5; opp.add(post);
+      const torso = shadowed(new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.65, 1.4, 10), M(0xd8b878))); torso.position.y = 2.1; body.add(torso);
+      const head = shadowed(new THREE.Mesh(new THREE.SphereGeometry(0.42, 12, 10), M(0xc8a868))); head.position.y = 3.15; body.add(head);
+      const bar = shadowed(new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 2.4, 6), M(0x6a4a2a))); bar.rotation.z = Math.PI / 2; bar.position.y = 2.5; body.add(bar);
+      for (const [r, c] of [[0.42, 0xc9452b], [0.28, 0xffffff], [0.14, 0xc9452b]]) { const t = new THREE.Mesh(new THREE.CircleGeometry(r, 20), M(c)); t.position.set(0, 2.15, 0.66 + (0.42 - r) * 0.02); body.add(t); }
+      opp.userData.body = body; opp.userData.wobble = true;
+    } else if (kind === 'imp') {
+      opp = new THREE.Group();
+      const book = new THREE.Group(); book.position.y = 2.6; opp.add(book);
+      const pages = shadowed(new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.25, 1.2), M(0xf5ecd0))); book.add(pages);
+      const covers = [];
+      for (const sd of [-1, 1]) {
+        const hinge = new THREE.Group(); hinge.position.x = 0; book.add(hinge);
+        const cv = shadowed(new THREE.Mesh(new THREE.BoxGeometry(1.7, 0.08, 1.3), M(0x7a2f3a))); cv.position.x = sd * 0.85; hinge.add(cv);
+        hinge.userData.sd = sd; covers.push(hinge);
+      }
+      for (const sd of [-1, 1]) { const e = new THREE.Mesh(new THREE.SphereGeometry(0.12, 8, 8), new THREE.MeshBasicMaterial({ color: 0xffd166 })); e.position.set(sd * 0.3, 0.2, 0.62); book.add(e); }
+      const rune = new THREE.Mesh(new THREE.CircleGeometry(0.3, 16), new THREE.MeshBasicMaterial({ color: 0xffd166 })); rune.rotation.x = -Math.PI / 2; rune.position.y = 0.14; book.add(rune);
+      opp.userData.flap = covers; opp.userData.book = book;
+    } else if (kind === 'rival') {
+      opp = person({ robe: 0x5a2a7a, hair: 0x1a1a1a, staff: true, skin: 0xe8c098, scale: 1.05 });
+    } else {
+      opp = person({ robe: Z.robe, hair: 0xdddddd, beard: unit % 3 === 0, staff: true, hood: unit % 2 === 1, skin: [0xf0c8a0, 0xd8a878, 0xb07850][unit % 3], scale: 1.15 });
+    }
+    S.oppKind = kind;
+    opp.position.copy(oppPos); opp.rotation.y = 0;
+    scene.add(opp);
+    hpBar = null;
+    if (['guardian', 'shade', 'dummy', 'imp', 'rival'].includes(kind)) {
+      hpBar = new THREE.Sprite(new THREE.SpriteMaterial({ map: hpSprite(1), depthWrite: false }));
+      hpBar.scale.set(4, 0.56, 1); hpBar.position.set(0, kind === 'guardian' ? 6 : kind === 'shade' ? 5.4 : 4.4, 0); hpBar.position.add(oppPos);
+      scene.add(hpBar); S.hpObj = hpBar;
+    } else if (S.hpObj) { scene.remove(S.hpObj); S.hpObj = null; }
+  }
+
+  // ── text on tablets ────────────────────────────────────────
+  const strip = html => String(html).replace(/<br\s*\/?>/g, ' ').replace(/<[^>]+>/g, '').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/\s+/g, ' ').trim();
+  function wrap(x, text, maxW) {
+    const words = text.split(' '), lines = []; let line = '';
+    for (const w of words) { const t = line ? line + ' ' + w : w; if (x.measureText(t).width > maxW && line) { lines.push(line); line = w; } else line = t; }
+    if (line) lines.push(line);
+    return lines;
+  }
+  // draws text centered and shrinks the font until it fits the box
+  function textCanvas(text, { W = 512, H = 256, greek = false, maxSize = 70, minSize = 18, color = '#2a1d0c', bg = null, weight = 800, pad = 26, border = null }) {
+    const c = document.createElement('canvas'); c.width = W; c.height = H; const x = c.getContext('2d');
+    if (bg) { x.fillStyle = bg; x.fillRect(0, 0, W, H); }
+    if (border) { x.strokeStyle = border; x.lineWidth = 10; x.strokeRect(8, 8, W - 16, H - 16); }
+    let size = maxSize, lines;
+    for (; size >= minSize; size -= 2) {
+      x.font = `${greek ? 400 : weight} ${size}px ${greek ? GK : UI}`;
+      lines = wrap(x, text, W - pad * 2);
+      if (lines.length * size * 1.18 <= H - pad * 2 && lines.every(l => x.measureText(l).width <= W - pad * 2)) break;
+    }
+    x.fillStyle = color; x.textAlign = 'center'; x.textBaseline = 'middle';
+    const lh = size * 1.18, y0 = H / 2 - (lines.length - 1) * lh / 2;
+    lines.forEach((l, i) => x.fillText(l, W / 2, y0 + i * lh + 2));
+    const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4;
+    return t;
+  }
+  // a parchment-faced stone slab
+  const stoneMat = M(0xd8ccb0, { flatShading: false, roughness: 0.9 });
+  function slab(text, w, h, { greek = false, num = null, face = '#f3e7c8', color = '#2a1d0c' } = {}) {
+    const g = new THREE.Group();
+    const ratio = w / h, W = 512, H = Math.max(96, Math.round(512 / ratio));
+    const tex = textCanvas(text, { W, H, greek, color, bg: face, maxSize: Math.round(H * (greek ? 0.62 : 0.42)), minSize: 16, border: '#b8935a' });
+    const front = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.8, emissive: 0x000000 });
+    const box = new THREE.Mesh(new THREE.BoxGeometry(w, h, 0.28), [stoneMat, stoneMat, stoneMat, stoneMat, front, stoneMat]);
+    box.castShadow = true;
+    g.add(box);
+    if (num !== null) {
+      const nc = document.createElement('canvas'); nc.width = nc.height = 64; const x = nc.getContext('2d');
+      x.fillStyle = '#1f3b5c'; x.beginPath(); x.arc(32, 32, 30, 0, 7); x.fill(); x.fillStyle = '#fff'; x.font = `900 36px ${UI}`; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText(num, 32, 34);
+      const ns = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(nc), depthTest: false }));
+      ns.scale.setScalar(Math.min(w, h) * 0.32); ns.position.set(-w / 2 + 0.05, h / 2 - 0.05, 0.2); ns.renderOrder = 5; g.add(ns);
+    }
+    g.userData = { box, front, w, h, base: new THREE.Vector3() };
+    return g;
+  }
+  function banner(text, w, h, greek = false) {
+    const tex = textCanvas(text, { W: 1024, H: Math.round(1024 * h / w), greek, maxSize: greek ? 84 : 64, minSize: 20, color: '#3a2610', bg: '#f5e9c8', border: '#a07a40', weight: 800 });
+    const g = new THREE.Group();
+    const p = new THREE.Mesh(new THREE.BoxGeometry(w, h, 0.08), [stoneMat, stoneMat, stoneMat, stoneMat, new THREE.MeshStandardMaterial({ map: tex, roughness: 0.9 }), stoneMat]);
+    g.add(p);
+    for (const s of [-1, 1]) { const r = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.16, h + 0.3, 12), M(0x8a5a2a)); r.position.x = s * (w / 2 + 0.1); g.add(r); }
+    return g;
+  }
+
+  // ── layout in camera space (always framed, any screen shape) ──
+  // Questions live in their own scene, drawn after the island so tablets are
+  // never hidden behind the hero; it follows the camera every frame.
+  const uiScene = new THREE.Scene(), uiRoot = new THREE.Group(), ui = new THREE.Group();
+  uiScene.add(uiRoot); uiRoot.add(ui);
+  uiScene.add(new THREE.HemisphereLight(0xfff4e0, 0x8a7a60, 1.4));
+  { const d = new THREE.DirectionalLight(0xffffff, 1.6); d.position.set(4, 8, 10); uiScene.add(d); }
+  const D = 10; // distance of the UI plane from the camera
+  function frame() {
+    const hh = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * D;
+    return { hh, hw: hh * camera.aspect, portrait: camera.aspect < 0.9 };
+  }
+  function clearUI() { for (const c of [...ui.children]) ui.remove(c); S.picks = []; S.sel = null; }
+
+  // ── animation helpers ──────────────────────────────────────
+  const anim = fn => S.anims.push(fn);
+  function tween(dur, step, done) { let t = 0; anim(dt => { t = Math.min(1, t + dt / dur); step(t); if (t >= 1) { done && done(); return false; } return true; }); }
+  const ease = t => 1 - Math.pow(1 - t, 3);
+  const worldPos = o => o.getWorldPosition(new THREE.Vector3());
+  function particles(pos, color, n = 40, spread = 5) {
+    const g = new THREE.BufferGeometry(), arr = new Float32Array(n * 3), v = [];
+    for (let i = 0; i < n; i++) { arr.set([pos.x, pos.y, pos.z], i * 3); v.push(new THREE.Vector3((Math.random() - 0.5) * spread, Math.random() * spread * 0.8, (Math.random() - 0.5) * spread)); }
+    g.setAttribute('position', new THREE.BufferAttribute(arr, 3));
+    const pts = new THREE.Points(g, new THREE.PointsMaterial({ color, size: 0.22, transparent: true, depthWrite: false }));
+    scene.add(pts); let life = 1;
+    anim(dt => {
+      life -= dt * 1.1; const p = g.attributes.position;
+      for (let i = 0; i < n; i++) { v[i].y -= 6 * dt; p.setXYZ(i, p.getX(i) + v[i].x * dt, p.getY(i) + v[i].y * dt, p.getZ(i) + v[i].z * dt); }
+      p.needsUpdate = true; pts.material.opacity = Math.max(0, life);
+      if (life <= 0) { scene.remove(pts); return false; } return true;
+    });
+  }
+  function orb(from, to, color, onHit, size = 0.32) {
+    const o = new THREE.Mesh(new THREE.SphereGeometry(size, 12, 10), new THREE.MeshBasicMaterial({ color }));
+    const light = new THREE.PointLight(color, 8, 6); o.add(light);
+    scene.add(o);
+    const mid = from.clone().lerp(to, 0.5); mid.y += 2;
+    tween(0.38, t => {
+      const a = from.clone().lerp(mid, t), b = mid.clone().lerp(to, t); o.position.copy(a.lerp(b, t));
+      o.scale.setScalar(1 + Math.sin(t * Math.PI) * 0.6);
+    }, () => { scene.remove(o); particles(to, color, 30, 4); onHit && onHit(); });
+  }
+  const heroHand = () => worldPos(hero).add(new THREE.Vector3(0.4, 1.4, -0.3));
+  function heroCast() {
+    const arm = hero.userData.arms[1];
+    tween(0.35, t => { arm.rotation.x = -Math.sin(t * Math.PI) * 2.2; });
+  }
+  function shatter(g) {
+    const pos = worldPos(g), w = g.userData.w, h = g.userData.h;
+    g.visible = false;
+    for (let i = 0; i < 10; i++) {
+      const f = new THREE.Mesh(new THREE.BoxGeometry(w / 4, h / 3, 0.25), stoneMat);
+      f.position.copy(pos).add(new THREE.Vector3((Math.random() - 0.5) * w, (Math.random() - 0.5) * h, 0));
+      scene.add(f);
+      const v = new THREE.Vector3((Math.random() - 0.5) * 4, Math.random() * 3, Math.random() * 2), r = new THREE.Vector3(Math.random() * 6, Math.random() * 6, 0);
+      let life = 1.2;
+      anim(dt => { life -= dt; v.y -= 12 * dt; f.position.addScaledVector(v, dt); f.rotation.x += r.x * dt; f.rotation.y += r.y * dt; if (life <= 0) { scene.remove(f); return false; } return true; });
+    }
+  }
+  function glow(g, color = 0x3fdc7a) {
+    const fm = g.userData.front;
+    fm.emissive.setHex(color);
+    tween(0.6, t => { fm.emissiveIntensity = 0.9 * (1 - t) + 0.25; g.scale.setScalar(1 + Math.sin(t * Math.PI) * 0.12); });
+    particles(worldPos(g), 0xffd166, 36, 5);
+  }
+  function oppReact(hit) {
+    if (!opp) return;
+    if (hit) {
+      tween(0.4, t => { opp.position.z = oppPos.z - Math.sin(t * Math.PI) * 0.8; opp.rotation.x = -Math.sin(t * Math.PI) * 0.15; });
+    } else {
+      // opponent strikes back
+      tween(0.25, t => { opp.position.z = oppPos.z + Math.sin(t * Math.PI) * 1.2; }, () => {
+        orb(worldPos(opp).add(new THREE.Vector3(0, 2.5, 0)), worldPos(hero).add(new THREE.Vector3(0, 1.2, 0)), S.oppKind === 'mentor' || S.oppKind === 'scroll' ? 0xff9f6a : 0x8a3aff, () => {
+          S.shake = 0.35; heroFlinch();
+        }, 0.4);
+      });
+    }
+  }
+  function heroFlinch() { tween(0.4, t => { hero.rotation.x = Math.sin(t * Math.PI) * 0.3; hero.position.z = 5.2 + Math.sin(t * Math.PI) * 0.5; }); }
+  function nod() { if (!opp || !opp.userData.body) return; tween(0.5, t => { opp.userData.body.rotation.x = Math.sin(t * Math.PI * 2) * 0.12; }); }
+
+  // ── questions ──────────────────────────────────────────────
+  function place(g, x, y, z = 0) { g.position.set(x, y, -D + z); (g.userData.base || (g.userData.base = new THREE.Vector3())).set(x, y, -D + z); ui.add(g); }
+  function introAnim(g, delay) {
+    const b = g.userData.base ? g.userData.base.clone() : g.position.clone();
+    g.position.y = b.y - 3; g.scale.setScalar(0.01);
+    let t = -delay; anim(dt => { t += dt / 0.4; if (t < 0) return true; const e = ease(Math.min(1, t)); g.position.y = b.y - 3 * (1 - e); g.scale.setScalar(Math.max(0.01, e)); return t < 1; });
+  }
+  function askMC(q) {
+    const { hh, hw, portrait } = frame();
+    const prompt = strip(q.prompt);
+    const bw = Math.min(hw * 1.9, 13), bh = portrait ? hh * 0.26 : hh * 0.24;
+    const b = banner(prompt, bw, bh); place(b, 0, hh - bh / 2 - hh * 0.12); introAnim(b, 0);
+    if (q.big) {
+      const bigW = Math.min(hw * (q.small ? 1.9 : 1.5), q.small ? 13 : 9), bigH = (portrait ? hh * 0.3 : hh * 0.32) * (q.sub ? 0.8 : 1);
+      const bigY = (portrait ? hh * 0.2 : hh * 0.18) + (q.sub ? hh * 0.04 : 0);
+      const big = new THREE.Mesh(new THREE.PlaneGeometry(bigW, bigH), new THREE.MeshBasicMaterial({ map: textCanvas(strip(q.big), { W: 1024, H: Math.round(1024 * bigH / bigW), greek: true, maxSize: 260, minSize: 40, color: '#fff7e0' }), transparent: true, depthWrite: false }));
+      const shadow = new THREE.Mesh(big.geometry, new THREE.MeshBasicMaterial({ map: big.material.map, color: 0x000000, transparent: true, opacity: 0.45, depthWrite: false }));
+      shadow.position.set(0.06, -0.06, -0.01);
+      const bg = new THREE.Group(); bg.add(shadow, big); bg.userData = { base: new THREE.Vector3() };
+      place(bg, 0, bigY); introAnim(bg, 0.05);
+      S.big = bg;
+      // a translation or headword under the Greek
+      if (q.sub) {
+        const sw = Math.min(hw * 1.9, 13), sh = hh * 0.12;
+        const sub = new THREE.Mesh(new THREE.PlaneGeometry(sw, sh), new THREE.MeshBasicMaterial({ map: textCanvas(strip(q.sub), { W: 1024, H: Math.round(1024 * sh / sw), greek: !q.small, maxSize: 96, minSize: 30, color: '#fff2c8', weight: 800, bg: 'rgba(40,28,12,.55)' }), transparent: true, depthWrite: false }));
+        const sg = new THREE.Group(); sg.add(sub); sg.userData = { base: new THREE.Vector3() };
+        place(sg, 0, bigY - bigH / 2 - sh * 0.45); introAnim(sg, 0.1);
+      }
+    }
+    const n = q.options.length;
+    const cols = portrait ? 2 : Math.min(4, n), rows = Math.ceil(n / cols);
+    const gap = hw * 0.04, tw = (hw * 1.92 - gap * (cols - 1)) / cols, th = portrait ? hh * 0.22 : hh * 0.3;
+    const top = portrait ? -hh * 0.12 : -hh * 0.3;
+    q.options.forEach((o, i) => {
+      const r = Math.floor(i / cols), c = i % cols;
+      const s = slab(q.greekOpts ? o : strip(o), tw, th, { greek: !!q.greekOpts, num: i + 1 });
+      const x = -hw * 0.96 + tw / 2 + c * (tw + gap), y = top - r * (th + gap);
+      place(s, x, y); introAnim(s, 0.08 + i * 0.06);
+      s.userData.pick = { type: 'opt', i };
+      S.picks.push(s);
+    });
+    S.rowsBottom = top - (rows - 1) * (th + gap) - th / 2;
+  }
+  function askMatch(q) {
+    const { hh, hw, portrait } = frame();
+    const b = banner(strip(q.prompt), Math.min(hw * 1.9, 13), hh * 0.18); place(b, 0, hh * 0.78); introAnim(b, 0);
+    const n = q.pairs.length, gap = hh * 0.035, th = Math.min(hh * 0.27, (hh * 1.55 - gap * (n - 1)) / n), tw = hw * 0.9;
+    const L = U.shuffle(q.pairs.map((p, i) => ({ t: p[0], i }))), R = U.shuffle(q.pairs.map((p, i) => ({ t: p[1], i })));
+    S.match = { sel: null, done: 0, miss: 0, n };
+    [L, R].forEach((col, side) => col.forEach((it, k) => {
+      const s = slab(it.t, tw, th, { greek: side === 0 && q.greekLeft, face: side ? '#f3e7c8' : '#e9f0f8' });
+      place(s, side ? hw * 0.5 : -hw * 0.5, hh * 0.56 - th / 2 - k * (th + gap));
+      introAnim(s, k * 0.05 + side * 0.1);
+      s.userData.pick = { type: 'mt', side, i: it.i };
+      S.picks.push(s);
+    }));
+    void portrait;
+  }
+  function askOrder(q, R) {
+    const { hh, hw, portrait } = frame();
+    const verse = R ? R.words.map(w => w.w + w.p).join(' ') : q.verse;
+    const b = banner(verse, Math.min(hw * 1.94, 14), portrait ? hh * 0.42 : hh * 0.36, !!R); place(b, 0, hh * (portrait ? 0.74 : 0.76)); introAnim(b, 0);
+    S.order = { bank: U.shuffle(q.chunks.concat(q.extras).map((t, i) => ({ t, i }))), line: [] };
+    S.orderTop = portrait ? hh * 0.42 : hh * 0.28;
+    layoutOrder(true);
+  }
+  // word-stones flow left to right; placed stones form the "bridge" above the bank
+  function stoneFor(c) {
+    if (c.g) return c.g;
+    const { hh } = frame();
+    const th = hh * 0.13, tw = Math.max(th * 1.4, c.t.length * th * 0.3 + th * 0.6);
+    c.g = slab(c.t, tw, th, { face: '#f3e7c8' }); c.g.userData.tw = tw; c.g.userData.th = th;
+    c.g.userData.pick = { type: 'stone', c };
+    ui.add(c.g); S.picks.push(c.g);
+    return c.g;
+  }
+  function flow(items, y0, hw) {
+    let x = -hw * 0.96, y = y0;
+    const gap = 0.18;
+    for (const c of items) {
+      const g = stoneFor(c), tw = g.userData.tw, th = g.userData.th;
+      if (x + tw > hw * 0.96) { x = -hw * 0.96; y -= th + gap; }
+      const tx = x + tw / 2, ty = y - th / 2;
+      x += tw + gap;
+      const from = g.position.clone(), to = new THREE.Vector3(tx, ty, -D);
+      g.userData.base.copy(to);
+      if (from.lengthSq() === 0) { g.position.copy(to); introAnim(g, Math.random() * 0.2); }
+      else tween(0.25, t => g.position.lerpVectors(from, to, ease(t)));
+    }
+    return y;
+  }
+  function layoutOrder() {
+    const { hh, hw } = frame(), o = S.order;
+    const lineBottom = flow(o.line, S.orderTop, hw);
+    // the bridge plank under the placed stones
+    if (!S.plank) { S.plank = new THREE.Mesh(new THREE.BoxGeometry(hw * 1.96, 0.12, 0.6), M(0x8a5a2a)); ui.add(S.plank); }
+    S.plank.position.set(0, Math.min(lineBottom, S.orderTop - hh * 0.13) - hh * 0.16, -D);
+    flow(o.bank, S.plank.position.y - hh * 0.06, hw);
+    if (S.h && S.h.orderChange) S.h.orderChange(o.line.map(c => c.t));
+  }
+  function askFree(R) {
+    const { hh, hw, portrait } = frame();
+    const verse = R.words.map(w => w.w + w.p).join(' ');
+    const b = banner(verse, Math.min(hw * 1.94, 14), portrait ? hh * 0.5 : hh * 0.42, true); place(b, 0, hh * 0.62); introAnim(b, 0);
+  }
+
+  // ── picking ────────────────────────────────────────────────
+  const ray = new THREE.Raycaster(), ndc = new THREE.Vector2();
+  function pointer(e) {
+    if (!S.active || !S.q || S.locked) return;
+    const r = renderer.domElement.getBoundingClientRect();
+    ndc.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+    ray.setFromCamera(ndc, camera);
+    const hits = ray.intersectObjects(S.picks.filter(p => p.visible), true);
+    if (!hits.length) return;
+    let o = hits[0].object; while (o && !o.userData.pick) o = o.parent;
+    if (o) choose(o);
+  }
+  function choose(g) {
+    const p = g.userData.pick;
+    if (p.type === 'opt') { if (S.answered) return; S.answered = true; S.h.pick(p.i); }
+    else if (p.type === 'mini' && MG) {
+      if (MG.q.game === 'rain') rainTap(g);
+      else if (MG.q.game === 'defense') { if (p.gate) defenseTap(g); }
+      else if (MG.q.game === 'forge') forgeTap(g);
+      else if (MG.q.game === 'race') raceTap(g);
+    }
+    else if (p.type === 'mt') pickMatch(g);
+    else if (p.type === 'stone') {
+      if (S.answered) return;
+      const o = S.order, c = p.c, inLine = o.line.indexOf(c);
+      if (inLine >= 0) { o.line.splice(inLine, 1); o.bank.push(c); } else { o.bank.splice(o.bank.indexOf(c), 1); o.line.push(c); }
+      KG.app.sfx('tap'); layoutOrder();
+    }
+  }
+  function select(g, on) { g.userData.front.emissive.setHex(on ? 0x3f7fd0 : 0x000000); g.userData.front.emissiveIntensity = on ? 0.45 : 0; g.position.z = g.userData.base.z + (on ? 0.4 : 0); }
+  function pickMatch(g) {
+    const m = S.match, p = g.userData.pick;
+    if (g.userData.matched || S.answered) return;
+    KG.app.sfx('tap');
+    if (!m.sel || m.sel.userData.pick.side === p.side) { if (m.sel) select(m.sel, false); m.sel = g; select(g, true); return; }
+    const a = m.sel; m.sel = null; select(a, false);
+    if (a.userData.pick.i === p.i) {
+      a.userData.matched = g.userData.matched = true;
+      // a beam of light joins the pair, then both dissolve
+      const pa = worldPos(a), pb = worldPos(g), len = pa.distanceTo(pb);
+      const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, len, 6), new THREE.MeshBasicMaterial({ color: 0xffd166 }));
+      beam.position.copy(pa).lerp(pb, 0.5); beam.lookAt(pb); beam.rotateX(Math.PI / 2); scene.add(beam);
+      glow(a); glow(g); KG.app.sfx('good');
+      tween(0.5, t => { beam.scale.x = beam.scale.z = 1 - t; a.scale.setScalar(1 - t * 0.9); g.scale.setScalar(1 - t * 0.9); }, () => { scene.remove(beam); a.visible = g.visible = false; });
+      if (++m.done === m.n) { S.answered = true; setTimeout(() => S.h.matchDone(m.miss), 550); }
+    } else {
+      m.miss++; KG.app.sfx('bad');
+      for (const s of [a, g]) { const bx = s.userData.base.x; tween(0.35, t => { s.position.x = bx + Math.sin(t * Math.PI * 6) * 0.15; }); }
+    }
+  }
+
+  // ── public API ─────────────────────────────────────────────
+  S.ok = true;
+  S.enter = (kind, unit = 0) => {
+    S.kind = kind; S.unit = unit;
+    const Z = ZONES[unit];
+    const g = new THREE.Color(Z.grass);
+    S.grass.material.color.copy(g);
+    const tints = { guardian: [0x3a4a6a, 0x9ab0d0, 0x4a3a3a], shade: [0x2a1a4a, 0x7a6aa8, 0x3a2a4a], arcade: [0x1f3b6a, 0x7fb0e0, 0xe0d0b0] };
+    const [top, mid, bot] = tints[kind] || [0x4a88c8, 0xb8d8f0, 0xf0e4c8];
+    paintSky(top, mid, bot); scene.fog.color.setHex(mid);
+    hemi.intensity = kind === 'shade' ? 0.7 : 1.15;
+    setOpponent(kind, unit);
+    clearUI(); S.q = null;
+    S.active = true; S.comboN = 0; aura.material.opacity = 0;
+    ctx.applyLook(hero);
+    hero.position.set(0, 0, 5.2); hero.rotation.set(0, Math.PI, 0);
+    if (pet) scene.remove(pet);
+    pet = ctx.buildPet(E_look().pet);
+    if (pet) { pet.position.set(1.5, pet.userData.fly ? 2.6 : 0, 5.6); pet.rotation.y = Math.PI; scene.add(pet); }
+  };
+  S.exit = () => { S.active = false; clearUI(); S.q = null; S.anims = []; MG = null; };
+  S.ask = (q, handlers) => {
+    MG = null;
+    clearUI(); S.plank = null; S.q = q; S.h = handlers; S.answered = false; S.locked = false; S.big = null;
+    if (q.type === 'mc') askMC(q);
+    else if (q.type === 'match') askMatch(q);
+    else if (q.type === 'order') askOrder(q, q.reading ? KG.readings[q.reading] : null);
+    else if (q.type === 'free') askFree(KG.readings[q.reading]);
+  };
+  // glowing demonstration text: [bracketed] parts shine gold
+  function demoTexture(demo, W, H) {
+    const c = document.createElement('canvas'); c.width = W; c.height = H; const x = c.getContext('2d');
+    const parts = []; demo.replace(/\[(.+?)\]|([^\[]+)/g, (m, hi, lo) => { parts.push([hi || lo, !!hi]); return m; });
+    let size = Math.round(H * 0.42), lines;
+    const layout = () => {
+      x.font = `400 ${size}px ${GK}`;
+      lines = [[]]; let w = 0;
+      for (const [t, hi] of parts) for (const tok of t.split(/(\s+)/)) {
+        if (!tok) continue;
+        const tw = x.measureText(tok).width;
+        if (w + tw > W - 40 && w > 0 && tok.trim()) { lines.push([]); w = 0; }
+        if (!tok.trim() && w === 0) continue;
+        lines[lines.length - 1].push([tok, hi, tw]); w += tw;
+      }
+    };
+    for (; size > 18; size -= 3) { layout(); if (lines.length * size * 1.25 <= H - 20) break; }
+    x.textBaseline = 'middle';
+    const lh = size * 1.25, y0 = H / 2 - (lines.length - 1) * lh / 2;
+    lines.forEach((ln, i) => {
+      const total = ln.reduce((n, t) => n + t[2], 0); let cx = (W - total) / 2;
+      for (const [tok, hi, tw] of ln) {
+        x.shadowColor = hi ? 'rgba(255,200,60,.95)' : 'rgba(0,0,0,.55)'; x.shadowBlur = hi ? 24 : 8;
+        x.fillStyle = hi ? '#ffd166' : '#fff8e8'; x.fillText(tok, cx, y0 + i * lh); cx += tw;
+      }
+    });
+    const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
+  }
+  S.teach = item => {
+    clearUI(); S.q = null; S.answered = true;
+    const want = item.reading ? 'scroll' : 'mentor';
+    if (S.oppKind !== want) { setOpponent(want, S.unit); poof(); }
+    // the master raises a staff and the lesson glows in the air
+    if (opp && opp.userData.arms) { const arm = opp.userData.arms[1]; tween(0.6, t => { arm.rotation.x = -Math.sin(t * Math.PI / 2) * 2.4; }); }
+    const text = item.demo || (item.words ? item.words.map(w => w.g).join('   ') : item.letters ? item.letters.map(L => L.U + L.l).join('   ') : item.items ? item.items.slice(0, 6).map(i => i.big).join('  ') : item.reading ? KG.readings[item.reading].words.map(w => w.w + w.p).join(' ') : '');
+    if (!text) return;
+    const { hh, hw, portrait } = frame();
+    const w = Math.min(hw * 1.95, 14), h = portrait ? hh * 0.42 : hh * 0.5;
+    const plane = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ map: demoTexture(item.demo ? text : `[${text}]`, 1024, Math.round(1024 * h / w)), transparent: true, depthWrite: false }));
+    const g = new THREE.Group(); g.add(plane); g.userData = { base: new THREE.Vector3() };
+    place(g, 0, hh - h / 2 - hh * 0.1); introAnim(g, 0.1);
+    S.big = g;
+    particles(worldPos(opp || hero).add(new THREE.Vector3(0, 3.5, 0)), 0xffd166, 50, 6);
+  };
+  function poof() { particles(oppPos.clone().add(new THREE.Vector3(0, 1.5, 0)), 0xffffff, 60, 7); }
+  S.trial = foe => {
+    clearUI(); S.q = null;
+    setOpponent(foe, S.unit); poof();
+    if (opp) { const y0 = opp.position.y; tween(0.6, t => { opp.position.y = y0 + (1 - ease(t)) * 8; }); }
+    S.shake = 0.25;
+  };
+  // ── mini-games ─────────────────────────────────────────────
+  // Each runs in the update loop and calls done({ ok, hits, total, text }) once.
+  let MG = null;
+  function miniBanner(text) {
+    const { hh, hw } = frame();
+    if (MG && MG.banner) ui.remove(MG.banner);
+    const b = banner(text, Math.min(hw * 1.9, 13), hh * 0.17); place(b, 0, hh * 0.8); introAnim(b, 0);
+    if (MG) MG.banner = b;
+  }
+  function miniEnd(ok, text) {
+    if (!MG || MG.over) return;
+    MG.over = true; const cb = MG.done, hits = MG.hits, total = MG.total;
+    setTimeout(() => { MG = null; cb({ ok, hits, total, text }); }, 500);
+  }
+  function removePick(g) { ui.remove(g); S.picks = S.picks.filter(x => x !== g); }
+  S.mini = (q, done) => {
+    clearUI(); S.q = q; S.answered = false; S.locked = false;
+    MG = { q, done, hits: 0, total: 0, t: 0, over: false, items: [] };
+    ({ rain: rainStart, defense: defenseStart, forge: forgeStart, race: raceStart })[q.game]();
+  };
+
+  // Word Rain: catch the Greek word that means the English target
+  function rainStart() { MG.round = 0; MG.total = MG.q.targets.length; rainRound(); }
+  function rainRound() {
+    for (const g of MG.items) removePick(g);
+    MG.items = [];
+    if (MG.round >= MG.q.targets.length) return miniEnd(MG.hits >= MG.total - 1, `You caught ${MG.hits} of ${MG.total} words.`);
+    const tgt = MG.q.targets[MG.round++], { hh, hw } = frame();
+    miniBanner(`Catch the word for: "${tgt.en}"`);
+    const words = U.shuffle([tgt.g, ...U.sample(MG.q.pool.filter(g => g !== tgt.g), 3)]);
+    const tw = hw * 0.44, th = hh * 0.13;
+    words.forEach((g, i) => {
+      const st = slab(g, tw, th, { greek: true });
+      const col = i % 2, x = (col ? 1 : -1) * hw * 0.48 + (Math.random() - 0.5) * hw * 0.1;
+      place(st, x, hh * 0.62 + i * hh * 0.16);
+      st.userData.pick = { type: 'mini', ok: g === tgt.g };
+      st.userData.vy = hh * (0.22 + MG.round * 0.025 + Math.random() * 0.05);
+      S.picks.push(st); MG.items.push(st);
+    });
+    MG.wait = false;
+  }
+  function rainUpdate(dt) {
+    if (MG.wait) return;
+    const { hh } = frame();
+    for (const g of MG.items) {
+      if (!g.visible) continue;
+      g.position.y -= g.userData.vy * dt; g.userData.base.y = g.position.y; g.rotation.z = Math.sin(MG.t * 3 + g.position.x) * 0.06;
+      if (g.position.y < -hh * 0.95) {
+        g.visible = false;
+        if (g.userData.pick.ok) { MG.wait = true; KG.app.sfx('bad'); oppReact(false); setTimeout(rainRound, 700); }
+      }
+    }
+  }
+  function rainTap(g) {
+    if (MG.wait || !g.visible) return;
+    if (g.userData.pick.ok) {
+      MG.hits++; MG.wait = true; KG.app.sfx('good'); heroCast();
+      orb(heroHand(), worldPos(g), 0xffd166, () => { glow(g); oppReact(true); });
+      setTimeout(rainRound, 800);
+    } else { KG.app.sfx('bad'); shatter(g); }
+  }
+
+  // Sorting Spell: strike each falling Greek line with its use (up to six gates, in two rows)
+  function defenseStart() {
+    const { hh, hw } = frame();
+    miniBanner(MG.q.banner || 'Strike each line with its use');
+    MG.total = MG.q.stones.length; MG.idx = 0;
+    const gates = MG.q.gates, perRow = gates.length > 4 ? Math.ceil(gates.length / 2) : gates.length;
+    const gap = hw * 0.05, tw = (hw * 1.92 - gap * (perRow - 1)) / perRow, th = hh * 0.13;
+    MG.gates = gates.map((c, i) => {
+      const r = Math.floor(i / perRow), k = i % perRow, inRow = Math.min(perRow, gates.length - r * perRow);
+      const x0 = -(inRow * tw + (inRow - 1) * gap) / 2 + tw / 2;
+      const g = slab(c, tw, th, { face: '#e9f0f8' });
+      place(g, x0 + k * (tw + gap), -hh * (gates.length > 4 ? 0.56 : 0.66) - r * (th + gap));
+      g.userData.pick = { type: 'mini', gate: c }; S.picks.push(g); return g;
+    });
+    defenseNext();
+  }
+  function defenseNext() {
+    if (MG.cur) { removePick(MG.cur); MG.cur = null; }
+    if (MG.idx >= MG.q.stones.length) return miniEnd(MG.hits >= MG.total - 2, `You defended against ${MG.hits} of ${MG.total} forms.`);
+    const st = MG.q.stones[MG.idx++], { hh, hw } = frame();
+    const g = slab(st.form, hw * 0.9, hh * 0.16, { greek: true, face: '#f3e7c8' });
+    place(g, 0, hh * 0.55); introAnim(g, 0);
+    g.userData.stone = st; g.userData.vy = hh * (0.13 + MG.idx * 0.012);
+    MG.cur = g; MG.lock = false;
+  }
+  function defenseUpdate(dt) {
+    const g = MG.cur, { hh } = frame();
+    if (!g || MG.lock) return;
+    g.position.y -= g.userData.vy * dt; g.userData.base.y = g.position.y;
+    if (g.position.y < -hh * (MG.q.gates.length > 4 ? 0.32 : 0.42)) { MG.lock = true; KG.app.sfx('bad'); oppReact(false); shatter(g); setTimeout(defenseNext, 700); }
+  }
+  function defenseTap(gate) {
+    const g = MG.cur; if (!g || MG.lock) return;
+    MG.lock = true;
+    const st = g.userData.stone, ok = st.cases.includes(gate.userData.pick.gate);
+    heroCast();
+    if (ok) { MG.hits++; KG.app.sfx('good'); glow(gate); orb(heroHand(), worldPos(g), 0xffd166, () => { glow(g); setTimeout(defenseNext, 350); }); }
+    else {
+      KG.app.sfx('bad'); shatter(gate); setTimeout(() => { gate.visible = true; gate.scale.setScalar(1); }, 900);
+      const right = MG.gates.find(x => st.cases.includes(x.userData.pick.gate)); if (right) glow(right, 0xffb040);
+      setTimeout(defenseNext, 1100);
+    }
+  }
+
+  // Parsing Forge: name the tense, then the person and number
+  const PNS = ['1st Sg', '2nd Sg', '3rd Sg', '1st Pl', '2nd Pl', '3rd Pl'];
+  function forgeStart() { MG.total = MG.q.items.length; MG.idx = 0; forgeNext(); }
+  function forgeNext() {
+    clearUI(); MG.banner = null;
+    if (MG.idx >= MG.q.items.length) return miniEnd(MG.hits >= MG.total - 1, `You forged ${MG.hits} of ${MG.total} verbs.`);
+    MG.item = MG.q.items[MG.idx++]; MG.step = 0; MG.lock = false;
+    forgeStep();
+  }
+  function forgeStep() {
+    for (const g of [...S.picks]) removePick(g);
+    const { hh, hw, portrait } = frame(), it = MG.item;
+    miniBanner(MG.step === 0 ? `Parsing Forge: which TENSE is ${it.form}?` : `Now the PERSON and NUMBER of ${it.form}`);
+    if (!MG.big) {
+      const big = slab(it.form, hw * 1.2, hh * 0.2, { greek: true, face: '#3a3a44', color: '#ffd166' });
+      place(big, 0, hh * 0.42); introAnim(big, 0); MG.big = big;
+    }
+    const opts = MG.step === 0 ? MG.q.tenses : PNS;
+    const cols = portrait ? 2 : 3, gap = hw * 0.04, tw = (hw * 1.92 - gap * (cols - 1)) / cols, th = hh * 0.13;
+    opts.forEach((o, i) => {
+      const g = slab(o, tw, th, { face: '#f3e7c8' });
+      place(g, -hw * 0.96 + tw / 2 + (i % cols) * (tw + gap), hh * 0.12 - Math.floor(i / cols) * (th + gap));
+      introAnim(g, i * 0.04);
+      g.userData.pick = { type: 'mini', val: o }; S.picks.push(g);
+    });
+  }
+  function forgeTap(g) {
+    if (MG.lock) return;
+    const it = MG.item, v = g.userData.pick.val;
+    const fits = MG.step === 0 ? it.reads.some(r => r.tense === v) : it.reads.some(r => r.tense === MG.tense && r.pn === v) || it.reads.some(r => r.pn === v && !it.reads.some(x => x.tense === MG.tense));
+    heroCast();
+    if (fits) {
+      KG.app.sfx('good'); glow(g);
+      if (MG.step === 0) { MG.tense = v; MG.step = 1; MG.lock = true; setTimeout(() => { MG.lock = false; forgeStep(); }, 500); }
+      else { MG.hits++; MG.lock = true; S.shake = 0.15; orb(heroHand(), worldPos(MG.big), 0xff9f40, () => { glow(MG.big, 0xff9f40); particles(worldPos(MG.big), 0xff9f40, 60, 6); }); setTimeout(() => { MG.big = null; forgeNext(); }, 1000); }
+    } else {
+      KG.app.sfx('bad'); shatter(g); oppReact(false); MG.lock = true;
+      const r = it.reads[0];
+      miniBanner(`${it.form} = ${r.tense} ${r.pn}${it.reads.length > 1 ? ' (or ' + it.reads.slice(1).map(x => x.tense + ' ' + x.pn).join(', ') + ')' : ''}`);
+      setTimeout(() => { MG.big = null; forgeNext(); }, 2200);
+    }
+  }
+
+  // Verse Race: pick the next piece of the translation before time runs out
+  function raceStart() {
+    const R = KG.readings[MG.q.reading];
+    MG.total = MG.q.chunks.length; MG.idx = 0; MG.time = 5 + MG.q.chunks.length * 3.5; MG.left = MG.time; MG.built = [];
+    const { hh, hw, portrait } = frame();
+    const b = banner(R.words.map(w => w.w + w.p).join(' '), Math.min(hw * 1.94, 14), portrait ? hh * 0.36 : hh * 0.3, true);
+    place(b, 0, hh * 0.76); introAnim(b, 0);
+    const bar = new THREE.Mesh(new THREE.BoxGeometry(hw * 1.9, hh * 0.035, 0.1), new THREE.MeshBasicMaterial({ color: 0xffd166 }));
+    place(bar, 0, hh * 0.5); MG.bar = bar; MG.barW = hw * 1.9;
+    raceChoices();
+  }
+  function raceChoices() {
+    for (const g of MG.items) removePick(g);
+    MG.items = [];
+    if (MG.idx >= MG.q.chunks.length) return miniEnd(true, `You finished the race with ${Math.ceil(MG.left)} seconds to spare!`);
+    const { hh, hw } = frame(), right = MG.q.chunks[MG.idx];
+    const pool = MG.q.chunks.slice(MG.idx + 1).concat(MG.q.extras).filter(c => c !== right);
+    const opts = U.shuffle([right, ...U.sample(U.uniq(pool), 2)]);
+    if (MG.line) ui.remove(MG.line);
+    MG.line = banner(MG.built.join(' ') || '…', Math.min(hw * 1.94, 14), hh * 0.2); place(MG.line, 0, hh * 0.24);
+    opts.forEach((o, i) => {
+      const g = slab(o, hw * 1.7, hh * 0.13, { face: '#f3e7c8' });
+      place(g, 0, -hh * 0.1 - i * hh * 0.17); introAnim(g, i * 0.05);
+      g.userData.pick = { type: 'mini', ok: o === right, val: o }; S.picks.push(g); MG.items.push(g);
+    });
+    MG.lock = false;
+  }
+  function raceUpdate(dt) {
+    MG.left -= dt;
+    if (MG.bar) { const f = Math.max(0, MG.left / MG.time); MG.bar.scale.x = Math.max(0.001, f); MG.bar.position.x = -MG.barW / 2 * (1 - f); MG.bar.material.color.setHex(f > 0.35 ? 0xffd166 : 0xe0453a); }
+    hero.position.z = 5.2 - (MG.idx / MG.total) * 6;
+    if (MG.left <= 0) miniEnd(false, `Time ran out after ${MG.idx} of ${MG.total} pieces. Read the verse again, then race once more!`);
+  }
+  function raceTap(g) {
+    if (MG.lock) return;
+    if (g.userData.pick.ok) { MG.hits++; MG.idx++; MG.built.push(g.userData.pick.val); KG.app.sfx('good'); glow(g); MG.lock = true; setTimeout(raceChoices, 350); }
+    else { KG.app.sfx('bad'); shatter(g); MG.left -= 2.5; S.shake = 0.2; }
+  }
+
+  S.debugMini = () => MG; // used by the browser tests
+  S.orderLine = () => (S.order ? S.order.line.map(c => c.t) : []);
+  S.lock = () => { S.locked = true; };
+  // outcome animation for a multiple-choice answer (chosen may be -1 for timeouts)
+  S.reveal = (ok, chosen, correct) => {
+    const right = S.picks.find(p => p.userData.pick && p.userData.pick.i === correct && p.userData.pick.type === 'opt');
+    const pick = S.picks.find(p => p.userData.pick && p.userData.pick.i === chosen && p.userData.pick.type === 'opt');
+    heroCast();
+    if (pick) orb(heroHand(), worldPos(pick), ok ? 0xffd166 : 0xc0c0ff, () => {
+      if (ok) { glow(pick); if (opp) orb(worldPos(pick), worldPos(opp).add(new THREE.Vector3(0, 2.4, 0)), 0xffd166, () => { oppReact(true); if (S.oppKind === 'mentor') nod(); }); }
+      else { shatter(pick); if (right) setTimeout(() => glow(right), 250); oppReact(false); }
+    });
+    for (const p of S.picks) if (p !== pick && p !== right && p.visible) tween(0.4, t => p.children[0].material.forEach && p.children[0].material.forEach(m => { m.transparent = true; m.opacity = 1 - t * 0.65; }));
+  };
+  S.result = ok => { heroCast(); if (ok) { orb(heroHand(), worldPos(opp || hero).add(new THREE.Vector3(0, 2.4, 0)), 0xffd166, () => oppReact(true)); } else oppReact(false); };
+  S.hp = frac => { if (hpBar) { hpBar.material.map = hpSprite(Math.max(0, frac)); hpBar.material.needsUpdate = true; } };
+  S.combo = n => {
+    S.comboN = n;
+    aura.material.opacity = n >= 3 ? Math.min(0.9, 0.3 + n * 0.05) : 0;
+    aura.material.color.setHex(n >= 10 ? 0xff6a2a : n >= 5 ? 0xffb040 : 0xffd166);
+  };
+  S.celebrate = win => {
+    clearUI();
+    if (win) {
+      for (let i = 0; i < 4; i++) setTimeout(() => particles(new THREE.Vector3((Math.random() - 0.5) * 10, 4 + Math.random() * 3, -2 + Math.random() * 4), U.pick([0xffd166, 0x7fd0ff, 0xff8fab, 0x7ed58f]), 60, 8), i * 220);
+      if (opp && ['guardian', 'shade', 'dummy', 'imp', 'rival'].includes(S.oppKind)) tween(1.2, t => { opp.rotation.x = -t * 0.5; opp.position.y = oppPos.y - t * 2; opp.scale.setScalar((S.oppKind === 'shade' ? 2.6 : S.oppKind === 'guardian' ? 1.25 : 1) * (1 - t * 0.5)); });
+      else if (opp && opp.userData.body) nod();
+      tween(0.8, t => { hero.position.y = Math.sin(t * Math.PI) * 1.2; hero.rotation.y = Math.PI + t * Math.PI * 2; });
+    } else {
+      tween(0.8, t => { hero.rotation.x = t * 0.25; });
+    }
+  };
+  S.pointer = pointer;
+  S.key = e => {
+    if (!S.q || S.locked) return false;
+    if (/^[1-9]$/.test(e.key) && S.q.type === 'mc') { const g = S.picks.find(p => p.userData.pick.type === 'opt' && p.userData.pick.i === +e.key - 1); if (g) { choose(g); return true; } }
+    return false;
+  };
+  S.resize = () => {
+    camera.fov = camera.aspect < 0.9 ? 70 : 55;
+    camera.updateProjectionMatrix();
+    if (S.q && !S.answered && !MG && S.q.type !== 'mini') S.ask(S.q, S.h); // re-layout to the new screen shape
+  };
+
+  S.update = (dt, t) => {
+    // framed so the challenger stands above the answer tablets
+    camera.position.set(0, 3.4, 12.5);
+    camera.lookAt(0, 1.2, -2);
+    if (S.shake > 0) { S.shake -= dt; camera.position.x += (Math.random() - 0.5) * S.shake; camera.position.y += (Math.random() - 0.5) * S.shake; }
+    sky.position.copy(camera.position);
+    camera.updateMatrixWorld();
+    uiRoot.position.copy(camera.position); uiRoot.quaternion.copy(camera.quaternion);
+    for (const f of S.flames) { const s = 1 + Math.sin(t * 13 + f.position.x) * 0.12; f.scale.set(s, 1 + Math.sin(t * 9) * 0.18, s); f.userData.light.intensity = 5 + Math.sin(t * 17) * 1.2; }
+    for (const c of clouds) { c.position.x += dt * 1.2; if (c.position.x > 90) c.position.x = -90; }
+    if (opp) {
+      if (opp.userData.float) opp.position.y = oppPos.y + 1.2 + Math.sin(t * 2) * 0.3;
+      if (opp.userData.spin) opp.userData.spin.rotation.y += dt * 1.2;
+      if (opp.userData.legs) ctx.animatePerson(opp, 0, dt);
+      if (opp.userData.flap) { opp.userData.book.position.y = 2.6 + Math.sin(t * 3) * 0.35; opp.userData.flap.forEach(h => { h.rotation.z = h.userData.sd * (0.35 + Math.sin(t * 9) * 0.45); }); }
+      if (opp.userData.wobble && opp.userData.body) opp.userData.body.rotation.z = Math.sin(t * 2) * 0.03;
+    }
+    ctx.animatePerson(hero, 0, dt);
+    if (pet) { if (pet.userData.fly) pet.position.y = 2.6 + Math.sin(t * 2.5) * 0.25; else pet.position.y = Math.abs(Math.sin(t * 3)) * 0.05; ctx.animatePet(pet, t, dt); }
+    aura.scale.setScalar(1 + Math.sin(t * 4) * 0.08 + (S.comboN || 0) * 0.02); aura.rotation.z += dt;
+    if (S.big) S.big.position.y = S.big.userData.base.y + Math.sin(t * 2) * 0.06;
+    for (const p of S.picks) if (p.visible && p.userData.base && !(S.sel === p)) p.rotation.y = Math.sin(t * 1.3 + p.userData.base.x) * 0.04;
+    if (MG && !MG.over) { MG.t += dt; ({ rain: rainUpdate, defense: defenseUpdate, race: raceUpdate }[MG.q.game] || (() => {}))(dt); }
+    else if (!MG) hero.position.z += (5.2 - hero.position.z) * Math.min(1, dt * 4);
+    S.anims = S.anims.filter(fn => fn(dt) !== false);
+  };
+  S.render = r => {
+    r.autoClear = false; r.clear();
+    r.render(scene, camera);
+    r.clearDepth();
+    r.render(uiScene, camera);
+    r.autoClear = true;
+  };
+  return S;
+}

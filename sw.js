@@ -2,7 +2,7 @@
 // content hash: tools/sync.mjs rewrites the hash whenever the source apps have
 // changed, so a content update invalidates the offline copy exactly like a
 // code update does. Bump the "v1" part by hand alongside BUILD in js/app.js.
-const CACHE = 'greek-quest-v1-3e0ba4e2';
+const CACHE = 'greek-quest-v2-3e0ba4e2';
 
 const SHELL = [
   './',
@@ -33,7 +33,8 @@ self.addEventListener('activate', (event) => {
   event.waitUntil(
     (async () => {
       const names = await caches.keys();
-      await Promise.all(names.filter((n) => n !== CACHE).map((n) => caches.delete(n)));
+      // only our own old caches: quest/ keeps its own
+      await Promise.all(names.filter((n) => n !== CACHE && !n.startsWith('going-deeper-quest')).map((n) => caches.delete(n)));
       await self.clients.claim();
     })()
   );
@@ -48,6 +49,7 @@ self.addEventListener('fetch', (event) => {
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
   if (url.origin !== location.origin) return; // the live-content refresh goes straight to the network
+  if (url.pathname.includes('/quest/')) return; // the 3D quest has its own worker
 
   // Content: network first, so an online load always has the newest bundle,
   // with the cached copy when there is no signal.

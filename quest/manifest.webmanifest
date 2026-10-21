@@ -1,0 +1,19 @@
+{
+  "name": "Going Deeper Quest",
+  "short_name": "Deeper Quest",
+  "description": "A 3D adventure through Going Deeper with New Testament Greek, one chapter world at a time.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#1f3b5c",
+  "theme_color": "#1f3b5c",
+  "lang": "en",
+  "categories": ["education", "games"],
+  "icons": [
+    { "src": "../icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "../icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "../icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "../icons/icon-512-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
