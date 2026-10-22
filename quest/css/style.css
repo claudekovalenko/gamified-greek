@@ -550,3 +550,16 @@ body.in-stage .main > .s3 { pointer-events: none; }
 .wbt-hp { display: flex; gap: 6px; margin: 6px 0 2px; }
 .wbt-hp i { flex: 1; height: 8px; border-radius: 4px; background: rgba(0,0,0,.12); }
 .wbt-hp i.on { background: linear-gradient(90deg, #e0453a, #ff8a5a); box-shadow: 0 0 8px rgba(224,69,58,.6); }
+/* arcade: medals, combo, countdown */
+.abar { display: flex; align-items: center; gap: 10px; padding: 2px 14px 4px; max-width: 640px; margin: 0 auto; width: 100%; box-sizing: border-box; }
+.abest { position: relative; flex: 1; height: 8px; border-radius: 9px; background: rgba(128,128,128,.3); }
+.abest i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 9px; background: linear-gradient(90deg, #ffd166, #ff8a3a); transition: width .3s; }
+.abest em { position: absolute; top: -9px; transform: translateX(-50%); font-style: normal; font-size: .85rem; }
+.acombo { font-weight: 900; font-size: .85rem; white-space: nowrap; min-width: 70px; text-align: right; }
+.acombo.hot { color: #ff7a2a; animation: pulse2 .8s infinite; }
+.s3 .acombo { color: #fff; text-shadow: 0 1px 3px rgba(0,0,0,.6); } .s3 .acombo.hot { color: #ffb040; }
+.amedal { text-align: center; font-weight: 800; margin: 6px 0 10px; } .amedal .big { font-size: 2.4rem; vertical-align: middle; }
+.s3 .abar { position: absolute; top: calc(54px + env(safe-area-inset-top)); left: 0; right: 0; }
+.countdown { position: fixed; inset: 0; display: grid; place-items: center; z-index: 70; pointer-events: none; font: 900 min(28vw, 180px)/1 var(--ui, Nunito, sans-serif); color: #ffd166; text-shadow: 0 6px 0 #8a5a10, 0 12px 30px rgba(0,0,0,.5); }
+.countdown.pop { animation: cdpop .6s ease-out forwards; }
+@keyframes cdpop { 0% { transform: scale(2.2); opacity: 0; } 25% { transform: scale(1); opacity: 1; } 80% { opacity: 1; } 100% { transform: scale(.8); opacity: 0; } }

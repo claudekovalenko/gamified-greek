@@ -481,6 +481,28 @@ window.KG = window.KG || {};
   }
   E.miniFor = miniFor;
 
+  // Endless versions of the mini-games for the Arcade, from what the learner has met
+  E.arcadeMini = game => {
+    if (game === 'rain') {
+      let pool = Object.keys(E.state.vocab).map(g => E.vocabByGreek[g]).filter(Boolean);
+      if (pool.length < 12) pool = KG.vocab.slice(0, Math.max(20, pool.length));
+      // due words fall first, so a round of Word Rain is a round of review
+      const order = E.reviewOrder(pool);
+      return { type: 'mini', game, title: 'Word Rain', targets: shuffle(order.slice(0, 8)).concat(sample(order.slice(8), 4)).map(w => ({ g: w.g, en: w.short })), pool: pool.map(w => w.g), arcade: true };
+    }
+    if (game === 'defense') {
+      const sets = uniq(E.nodes.filter(n => n.type === 'grammar' && !KG.grammar[n.lesson].duels && (E.stars(n.id) > 0 || E.state.settings.unlockAll)).map(n => KG.grammar[n.lesson].set));
+      const set = U.pick(sets.length ? sets : [KG.grammar[E.nodes.find(n => n.type === 'grammar').lesson].set]);
+      const cards = KG.cards.filter(c => KG.setById[set] && KG.setById[set].groups.some(g => g.id === c.group));
+      const byCard = cards.length <= 6, gateOf = c => byCard ? c.short : KG.groupById[c.group].name.split(/\s+[—–-]\s+/)[0];
+      const stones = shuffle(cards.flatMap(c => examplesOf(c).filter(e => e.greek).map(e => ({ form: KG.guillemet(e.greek), cases: [gateOf(c)] })))).slice(0, 16);
+      return { type: 'mini', game, title: 'Sorting Spell', banner: `Sorting Spell: ${KG.setById[set].name}`, gates: uniq(cards.map(gateOf)), stones, arcade: true };
+    }
+    const reads = E.nodes.filter(n => n.type === 'reading' && KG.readings[n.reading].chunks.length >= 3);
+    const mine = reads.filter(n => E.stars(n.id) > 0), n = U.pick(mine.length ? mine : reads.slice(0, 2)), R = KG.readings[n.reading];
+    return { type: 'mini', game: 'race', title: 'Sentence Race', reading: n.reading, chunks: R.chunks, extras: R.extras || [], arcade: true };
+  };
+
   E.planFor = node => {
     const first = !E.stars(node.id);
     const plan = [];

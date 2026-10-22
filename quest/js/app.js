@@ -587,48 +587,109 @@
 
   // ── arcade ──────────────────────────────────────────────────
   const GAMES = {
-    lightning: { name: 'Vocab Lightning', icon: '⚡', desc: 'Rapid-fire meanings from the chapter\'s words.' },
-    hooks: { name: 'Hook Hunt', icon: '🪝', desc: 'The hook is the clue. Whose is it?' },
-    spot: { name: 'Spot Rush', icon: '🔍', desc: 'Real Greek, one use highlighted. Name it, fast.' },
+    rain: { name: 'Word Rain', icon: '🌧', desc: 'Catch each falling word that means the English target. Every fifth word is golden.', mini: true, medals: [10, 25, 45] },
+    defense: { name: 'Sorting Spell', icon: '🔮', desc: 'Strike each falling Greek line with its use.', mini: true, medals: [8, 20, 35] },
+    race: { name: 'Sentence Race', icon: '🏁', desc: 'Build sentence after sentence of the translation, piece by piece.', mini: true, medals: [12, 30, 50] },
+    lightning: { name: 'Vocab Lightning', icon: '⚡', desc: 'Rapid-fire meanings, due words first.', medals: [12, 22, 35] },
+    hooks: { name: 'Hook Hunt', icon: '🪝', desc: 'The hook is the clue. Whose is it?', medals: [10, 18, 30] },
+    spot: { name: 'Spot Rush', icon: '🔍', desc: 'Real Greek, one use highlighted. Name it, fast.', medals: [8, 15, 24] },
   };
+  // bronze, silver and gold for each game's score
+  const MEDALS = ['🥉', '🥈', '🥇'];
+  const medalOf = (k, score) => GAMES[k].medals.filter(m => score >= m).length;
   function renderArcade() {
-    main.innerHTML = `<h1 class="vh">Arcade</h1><p class="muted">60-second speed rounds. Wrong answers cost 3 seconds. Beat your high score!</p>
-      ${Object.entries(GAMES).map(([k, g]) => `<div class="card game"><div class="gic">${g.icon}</div><div class="gtx"><h3>${g.name}</h3><p>${g.desc}</p>
-      <p class="muted">High score: <b>${S().arcade[k] || 0}</b></p></div><button class="btn primary" data-act="arcade" data-arg="${k}">Play</button></div>`).join('')}`;
+    const card = ([k, g]) => { const best = S().arcade[k] || 0, m = medalOf(k, best), nx = g.medals[m];
+      return `<div class="card game"><div class="gic">${g.icon}</div><div class="gtx"><h3>${g.name} ${m ? MEDALS[m - 1] : ''}</h3><p>${g.desc}</p>
+      <p class="muted">Best: <b>${best}</b>${nx ? ` · ${MEDALS[m]} at ${nx}` : ' · all medals won!'}</p></div><button class="btn primary" data-act="arcade" data-arg="${k}" ${g.mini && !use3D() ? 'disabled title="Needs 3D (Profile → Settings)"' : ''}>Play</button></div>`;
+    };
+    main.innerHTML = `<h1 class="vh">Arcade</h1><p class="muted">60-second high-score rounds. Mistakes cost time; right answers in a row multiply your score.</p>
+      <h2>⚔ 3D spell games</h2>${Object.entries(GAMES).filter(([, g]) => g.mini).map(card).join('')}
+      <h2>⚡ Speed rounds</h2>${Object.entries(GAMES).filter(([, g]) => !g.mini).map(card).join('')}`;
   }
   function arcadeQ(kind) {
     let pool = Object.keys(S().vocab).map(g => E.vocabByGreek[g]).filter(Boolean);
     if (pool.length < 8) pool = KG.vocab;
-    if (kind === 'lightning') { const w = U.pick(pool); return E.mc('Meaning?', w.short, sample(pool.filter(x => x.short !== w.short), 3).map(x => x.short), { big: w.g }); }
+    if (kind === 'lightning') {
+      // due words come up first; every answer goes back into review
+      const order = E.reviewOrder(pool), w = Math.random() < 0.7 ? order[Math.floor(Math.random() * Math.min(6, order.length))] : U.pick(pool);
+      return E.mc('Meaning?', w.short, sample(pool.filter(x => x.short !== w.short), 3).map(x => x.short), { big: w.g, vkey: S().vocab[w.g] ? w.g : '' });
+    }
     if (kind === 'hooks') { const w = U.pick(pool.filter(x => x.mn)); return E.mc(`🪝 “${esc(w.mn)}”`, w.g, sample(pool.filter(x => x !== w), 3).map(x => x.g), { greekOpts: true }); }
     const c = U.pick(E.unlockedCards());
     return E.spotQ(c, KG.cards);
   }
+  const MINI_ARCADE_HELP = { rain: MINI_HELP.rain, defense: MINI_HELP.defense, race: MINI_HELP.race };
   let A = null;
   function startArcade(kind) {
-    A = { kind, score: 0, end: Date.now() + 60000, timer: null, is3D: use3D() };
+    const mini = !!GAMES[kind].mini;
+    if (mini && !use3D()) return toast('This game needs 3D. Turn on “Play lessons in 3D” in Profile → Settings.');
+    A = { kind, mini, score: 0, combo: 0, best: S().arcade[kind] || 0, left: 60000, last: performance.now(), timer: null, is3D: use3D() };
     if (A.is3D) enterStage('arcade', 0); else document.body.classList.add('playing');
-    A.timer = setInterval(tickArcade, 200);
-    arcadeNext();
+    main.innerHTML = `<div class="s3">${arcadeHead()}</div>`;
+    // 3, 2, 1, go! The game and its clock start after the countdown.
+    const cd = document.createElement('div'); cd.className = 'countdown'; document.body.appendChild(cd);
+    const me = A;
+    ['3', '2', '1', 'GO!'].forEach((n, k) => setTimeout(() => {
+      if (A !== me) return cd.remove();
+      cd.textContent = n; cd.classList.remove('pop'); void cd.offsetWidth; cd.classList.add('pop'); sfx(k < 3 ? 'tap' : 'combo');
+      if (k === 3) { A.last = performance.now(); A.timer = setInterval(tickArcade, 100); if (mini) arcadeMini(); else arcadeNext(); setTimeout(() => cd.remove(), 600); }
+    }, k * 650));
+  }
+  function arcadeHead() {
+    return `<div class="ph"><button class="x" data-act="quitArcade" aria-label="Quit">✕</button>
+      <div class="atimer"><span id="atime">60</span>s</div><div class="ascore">⭐ <span id="ascore">${A.score}</span></div></div>
+      <div class="abar"><div class="abest"><i id="abest" style="width:${bestPct()}%"></i>${GAMES[A.kind].medals.map((m, k) => `<em style="left:${Math.min(100, m / barMax() * 100)}%">${MEDALS[k]}</em>`).join('')}</div><span class="acombo" id="acombo">${comboText()}</span></div>`;
+  }
+  // scoring: right answers in a row build a multiplier (×2 at 3, ×3 at 6, ×4 at 9); a miss resets it
+  const mult = () => Math.min(4, 1 + Math.floor(A.combo / 3));
+  const comboText = () => A.combo >= 3 ? `🔥 ${A.combo} in a row · ×${mult()}` : A.best ? `Best ${A.best}` : '';
+  const barMax = () => Math.max(A.best, GAMES[A.kind].medals[2]) * 1.05;
+  const bestPct = () => Math.min(100, A.score / barMax() * 100);
+  function arcadeHit(times = 1) {
+    const before = mult(); A.combo++;
+    const pts = mult() * times; A.score += pts;
+    if (mult() > before) { sfx('combo'); toast(`🔥 <b>×${mult()} multiplier!</b>`); }
+    const before2 = medalOf(A.kind, A.score - pts), now = medalOf(A.kind, A.score);
+    if (now > before2) { sfx('win'); toast(`${MEDALS[now - 1]} <b>${['Bronze', 'Silver', 'Gold'][now - 1]} medal score!</b>`, 'gold'); }
+    if (A.best && A.score > A.best && A.score - pts <= A.best) toast('🏅 <b>New best!</b> Keep going!', 'gold');
+    floatXP(`+${pts}`, $('.ascore'));
+    arcadeScore();
+  }
+  function arcadeMiss(sec) {
+    A.combo = 0; A.left -= sec * 1000; floatXP(`−${sec}s`, $('.atimer')); arcadeScore();
   }
   function tickArcade() {
     if (!A) return;
-    const left = Math.max(0, A.end - Date.now());
+    const now = performance.now();
+    A.left -= now - A.last; A.last = now;
+    const left = Math.max(0, A.left);
     const t = $('#atime'); if (t) { t.textContent = Math.ceil(left / 1000); t.parentElement.style.setProperty('--t', left / 60000); }
     if (left <= 0) endArcade();
+  }
+  const arcadeScore = () => {
+    const e = $('#ascore'); if (e) e.textContent = A.score;
+    const b = $('#abest'); if (b) b.style.width = bestPct() + '%';
+    const c = $('#acombo'); if (c) { c.textContent = comboText(); c.classList.toggle('hot', A.combo >= 3); }
+  };
+  function arcadeMini() {
+    const q = E.arcadeMini(A.kind);
+    Object.assign(q, { onHit: n => { if (A && A.q === q) arcadeHit(n); }, onMiss: () => { if (A && A.q === q) arcadeMiss(2); },
+      onWord: (g, ok) => { if (S().vocab[g]) { E.srsAnswer(g, ok); S().stats.reviews++; E.questProgress('reviews'); } } });
+    A.q = q;
+    main.innerHTML = `<div class="s3">${arcadeHead()}<div class="s3center"><div class="minititle">🎮 ${esc(GAMES[A.kind].name)}</div></div><div class="foot s3foot"><div class="muted center s3help">${MINI_ARCADE_HELP[A.kind]}</div></div></div>`;
+    ST().mini(q, () => { if (A && A.q === q) arcadeMini(); });
+    tickArcade();
   }
   function arcadeNext() {
     A.q = arcadeQ(A.kind);
     const q = A.q;
     if (A.is3D) {
-      main.innerHTML = `<div class="s3"><div class="ph"><button class="x" data-act="quitArcade" aria-label="Quit">✕</button>
-        <div class="atimer"><span id="atime">60</span>s</div><div class="ascore">⭐ ${A.score}</div></div></div>`;
+      main.innerHTML = `<div class="s3">${arcadeHead()}</div>`;
       A.lock = false;
       ST().ask(q, { pick: i => arcadePick(i) });
       return tickArcade();
     }
-    main.innerHTML = `<div class="player arcade"><div class="ph"><button class="x" data-act="quitArcade" aria-label="Quit">✕</button>
-      <div class="atimer"><span id="atime">60</span>s</div><div class="ascore">⭐ ${A.score}</div></div>
+    main.innerHTML = `<div class="player arcade">${arcadeHead()}
       <div class="qbody"><div class="prompt">${q.prompt}</div>${q.big ? `<div class="bigword ${q.small ? 'small' : ''}"><span class="gk">${esc(q.big)}</span></div>` : ''}${q.sub && q.small ? `<div class="subword">${esc(q.sub)}</div>` : ''}
       <div class="opts">${q.options.map((o, i) => `<button class="opt ${q.greekOpts ? 'gk' : ''}" data-act="apick" data-arg="${i}"><span class="k">${i + 1}</span>${esc(o)}</button>`).join('')}</div></div></div>`;
     tickArcade();
@@ -642,21 +703,25 @@
       el.classList.add(ok ? 'right' : 'wrong');
       if (!ok) document.querySelectorAll('.opt')[A.q.answer].classList.add('right');
     }
-    if (!ok) { A.end -= 3000; sfx('bad'); } else { A.score++; sfx('good'); }
+    if (!ok) { arcadeMiss(3); sfx('bad'); } else { arcadeHit(); sfx('good'); }
+    if (A.q.vkey) E.srsAnswer(A.q.vkey, ok);
+    if (A.q.cid) E.cardAnswer(A.q.cid, ok);
     setTimeout(() => { if (A) { A.lock = false; arcadeNext(); } }, A.is3D ? (ok ? 700 : 1100) : (ok ? 250 : 700));
   }
   function endArcade() {
     if (!A) return;
     clearInterval(A.timer);
-    const { kind, score, is3D } = A; A = null;
-    if (is3D) ST().celebrate(score > 0);
+    const { kind, score, is3D, mini } = A; A = null;
+    if (is3D) { if (mini) ST().stopMini(); ST().celebrate(score > 0); }
     const best = S().arcade[kind] || 0, record = score > best;
     if (record) S().arcade[kind] = score;
-    const xp = score * 3, coins = Math.floor(score / 4);
+    const xp = score * 2, coins = Math.floor(score / 5), medal = medalOf(kind, score), oldMedal = medalOf(kind, best);
     if (xp) E.gainXP(xp, coins); else E.save();
     E.checkAchievements();
     if (record && score) { sfx('win'); confetti(); }
+    const nx = GAMES[kind].medals[medal];
     main.innerHTML = `<div class="results ${is3D ? 's3card' : ''}"><h1>${record && score ? '🏅 New high score!' : '⏱ Time!'}</h1>
+      <div class="amedal">${medal ? `<span class="big">${MEDALS[medal - 1]}</span> ${['Bronze', 'Silver', 'Gold'][medal - 1]}${medal > oldMedal ? ' · <b>new medal!</b>' : ''}` : 'No medal yet'}${nx ? `<div class="muted small">${MEDALS[medal]} at ${nx} points. ${nx - score} to go!</div>` : ''}</div>
       <div class="rstats"><div><b>${score}</b><span>score</span></div><div><b>${Math.max(best, score)}</b><span>best</span></div><div><b>+${xp}</b><span>XP</span></div><div><b>+${coins}</b><span>🪙</span></div></div>
       <div class="col-btns"><button class="btn primary wide" data-act="arcade" data-arg="${kind}">Play again</button><button class="btn ghost wide" data-act="go" data-arg="arcade">Back</button></div></div>`;
     renderTop();
@@ -841,7 +906,7 @@
     villain: u => startVillain(+u),
     review: () => startReview('review'), mistakes: () => startReview('mistakes'), weak: () => startReview('weak'), weakc: () => startReview('weakc'), cram: () => startReview('cram'),
     arcade: k => startArcade(k), apick: (i, el) => arcadePick(i, el),
-    quitArcade: () => { if (A) clearInterval(A.timer); A = null; go('arcade'); },
+    quitArcade: () => { if (A) { clearInterval(A.timer); if (A.mini && A.is3D) ST().stopMini(); } A = null; go('arcade'); },
     readVerse,
     equip: a => { const [sl, id] = a.split(':'); if (E.equip(sl, id)) { sfx('tap'); renderProfile(); } },
     buyItem: a => {

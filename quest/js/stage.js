@@ -160,7 +160,8 @@ export function createStage(ctx) {
   const stoneMat = M(0xd8ccb0, { flatShading: false, roughness: 0.9 });
   function slab(text, w, h, { greek = false, num = null, face = '#f3e7c8', color = '#2a1d0c' } = {}) {
     const g = new THREE.Group();
-    const ratio = w / h, W = 512, H = Math.max(96, Math.round(512 / ratio));
+    // the canvas keeps the slab's shape, so wide slabs don't stretch their text
+    const ratio = w / h, H = Math.max(96, Math.round(512 / ratio)), W = Math.min(2048, Math.max(512, Math.round(H * ratio)));
     const tex = textCanvas(text, { W, H, greek, color, bg: face, maxSize: Math.round(H * (greek ? 0.62 : 0.42)), minSize: 16, border: '#b8935a', pad: Math.min(26, Math.round(H * 0.13)) });
     const front = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.8, emissive: 0x000000 });
     const box = new THREE.Mesh(new THREE.BoxGeometry(w, h, 0.28), [stoneMat, stoneMat, stoneMat, stoneMat, front, stoneMat]);
@@ -569,6 +570,10 @@ export function createStage(ctx) {
     setTimeout(() => { MG = null; cb({ ok, hits, total, text }); }, 500);
   }
   function removePick(g) { drop(g); S.picks = S.picks.filter(x => x !== g); }
+  // the arcade counts every hit and miss as it happens
+  const hit = (n = 1) => { if (MG && MG.q.onHit) MG.q.onHit(n); };
+  const miss = () => { if (MG && MG.q.onMiss) MG.q.onMiss(); };
+  S.stopMini = () => { MG = null; clearUI(); };
   S.mini = (q, done) => {
     clearUI(); S.q = q; S.answered = false; S.locked = false;
     MG = { q, done, hits: 0, total: 0, t: 0, over: false, items: [] };
@@ -588,8 +593,11 @@ export function createStage(ctx) {
     miniBanner(`Catch the word for: "${tgt.en}"`);
     const words = U.shuffle([tgt.g, ...U.sample(MG.q.pool.filter(g => g !== tgt.g), 3)]);
     const tw = hw * 0.44, th = hh * 0.13;
+    // every fifth word in the arcade falls golden and scores triple
+    const gold = MG.q.arcade && MG.round % 5 === 0;
+    MG.gold = gold;
     words.forEach((g, i) => {
-      const st = slab(g, tw, th, { greek: true });
+      const st = slab(g, tw, th, { greek: true, face: gold && g === tgt.g ? '#ffe08a' : '#f3e7c8' });
       const col = i % 2, x = (col ? 1 : -1) * hw * 0.48 + (Math.random() - 0.5) * hw * 0.1;
       place(st, x, hh * 0.62 + i * hh * 0.16);
       st.userData.pick = { type: 'mini', ok: g === tgt.g };
@@ -606,17 +614,18 @@ export function createStage(ctx) {
       g.position.y -= g.userData.vy * dt; g.userData.base.y = g.position.y; g.rotation.z = Math.sin(MG.t * 3 + g.position.x) * 0.06;
       if (g.position.y < -hh * 0.95) {
         g.visible = false;
-        if (g.userData.pick.ok) { MG.wait = true; KG.app.sfx('bad'); oppReact(false); word(MG.tgt, false); setTimeout(rainRound, 700); }
+        if (g.userData.pick.ok) { MG.wait = true; KG.app.sfx('bad'); oppReact(false); miss(); word(MG.tgt, false); setTimeout(rainRound, 700); }
       }
     }
   }
   function rainTap(g) {
     if (MG.wait || !g.visible) return;
     if (g.userData.pick.ok) {
-      MG.hits++; MG.wait = true; KG.app.sfx('good'); heroCast(); word(MG.tgt, !MG.slip);
+      MG.hits++; hit(MG.gold ? 3 : 1); MG.wait = true; KG.app.sfx('good'); heroCast(); word(MG.tgt, !MG.slip);
+      if (MG.gold) popText(worldPos(g).add(new THREE.Vector3(0, 0.5, 0)), '★ ×3', '#ffd166', 1.2);
       orb(heroHand(), worldPos(g), 0xffd166, () => { glow(g); oppReact(true); });
       setTimeout(rainRound, 800);
-    } else { KG.app.sfx('bad'); shatter(g); MG.slip = true; }
+    } else { KG.app.sfx('bad'); shatter(g); MG.slip = true; miss(); }
   }
 
   // Sorting Spell: strike each falling Greek line with its use (up to six gates, in two rows)
@@ -648,16 +657,16 @@ export function createStage(ctx) {
     const g = MG.cur, { hh } = frame();
     if (!g || MG.lock) return;
     g.position.y -= g.userData.vy * dt; g.userData.base.y = g.position.y;
-    if (g.position.y < -hh * (MG.q.gates.length > 4 ? 0.32 : 0.42)) { MG.lock = true; KG.app.sfx('bad'); oppReact(false); shatter(g); setTimeout(defenseNext, 700); }
+    if (g.position.y < -hh * (MG.q.gates.length > 4 ? 0.32 : 0.42)) { MG.lock = true; KG.app.sfx('bad'); oppReact(false); shatter(g); miss(); setTimeout(defenseNext, 700); }
   }
   function defenseTap(gate) {
     const g = MG.cur; if (!g || MG.lock) return;
     MG.lock = true;
     const st = g.userData.stone, ok = st.cases.includes(gate.userData.pick.gate);
     heroCast();
-    if (ok) { MG.hits++; KG.app.sfx('good'); glow(gate); orb(heroHand(), worldPos(g), 0xffd166, () => { glow(g); setTimeout(defenseNext, 350); }); }
+    if (ok) { MG.hits++; hit(); KG.app.sfx('good'); glow(gate); orb(heroHand(), worldPos(g), 0xffd166, () => { glow(g); setTimeout(defenseNext, 350); }); }
     else {
-      KG.app.sfx('bad'); shatter(gate); setTimeout(() => { gate.visible = true; gate.scale.setScalar(1); }, 900);
+      KG.app.sfx('bad'); shatter(gate); miss(); setTimeout(() => { gate.visible = true; gate.scale.setScalar(1); }, 900);
       const right = MG.gates.find(x => st.cases.includes(x.userData.pick.gate)); if (right) glow(right, 0xffb040);
       setTimeout(defenseNext, 1100);
     }
@@ -712,9 +721,11 @@ export function createStage(ctx) {
     MG.total = MG.q.chunks.length; MG.idx = 0; MG.time = 5 + MG.q.chunks.length * 3.5; MG.left = MG.time; MG.built = [];
     const { hh, hw, portrait } = frame();
     const b = banner(R.words.map(w => w.w + w.p).join(' '), Math.min(hw * 1.94, 14), portrait ? hh * 0.36 : hh * 0.3, true);
-    place(b, 0, hh * 0.76); introAnim(b, 0);
-    const bar = new THREE.Mesh(new THREE.BoxGeometry(hw * 1.9, hh * 0.035, 0.1), new THREE.MeshBasicMaterial({ color: 0xffd166 }));
-    place(bar, 0, hh * 0.5); MG.bar = bar; MG.barW = hw * 1.9;
+    place(b, 0, hh * (portrait ? 0.62 : 0.72)); introAnim(b, 0);
+    if (!MG.q.arcade) { // the arcade has its own clock
+      const bar = new THREE.Mesh(new THREE.BoxGeometry(hw * 1.9, hh * 0.035, 0.1), new THREE.MeshBasicMaterial({ color: 0xffd166 }));
+      place(bar, 0, hh * 0.5); MG.bar = bar; MG.barW = hw * 1.9;
+    }
     raceChoices();
   }
   function raceChoices() {
@@ -737,12 +748,12 @@ export function createStage(ctx) {
     MG.left -= dt;
     if (MG.bar) { const f = Math.max(0, MG.left / MG.time); MG.bar.scale.x = Math.max(0.001, f); MG.bar.position.x = -MG.barW / 2 * (1 - f); MG.bar.material.color.setHex(f > 0.35 ? 0xffd166 : 0xe0453a); }
     hero.position.z = 5.2 - (MG.idx / MG.total) * 6;
-    if (MG.left <= 0) miniEnd(false, `Time ran out after ${MG.idx} of ${MG.total} pieces. Read the verse again, then race once more!`);
+    if (MG.left <= 0 && !MG.q.arcade) miniEnd(false, `Time ran out after ${MG.idx} of ${MG.total} pieces. Read the verse again, then race once more!`);
   }
   function raceTap(g) {
     if (MG.lock) return;
-    if (g.userData.pick.ok) { MG.hits++; MG.idx++; MG.built.push(g.userData.pick.val); KG.app.sfx('good'); glow(g); MG.lock = true; setTimeout(raceChoices, 350); }
-    else { KG.app.sfx('bad'); shatter(g); MG.left -= 2.5; S.shake = 0.2; }
+    if (g.userData.pick.ok) { MG.hits++; hit(); MG.idx++; MG.built.push(g.userData.pick.val); KG.app.sfx('good'); glow(g); MG.lock = true; setTimeout(raceChoices, 350); }
+    else { KG.app.sfx('bad'); shatter(g); MG.left -= 2.5; S.shake = 0.2; miss(); }
   }
 
   S.debugMini = () => MG; // used by the browser tests
