@@ -372,6 +372,7 @@ function lampPost(x, z) {
   const g = new THREE.Group();
   const p = mesh(new THREE.CylinderGeometry(0.08, 0.1, 2.4, 6), 0x3a3a3a); p.position.y = 1.2; g.add(p);
   const l = mesh(new THREE.SphereGeometry(0.22, 8, 8), 0xffe9a8, { emissive: 0xffc04a, emissiveIntensity: 1.2 }); l.position.y = 2.5; g.add(l);
+  const h = FX.glow(0xffc870, 1.8); h.position.y = 2.5; g.add(h);
   put(g, x, z);
 }
 function signPost(x, z, text) {
@@ -854,7 +855,7 @@ const SQ = makeSideQuests({
     if (!w.nosrs) { E.srsAnswer(w.g, ok); st.reviews++; E.questProgress('reviews'); }
     E.save(); updateHUD();
   },
-  reward: (xp, coins, q) => { E.gainXP(xp, coins); E.questProgress(q); updateHUD(); },
+  reward: (xp, coins, q) => { const st = E.state.stats; st[q] = (st[q] || 0) + 1; E.gainXP(xp, coins); E.questProgress(q); E.checkAchievements(); updateHUD(); },
   sfx: k => KG.app.sfx(k), speak: g => KG.app.speak(g), toast: (h, c) => KG.app.toast(h, c),
   dialog: (n, h, b) => dialog(n, h, b), free: (x, z) => openGround(x, z, 1.2),
   face: (x, z, tx, tz) => { player.position.set(x, groundAt(x, z), z); player.rotation.y = Math.atan2(tx - x, tz - z); cam.yaw = player.rotation.y + Math.PI; cam.pitch = 0.32; },

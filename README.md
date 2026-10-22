@@ -48,7 +48,9 @@ The [Koine Quest](https://github.com/claudekovalenko/gamefied-greek) 3D adventur
 - **Shades of Forgetting**: a bolt of light from your hand banishes them; they ask for due words and for uses that have come due, and an elite shade takes three right answers in a row.
 - **Spacing**: words and uses each have a review schedule. A missed word is due again the same day; a missed question in a lesson comes back a few questions later, then once more at the end.
 - **The look**: a painted sky with sun, clouds and stars, moving water, trees and grass in the wind, sparkles and dust, a hero who leans into a run; hits on the trial stage show damage numbers, combos set the hero's aura burning.
-- Glowing words to pick up along the road, spells, loot, daily quests, an arcade, and Review drills for weak words, weak concepts and a whole-chapter cram.
+- **Arcade**: three endless 3D games (Word Rain with golden words, Sorting Spell, Sentence Race) and three speed rounds, each with a 3-2-1 countdown, combo multipliers and bronze/silver/gold medals.
+- Trials in places that look like the region (village green, forest clearing, riverbank…), each with its own creature.
+- Glowing words to pick up along the road, spells, loot, daily quests, and Review drills for weak words, weak concepts and a whole-chapter cram.
 
 It reads the same `data/content.json`, so it stays in sync with the source apps. To open another chapter as a world, add its number to `KG.CHAPTERS` in `quest/js/content.js`.
 

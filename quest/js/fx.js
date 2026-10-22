@@ -218,6 +218,19 @@ export function makeFX(THREE, { LOW = false } = {}) {
     return (dustTex = new THREE.CanvasTexture(c));
   }
 
+  // ── a soft halo of light around lamps, crystals and lanterns ──
+  let haloTex = null;
+  function glow(color = 0xffd890, size = 1.6, opacity = 0.55) {
+    if (!haloTex) {
+      const c = document.createElement('canvas'); c.width = c.height = 64; const x = c.getContext('2d');
+      const g = x.createRadialGradient(32, 32, 0, 32, 32, 32); g.addColorStop(0, 'rgba(255,255,255,.9)'); g.addColorStop(0.3, 'rgba(255,255,255,.35)'); g.addColorStop(1, 'rgba(255,255,255,0)');
+      x.fillStyle = g; x.fillRect(0, 0, 64, 64); haloTex = new THREE.CanvasTexture(c);
+    }
+    const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: haloTex, color, transparent: true, opacity, depthWrite: false, blending: THREE.AdditiveBlending }));
+    s.scale.setScalar(size);
+    return s;
+  }
+
   // ── a soft round shadow under things that float or fly ──
   let blobTex = null;
   function blobShadow(r = 0.6) {
@@ -264,5 +277,5 @@ export function makeFX(THREE, { LOW = false } = {}) {
     ], { duration: 750, easing: 'cubic-bezier(.5,0,.75,.4)' }).onfinish = () => { d.remove(); target.animate([{ transform: 'scale(1.35)' }, { transform: 'scale(1)' }], { duration: 250 }); };
   }
 
-  return { time, sky, water, windify, portalMaterial, sparks, blobShadow, heroPose, flyToHUD, tick: t => { time.value = t; } };
+  return { time, sky, water, windify, portalMaterial, sparks, glow, blobShadow, heroPose, flyToHUD, tick: t => { time.value = t; } };
 }
