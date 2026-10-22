@@ -1,7 +1,8 @@
 // The 3D trial stage: every lesson, boss fight, review and arcade round is
-// played here. The hero faces an opponent on a floating island; questions
+// played here. The hero faces an opponent in a place with the look of the region (js/stagesets.js); questions
 // float overhead and answers are stone tablets you strike with light.
 import * as THREE from './vendor/three.module.min.js';
+import { makeSets, THEMES } from './stagesets.js';
 
 export function createStage(ctx) {
   const { renderer, person, golem, creep, wispMesh, ZONES, KG } = ctx;
@@ -34,56 +35,25 @@ export function createStage(ctx) {
   const M = (color, o = {}) => new THREE.MeshStandardMaterial(Object.assign({ color, roughness: 0.85, flatShading: true }, o));
   const shadowed = m => { m.castShadow = m.receiveShadow = true; return m; };
 
-  // floating island arena
-  const island = new THREE.Group(); scene.add(island);
-  {
-    const top = shadowed(new THREE.Mesh(new THREE.CylinderGeometry(15, 14, 1.2, 40), M(0xd9cdb0)));
-    top.position.y = -0.6; island.add(top);
-    const ring = shadowed(new THREE.Mesh(new THREE.TorusGeometry(9, 0.12, 6, 60), M(0xe0a526, { metalness: 0.6, roughness: 0.4 })));
-    ring.rotation.x = Math.PI / 2; ring.position.y = 0.02; island.add(ring);
-    const inner = shadowed(new THREE.Mesh(new THREE.CircleGeometry(8.9, 48), M(0xcbbd9c)));
-    inner.rotation.x = -Math.PI / 2; inner.position.y = 0.01; island.add(inner);
-    const grass = new THREE.Mesh(new THREE.TorusGeometry(14.6, 0.7, 6, 48), M(0x6fae4f));
-    grass.rotation.x = Math.PI / 2; grass.position.y = -0.1; grass.scale.z = 0.4; island.add(grass);
-    S.grass = grass;
-    const rock = new THREE.Mesh(new THREE.ConeGeometry(14.5, 16, 12), M(0x8a7a66));
-    rock.rotation.x = Math.PI; rock.position.y = -9.2; island.add(rock);
-    // columns around the back half
-    for (let i = 0; i < 9; i++) {
-      const a = Math.PI * (1.1 + i * 0.1) + Math.PI / 2;
-      const x = Math.cos(a) * 12.5, z = Math.sin(a) * 12.5;
-      const h = i % 3 === 1 ? 3.2 : 6;
-      const c = shadowed(new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.6, h, 12), M(0xeee6d4)));
-      c.position.set(x, h / 2, z); island.add(c);
-      const cap = shadowed(new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.35, 1.4), M(0xe0d6c0)));
-      cap.position.set(x, h + 0.17, z); island.add(cap);
+  // the place where the trial is held: a set in the look of the region (js/stagesets.js), the sky island for the arcade
+  const sets = makeSets(THREE, { LOW, golem });
+  let SET = null, setKey = '';
+  S.flames = [];
+  function useSet(theme, tint) {
+    if (setKey !== theme) {
+      if (SET) {
+        scene.remove(SET.group);
+        SET.group.traverse(o => { if (o.geometry) o.geometry.dispose(); if (o.material) for (const m of [].concat(o.material)) { if (m.map) m.map.dispose(); m.dispose(); } });
+      }
+      SET = sets.build(theme, THEMES.indexOf(theme) + 2); scene.add(SET.group); setKey = theme;
+      S.flames = SET.flames;
     }
-    // braziers with flames
-    S.flames = [];
-    for (const s of [-1, 1]) {
-      const b = shadowed(new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.3, 1.2, 10), M(0x6a5a4a, { metalness: 0.4 })));
-      b.position.set(s * 7.5, 0.6, -2); island.add(b);
-      const f = new THREE.Mesh(new THREE.ConeGeometry(0.42, 1.1, 8), new THREE.MeshBasicMaterial({ color: 0xffb040 }));
-      f.position.set(s * 7.5, 1.7, -2); island.add(f); S.flames.push(f);
-      const l = new THREE.PointLight(0xffa040, 6, 14, 1.6); l.position.set(s * 7.5, 2.4, -2); island.add(l); f.userData.light = l;
-    }
-  }
-  // distant floating islands and clouds
-  for (let i = 0; i < 9; i++) {
-    const a = i / 9 * Math.PI * 2, r = 55 + (i % 3) * 18;
-    const g = new THREE.Group();
-    const t = new THREE.Mesh(new THREE.CylinderGeometry(5, 4, 1, 9), M(0x7fae5f)); g.add(t);
-    const k = new THREE.Mesh(new THREE.ConeGeometry(4.5, 8, 8), M(0x8a7a66)); k.rotation.x = Math.PI; k.position.y = -4.5; g.add(k);
-    const tr = new THREE.Mesh(new THREE.IcosahedronGeometry(2, 0), M(0x4f8f3a)); tr.position.y = 2.4; g.add(tr);
-    g.position.set(Math.cos(a) * r, -6 + (i % 4) * 5, Math.sin(a) * r - 10);
-    scene.add(g);
-  }
-  const clouds = [];
-  for (let i = 0; i < 14; i++) {
-    const c = new THREE.Group();
-    for (let k = 0; k < 4; k++) { const s = new THREE.Mesh(new THREE.IcosahedronGeometry(2 + Math.random() * 2, 1), new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 1, flatShading: true })); s.position.set(k * 2.5 - 4, Math.random(), Math.random() * 2); c.add(s); }
-    c.position.set((Math.random() - 0.5) * 160, -14 - Math.random() * 10, -60 + Math.random() * 120);
-    scene.add(c); clouds.push(c);
+    let [top, mid, bot] = SET.sky;
+    if (tint === 'shade' && !SET.indoor) { const c = (a, b) => new THREE.Color(a).lerp(new THREE.Color(b), 0.45).getHex(); top = c(top, 0x2a1a4a); mid = c(mid, 0x7a6aa8); bot = c(bot, 0x3a2a4a); }
+    paintSky(top, mid, bot, tint === 'shade' ? 0.6 : 0); scene.fog.color.setHex(mid); scene.fog.near = SET.fog[0]; scene.fog.far = SET.fog[1];
+    sky.visible = !SET.indoor;
+    hemi.intensity = (SET.hemi || 1.15) * (tint === 'shade' ? 0.7 : 1);
+    sun.intensity = SET.indoor ? 0.8 : 2.4;
   }
 
   // hero
@@ -95,9 +65,9 @@ export function createStage(ctx) {
   aura.rotation.x = Math.PI / 2; aura.position.set(0, 0.05, 5.2); scene.add(aura);
 
   // opponent slot
+  const FOES = ['guardian', 'shade', 'dummy', 'imp', 'rival', 'creep', 'beast'];
   let opp = null, hpBar = null;
   const oppPos = new THREE.Vector3(0, 1.1, -8);
-  { const dais = shadowed(new THREE.Mesh(new THREE.CylinderGeometry(2.6, 3, 1.1, 24), M(0xe0d6c0))); dais.position.set(0, 0.55, -8); island.add(dais); }
   function hpSprite(frac) {
     const c = document.createElement('canvas'); c.width = 256; c.height = 36; const x = c.getContext('2d');
     x.fillStyle = 'rgba(20,20,30,.8)'; x.beginPath(); x.roundRect(0, 0, 256, 36, 18); x.fill();
@@ -110,6 +80,7 @@ export function createStage(ctx) {
     if (opp) scene.remove(opp);
     const Z = ZONES[unit];
     if (kind === 'creep') { opp = creep(); opp.scale.setScalar(1.7); } else
+    if (kind === 'beast') { opp = sets.beast(ctx.look(unit)); } else
     if (kind === 'guardian') { opp = golem([0x8a8a8a, 0x6a7a4a, 0xc9a43a, 0x4a6a8a, 0x6a6a7a, 0xa08060, 0xa0b0c0, 0xcfe0ff, 0xe0c060][unit]); opp.scale.setScalar(1.25); }
     else if (kind === 'shade') { opp = wispMesh(); opp.scale.setScalar(2.6); opp.userData.float = 2.6; }
     else if (kind === 'arcade') {
@@ -153,9 +124,9 @@ export function createStage(ctx) {
     opp.position.copy(oppPos); opp.rotation.y = 0;
     scene.add(opp);
     hpBar = null;
-    if (['guardian', 'shade', 'dummy', 'imp', 'rival', 'creep'].includes(kind)) {
+    if (FOES.includes(kind)) {
       hpBar = new THREE.Sprite(new THREE.SpriteMaterial({ map: hpSprite(1), depthWrite: false }));
-      hpBar.scale.set(4, 0.56, 1); hpBar.position.set(0, kind === 'guardian' ? 6 : kind === 'shade' ? 5.4 : 4.4, 0); hpBar.position.add(oppPos);
+      hpBar.scale.set(4, 0.56, 1); hpBar.position.set(0, kind === 'guardian' ? 6 : kind === 'shade' ? 5.4 : opp.userData.hpY || 4.4, 0); hpBar.position.add(oppPos);
       scene.add(hpBar); S.hpObj = hpBar;
     } else if (S.hpObj) { scene.remove(S.hpObj); S.hpObj = null; }
   }
@@ -287,7 +258,6 @@ export function createStage(ctx) {
     particles(worldPos(g), 0xffd166, 36, 5);
   }
   // floating numbers and words over the action
-  const FOES = ['guardian', 'shade', 'dummy', 'imp', 'rival', 'creep'];
   function popText(pos, text, color = '#ffd166', size = 1) {
     const c = document.createElement('canvas'); c.width = 512; c.height = 128; const x = c.getContext('2d');
     x.font = `900 84px ${UI}`; x.textAlign = 'center'; x.textBaseline = 'middle';
@@ -513,13 +483,7 @@ export function createStage(ctx) {
   S.ok = true;
   S.enter = (kind, unit = 0) => {
     S.kind = kind; S.unit = unit;
-    const Z = ZONES[unit];
-    const g = new THREE.Color(Z.grass);
-    S.grass.material.color.copy(g);
-    const tints = { guardian: [0x3a4a6a, 0x9ab0d0, 0x4a3a3a], shade: [0x2a1a4a, 0x7a6aa8, 0x3a2a4a], arcade: [0x1f3b6a, 0x7fb0e0, 0xe0d0b0] };
-    const [top, mid, bot] = tints[kind] || [0x4a88c8, 0xb8d8f0, 0xf0e4c8];
-    paintSky(top, mid, bot, kind === 'shade' ? 0.6 : 0); scene.fog.color.setHex(mid);
-    hemi.intensity = kind === 'shade' ? 0.7 : 1.15;
+    useSet(kind === 'arcade' ? 'arena' : THEMES[ctx.look(unit)] || 'arena', kind === 'shade' || kind === 'creep' ? 'shade' : '');
     setOpponent(kind, unit);
     clearUI(); S.q = null;
     S.active = true; S.comboN = 0; aura.material.opacity = 0;
@@ -835,13 +799,14 @@ export function createStage(ctx) {
     camera.updateMatrixWorld();
     uiRoot.position.copy(camera.position); uiRoot.quaternion.copy(camera.quaternion);
     for (const f of S.flames) { const s = 1 + Math.sin(t * 13 + f.position.x) * 0.12; f.scale.set(s, 1 + Math.sin(t * 9) * 0.18, s); f.userData.light.intensity = 5 + Math.sin(t * 17) * 1.2; }
-    for (const c of clouds) { c.position.x += dt * 1.2; if (c.position.x > 90) c.position.x = -90; }
+    if (SET) for (const fn of SET.tick) fn(dt, t);
     if (opp) {
       if (opp.userData.float) opp.position.y = oppPos.y + 1.2 + Math.sin(t * 2) * 0.3;
       if (opp.userData.spin) opp.userData.spin.rotation.y += dt * 1.2;
       if (opp.userData.legs) ctx.animatePerson(opp, 0, dt);
       if (opp.userData.flap) { opp.userData.book.position.y = 2.6 + Math.sin(t * 3) * 0.35; opp.userData.flap.forEach(h => { h.rotation.z = h.userData.sd * (0.35 + Math.sin(t * 9) * 0.45); }); }
       if (opp.userData.wobble && opp.userData.body) opp.userData.body.rotation.z = Math.sin(t * 2) * 0.03;
+      if (opp.userData.tick) opp.userData.tick(dt, t);
     }
     ctx.animatePerson(hero, 0, dt);
     if (pet) { if (pet.userData.fly) pet.position.y = 2.6 + Math.sin(t * 2.5) * 0.25; else pet.position.y = Math.abs(Math.sin(t * 3)) * 0.05; ctx.animatePet(pet, t, dt); }

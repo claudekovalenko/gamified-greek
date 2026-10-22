@@ -11,5 +11,5 @@ new head and apply those changes here:
 | `js/world.js`, `js/stage.js`, `js/app.js`, `js/engine.js`, `css/style.css` | same paths | forked, with small edits for this content |
 | `js/content.js`, `js/boot.js` | — | new: build the game from `../data/content.json` |
 | `js/vendor/` | same | unchanged |
-| `js/fx.js`, `js/sidequests.js` | same paths | **identical copies**: sky, water, wind, sparkles; Rune Circle, Courier, Word Fishing. Copy them over as they are |
+| `js/fx.js`, `js/sidequests.js`, `js/stagesets.js` | same paths | **identical copies** (stagesets: the trial places and each look's creature); sky, water, wind, sparkles; Rune Circle, Courier, Word Fishing. Copy them over as they are |
 | — | `js/data/*`, `js/reader.js`, `data/nt/` | not used: the content comes from the two source apps |

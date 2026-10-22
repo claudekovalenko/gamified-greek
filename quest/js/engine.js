@@ -437,8 +437,24 @@ window.KG = window.KG || {};
   ];
   const teach = o => Object.assign({ type: 'teach' }, o);
   const guided = q => Object.assign(q, { guided: true, noLog: true });
+  // each region has its own creature, in the look of the place (the same looks as js/world.js);
+  // it takes every other trial and the rest rotate
+  const BEASTS = [
+    ['The Training Dummy', 'Knock the stuffing out of it with right answers!'],
+    ['A Grumpy Treant', 'An old tree-spirit creaks to life. Answer well and it will settle back to sleep.'],
+    ['The Scarecrow of Lost Endings', 'It has stolen the endings from the words in the field. Win them back!'],
+    ['The Riddle Toad', 'A toad as big as a boat croaks a riddle at you. Answer, or get splashed!'],
+    ['A Clockwork Builder', 'A practice automaton whirs and clanks. Every right answer slows its gears.'],
+    ['The Sand Serpent', 'It rises from the dust of the ruins, hissing forgotten forms.'],
+    ['The Mirror Wraith', 'It copies every move you make. Only the right answer will break its reflection.'],
+    ['The Snow Yeti', 'A shaggy giant blocks the ledge. Answer quickly before your fingers freeze!'],
+    ['The Ink Drake', 'A dragon of spilled ink uncoils from an old manuscript!'],
+  ];
+  const ROTA = ['beast', 'rival', 'beast', 'imp', 'beast', 'shade', 'beast', 'dummy'];
   function trial(node, kindHint) {
-    const f = kindHint ? FOES.find(x => x[0] === kindHint) : FOES[node.index % FOES.length];
+    const k = kindHint || ROTA[node.index % ROTA.length];
+    if (k === 'beast') { const u = KG.units[node.unit], b = BEASTS[u.final ? 8 : node.unit % 8]; return { type: 'trial', foe: 'beast', title: b[0], say: b[1] }; }
+    const f = FOES.find(x => x[0] === k);
     return { type: 'trial', foe: f[0], title: f[1], say: f[2] };
   }
   const chunks = (a, sizes) => { const out = []; let i = 0; for (const n of sizes) { if (i < a.length) out.push(a.slice(i, i + n)); i += n; } if (i < a.length) out.push(a.slice(i)); return out; };

@@ -1544,7 +1544,7 @@ W.debug = { SQ, scene, startBattle: w => startBattle(w), player, camera, cam, P,
   if (typeof w.yaw === 'number') cam.yaw = w.yaw;
   camera.position.set(w.x, groundAt(w.x, w.z) + 5, w.z + 8);
   setPet();
-  stage = createStage({ FX, renderer, person, golem, creep, wispMesh, ZONES, KG, animatePerson, applyLook, buildPet, animatePet });
+  stage = createStage({ FX, look: LOOK, renderer, person, golem, creep, wispMesh, ZONES, KG, animatePerson, applyLook, buildPet, animatePet });
   W.debug.stage = stage;
   W.ok = true;
   document.dispatchEvent(new Event('world-ready'));
