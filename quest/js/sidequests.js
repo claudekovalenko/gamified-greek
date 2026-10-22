@@ -53,8 +53,11 @@ export function makeSideQuests(ctx) {
     g.position.set(x, ctx.groundAt(x, z), z); ctx.add(g);
     // the bobber and the fish, hidden until needed
     const bob = new T.Group();
-    const b1 = ctx.mesh(new T.SphereGeometry(0.16, 10, 8), 0xe0453a); bob.add(b1);
-    const b2 = ctx.mesh(new T.SphereGeometry(0.16, 10, 8, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2), 0xffffff); bob.add(b2);
+    const b1 = ctx.mesh(new T.SphereGeometry(0.24, 10, 8), 0xe0453a, { emissive: 0x6a1010 }); bob.add(b1);
+    const b2 = ctx.mesh(new T.SphereGeometry(0.24, 10, 8, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2), 0xffffff); bob.add(b2);
+    // ripples spreading out from the bobber
+    const rip = [0, 1, 2].map(() => { const m = new T.Mesh(new T.RingGeometry(0.85, 1, 32), new T.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0, depthWrite: false })); m.rotation.x = -Math.PI / 2; ctx.add(m); return m; });
+    bob.userData.rip = rip;
     bob.visible = false; ctx.add(bob);
     const line = new T.Line(new T.BufferGeometry().setFromPoints([V(0, 0, 0), V(0, 0, 0)]), new T.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.7 }));
     line.frustumCulled = false; line.visible = false; ctx.add(line);
@@ -124,7 +127,7 @@ export function makeSideQuests(ctx) {
       ctx.SPK.emit(from, { color: 0xffffff, n: 24, speed: 3, up: 1.4, gravity: -9, size: 0.3 });
       ctx.reward(kind === 'gold' ? 8 : 4, kind === 'gold' ? 3 : 1, 'fish');
     } else ctx.sfx('bad');
-    e.bob.visible = false; e.line.visible = false;
+    e.bob.visible = false; e.line.visible = false; e.bob.userData.rip.forEach(m => { m.material.opacity = 0; });
     panel.insertAdjacentHTML('beforeend', `<div class="sq-fb ${ok ? 'ok' : 'no'}">${ok ? `🐟 Caught! <b class="gk">${esc(w.g)}</b> = ${esc(w.en)}` : `It slipped away… <b class="gk">${esc(w.g)}</b> = <b>${esc(w.en)}</b>`}</div>`);
     setTimeout(() => {
       if (!run || run !== r) return;
@@ -312,7 +315,7 @@ export function makeSideQuests(ctx) {
   function stop() {
     if (!run) return;
     const r = run; run = null;
-    if (r.kind === 'fish') { r.e.bob.visible = false; r.e.line.visible = false; }
+    if (r.kind === 'fish') { r.e.bob.visible = false; r.e.line.visible = false; r.e.bob.userData.rip.forEach(m => { m.material.opacity = 0; }); }
     if (r.kind === 'runes') r.e.tiles.forEach(tl => tl.m.material.emissive.setHex(0));
     if (r.kind === 'courier') for (const o of r.orbs) if (o.s.parent) o.s.parent.remove(o.s);
     hide();
@@ -355,6 +358,7 @@ export function makeSideQuests(ctx) {
       if (r.kind === 'fish') {
         const e = r.e;
         if (e.bob.visible) {
+          e.bob.userData.rip.forEach((m, k) => { const f = (t * (r.phase === 'bite' ? 1.4 : 0.6) + k / 3) % 1; m.position.set(e.bob.position.x, (r.at || e.water).y + 0.03, e.bob.position.z); m.scale.setScalar(0.2 + f * (r.phase === 'bite' ? 2.2 : 1.4)); m.material.opacity = (1 - f) * 0.7; });
           const hand = ctx.player.position.clone().add(V(0, 1.7, 0));
           const p = e.line.geometry.attributes.position; p.setXYZ(0, hand.x, hand.y, hand.z); p.setXYZ(1, e.bob.position.x, e.bob.position.y, e.bob.position.z); p.needsUpdate = true;
         }

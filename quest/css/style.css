@@ -563,3 +563,4 @@ body.in-stage .main > .s3 { pointer-events: none; }
 .countdown { position: fixed; inset: 0; display: grid; place-items: center; z-index: 70; pointer-events: none; font: 900 min(28vw, 180px)/1 var(--ui, Nunito, sans-serif); color: #ffd166; text-shadow: 0 6px 0 #8a5a10, 0 12px 30px rgba(0,0,0,.5); }
 .countdown.pop { animation: cdpop .6s ease-out forwards; }
 @keyframes cdpop { 0% { transform: scale(2.2); opacity: 0; } 25% { transform: scale(1); opacity: 1; } 80% { opacity: 1; } 100% { transform: scale(.8); opacity: 0; } }
+@media (max-width: 520px) { .wbt-opts { grid-template-columns: 1fr 1fr; } .wbt-opt { padding: 10px 8px; } .wbt-box { padding: 12px; } }

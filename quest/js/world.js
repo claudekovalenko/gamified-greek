@@ -1331,14 +1331,14 @@ function step(dt) {
   tmp.set(pos.x + Math.sin(cam.yaw) * ch, pos.y + 1.4 + cy, pos.z + Math.cos(cam.yaw) * ch);
   tmp.y = Math.max(tmp.y, groundAt(tmp.x, tmp.z) + 0.8);
   // in a shade battle the camera looks over the hero's shoulder at the shade; while fishing, out towards the bobber
-  const foe = battle && battle.w && battle.w.obj.position, focus = foe || SQ.focus();
-  if (foe) {
-    const dx = foe.x - pos.x, dz = foe.z - pos.z, dl = Math.hypot(dx, dz) || 1;
-    tmp.set(pos.x - dx / dl * 5.5 - dz / dl * 1.8, Math.max(pos.y, foe.y) + 5, pos.z - dz / dl * 5.5 + dx / dl * 1.8);
+  const foe = battle && battle.w && battle.w.obj.position, focus = foe || SQ.focus(), aim = foe || (SQ.busy() && focus);
+  if (aim) {
+    const dx = aim.x - pos.x, dz = aim.z - pos.z, dl = Math.hypot(dx, dz) || 1, sd = foe ? 1.8 : 1.2;
+    tmp.set(pos.x - dx / dl * 5.5 - dz / dl * sd, Math.max(pos.y, aim.y) + (foe ? 5 : 4), pos.z - dz / dl * 5.5 + dx / dl * sd);
     tmp.y = Math.max(tmp.y, groundAt(tmp.x, tmp.z) + 1);
   }
-  camera.position.lerp(tmp, Math.min(1, dt * (foe ? 4 : 8)));
-  camLook.lerp(tmp2.set(pos.x, pos.y + 1.4, pos.z).lerp(focus || tmp2, focus ? 0.45 : 0), Math.min(1, dt * 6));
+  camera.position.lerp(tmp, Math.min(1, dt * (aim ? 4 : 8)));
+  camLook.lerp(tmp2.set(pos.x, pos.y + 1.4, pos.z).lerp(focus || tmp2, focus ? (foe ? 0.45 : 0.7) : 0), Math.min(1, dt * 6));
   camera.lookAt(camLook);
   if (S_SHAKE > 0) { S_SHAKE = Math.max(0, S_SHAKE - dt); camera.position.x += (Math.random() - 0.5) * S_SHAKE; camera.position.y += (Math.random() - 0.5) * S_SHAKE; }
   sun.position.set(pos.x + 30, pos.y + 60, pos.z + 20); sun.target.position.set(pos.x, pos.y, pos.z);
