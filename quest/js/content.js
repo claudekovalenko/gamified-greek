@@ -19,12 +19,20 @@ KG.CHAPTERS = [6];
   KG.plain = s => String(s || '').replace(/\*/g, '');
   KG.mark = mark;
 
-  function chunk(a, size = 10) {
+  function chunk(a, size = 5) {
     const out = [];
     for (let i = 0; i < a.length; i += size) out.push(a.slice(i, i + size));
-    if (out.length > 1 && out[out.length - 1].length < 5) out[out.length - 2].push(...out.pop());
+    if (out.length > 1 && out[out.length - 1].length < 3) out[out.length - 2].push(...out.pop());
     return out;
   }
+  // n items into pieces of at most `max`, as even as possible: 6 → 3+3, 5 → 3+2, 4 → 2+2
+  function even(a, max = 3) {
+    const k = Math.ceil(a.length / max), out = [];
+    for (let i = 0, at = 0; i < k; i++) { const n = Math.ceil((a.length - at) / (k - i)); out.push(a.slice(at, at + n)); at += n; }
+    return out;
+  }
+  // two lists woven together evenly, keeping each list's order
+  const weave = (a, b) => a.map((x, i) => [x, (i + 0.5) / a.length]).concat(b.map((x, i) => [x, (i + 0.5) / b.length + 1e-6])).sort((p, q) => p[1] - q[1]).map(p => p[0]);
   // English → 3–5 pieces for the "build the translation" games
   function chunksOf(en) {
     const words = en.split(/\s+/).filter(Boolean);
@@ -69,7 +77,7 @@ KG.CHAPTERS = [6];
     for (const n of chapters) {
       const ch = C.chapters.find(x => x.n === n);
       if (!ch) continue;
-      // ── words, in packs of ten ──
+      // ── words, in short packs of five ──
       const words = C.words.filter(w => w.chapter === n).map(w => {
         let g = lemma(w.g);
         if (seenG.has(g)) g = w.g; // two words, one headword: keep them apart
@@ -103,26 +111,28 @@ KG.CHAPTERS = [6];
         };
       });
 
-      // ── concept lessons: one per group, small groups merged ──
+      // ── concept lessons: short ones, at most three uses each ──
       const sets = ch.conceptSets.map(id => setById.get(id)).filter(Boolean);
       const lessonsBySet = sets.map(set => {
-        const groups = set.groups.map(g => ({ g, cards: KG.cards.filter(c => c.group === g.id) })).filter(x => x.cards.length);
         const buckets = [];
-        for (const x of groups) {
-          const last = buckets[buckets.length - 1];
-          if (last && last.cards.length < 3) { last.groups.push(x.g); last.cards.push(...x.cards); }
-          else buckets.push({ groups: [x.g], cards: x.cards.slice() });
+        for (const g of set.groups) {
+          const cards = KG.cards.filter(c => c.group === g.id);
+          const parts = even(cards);
+          parts.forEach((cs, i) => {
+            // a lone use joins the lesson before it rather than make a one-question lesson
+            if (cs.length === 1 && buckets.length) { const b = buckets[buckets.length - 1]; b.cards.push(...cs); if (!b.groups.includes(g)) b.groups.push(g); b.done.push(g); return; }
+            buckets.push({ groups: [g], cards: cs, part: i + 1, parts: parts.length, intro: i === 0 ? [g] : [], done: i === parts.length - 1 ? [g] : [] });
+          });
         }
-        if (buckets.length > 1 && buckets[buckets.length - 1].cards.length < 3) { const t = buckets.pop(); buckets[buckets.length - 1].groups.push(...t.groups); buckets[buckets.length - 1].cards.push(...t.cards); }
+        const head = g => g.name.split(/\s+[—–-]\s+/)[0];
         return buckets.map((b, i) => {
           const key = `${set.id}_${i}`;
-          const whole = buckets.length === 1;
-          const head = g => g.name.split(/\s+[—–-]\s+/)[0];
-          const title = whole ? set.name : b.groups.map(head).join(' & ');
-          const icon = whole ? set.place : b.groups[0].spot || set.place;
-          KG.grammar[key] = { key, title, icon, set: set.id, chapter: n, cards: b.cards, groups: b.groups, first: i === 0, notes: notesHTML(set, b, i === 0) };
+          const name = set.groups.length === 1 ? set.name : b.groups.map(head).join(' & ');
+          const title = b.parts > 1 ? `${name} ${b.part}/${b.parts}` : name;
+          const icon = b.groups[0].spot || set.place;
+          KG.grammar[key] = { key, title, icon, set: set.id, chapter: n, cards: b.cards, groups: b.groups, ladderGroups: b.done, first: i === 0, notes: notesHTML(set, b, i === 0) };
           KG.teach[key] = {
-            spell: { icon, name: whole ? set.placeName : title, desc: b.groups.map(g => g.mnemonic).join(' ') },
+            spell: { icon, name: title, desc: b.groups.map(g => g.mnemonic).join(' ') },
             beats: beatsFor(set, b, i === 0),
           };
           return key;
@@ -136,7 +146,7 @@ KG.CHAPTERS = [6];
         const lessons = lessonsBySet[r], nodes = [];
         const P = myPacks.map(p => ({ id: `v${p.set}`, type: 'vocab', set: p.set }));
         const G = lessons.map(k => ({ id: `g_${k}`, type: 'grammar', lesson: k }));
-        while (P.length || G.length) { if (P.length) nodes.push(P.shift()); if (G.length) nodes.push(G.shift()); }
+        nodes.push(...weave(P, G));
         nodes.push({ id: `boss_${n}_${set.id}`, type: 'boss' });
         KG.units.push({
           id: `u${n}_${set.id}`, chapter: n, title: set.name, sub: set.subtitle || set.does, color: set.color,
@@ -160,17 +170,17 @@ KG.CHAPTERS = [6];
       let k = 0;
       for (const u of regions) for (const x of u.nodes) if (x.type === 'reading') KG.readings[x.reading].ref = `Scroll ${++k}`;
       // the quiz hall: the mix-ups, then the chapter exam
-      const duels = KG.confusions.filter(cf => KG.cardById[cf.pair[0]].chapter === n);
+      const allDuels = KG.confusions.filter(cf => KG.cardById[cf.pair[0]].chapter === n);
       const hall = [];
-      if (duels.length) {
-        const key = `mixups_${n}`;
-        KG.grammar[key] = { key, title: 'The Mix-Ups', icon: '⚔️', chapter: n, duels, cards: [...new Set(duels.flatMap(cf => cf.pair))].map(id => KG.cardById[id]), notes: duelNotes(duels) };
+      even(allDuels).forEach((duels, i, parts) => {
+        const key = `mixups_${n}_${i}`, title = parts.length > 1 ? `The Mix-Ups ${i + 1}/${parts.length}` : 'The Mix-Ups';
+        KG.grammar[key] = { key, title, icon: '⚔️', chapter: n, duels, cards: [...new Set(duels.flatMap(cf => cf.pair))].map(id => KG.cardById[id]), notes: duelNotes(duels) };
         KG.teach[key] = {
-          spell: { icon: '⚔️', name: 'Tell Them Apart', desc: 'Every pair that gets mixed up, and the one test that splits it.' },
+          spell: { icon: '⚔️', name: title, desc: duels.map(cf => cf.test).join(' · ') },
           beats: duels.map(cf => ({ say: `<b>${esc(cf.question)}</b><br>🔎 ${esc(cf.test)}<br><span class="muted">${esc(cf.answer)}</span>`, demo: cf.example.replace(/“([^”]+)”/g, '[$1]'), duel: cf })),
         };
         hall.push({ id: `g_${key}`, type: 'grammar', lesson: key });
-      }
+      });
       hall.push({ id: `boss_${n}_final`, type: 'boss', final: true, title: `Chapter ${n} exam` });
       KG.units.push({ id: `u${n}_quiz`, chapter: n, title: `Chapter ${n} Quiz`, sub: 'The mix-ups, then everything in the chapter', color: '#c9a43a', place: 'The Quiz Hall', icon: '🏛️', guard: `The Examiner of Chapter ${n}`, nodes: hall, final: true });
       KG.story.arrive.push(`The Quiz Hall. Every word and every use from Chapter ${n} is on the walls. Learn to split the pairs that get mixed up, then face the Examiner: twenty questions from the whole chapter, three hearts.`);
@@ -194,7 +204,9 @@ KG.CHAPTERS = [6];
     function beatsFor(set, b, first) {
       const beats = [];
       for (const g of b.groups) {
-        beats.push({ say: `${first && g === b.groups[0] ? `${esc(set.place)} <b>${esc(set.placeName)}</b>: ${esc(set.bigIdea)}<br>🪝 <b>${esc(set.masterMnemonic)}</b>${set.masterMnemonicWhy ? ` <span class="muted">${esc(set.masterMnemonicWhy)}</span>` : ''}<br>` : ''}${esc(g.spot)} <b>${esc(g.name)}</b> — ${esc(g.mnemonic)}`, demo: g.expand || g.key });
+        if (b.intro && !b.intro.includes(g)) {
+          beats.push({ say: `${esc(g.spot)} <b>${esc(g.name)}</b>, continued — ${esc(g.mnemonic)}`, demo: g.expand || g.key });
+        } else beats.push({ say: `${first && g === b.groups[0] ? `${esc(set.place)} <b>${esc(set.placeName)}</b>: ${esc(set.bigIdea)}<br>🪝 <b>${esc(set.masterMnemonic)}</b>${set.masterMnemonicWhy ? ` <span class="muted">${esc(set.masterMnemonicWhy)}</span>` : ''}<br>` : ''}${esc(g.spot)} <b>${esc(g.name)}</b> — ${esc(g.mnemonic)}`, demo: g.expand || g.key });
         for (const c of b.cards.filter(x => x.group === g.id)) {
           const e = c.examples.find(x => x.greek) || c.examples[0];
           beats.push({

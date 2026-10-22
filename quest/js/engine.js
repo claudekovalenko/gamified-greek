@@ -272,10 +272,10 @@ window.KG = window.KG || {};
   }
   function vocabLessonQuestions(set) {
     const words = E.vocabSet(set), pool = chapterWords(words[0]);
-    const qs = E.vocabQuestions(words, pool, 12);
-    // interleave two earlier words for spaced retrieval
+    const qs = E.vocabQuestions(words, pool, 8);
+    // interleave an earlier word for spaced retrieval
     const earlier = pool.filter(w => w.set < set);
-    for (const w of sample(earlier, 2)) qs.push(vocabQ(w, pool, U.pick(WORD_MIX)));
+    for (const w of sample(earlier, 1)) qs.push(vocabQ(w, pool, U.pick(WORD_MIX)));
     return qs;
   }
 
@@ -354,7 +354,7 @@ window.KG = window.KG || {};
   const CONCEPT_MIX = [spotQ, spotQ, spotQ, hookQ, plainQ, exampleQ];
   E.spotQ = spotQ; E.hookQ = hookQ; E.duelQ = duelQ; E.examplesOf = examplesOf;
   E.conceptQ = (c, pool = chapterCards(c.chapter)) => U.pick(CONCEPT_MIX)(c, pool);
-  function conceptQuestions(key, n = 10) {
+  function conceptQuestions(key, n = 8) {
     const L = KG.grammar[key], pool = chapterCards(L.chapter), qs = [];
     if (L.duels) {
       for (const cf of shuffle(L.duels)) qs.push(duelQ(cf));
@@ -365,7 +365,7 @@ window.KG = window.KG || {};
     while (qs.length < n - 2) qs.push(U.pick([spotQ, spotQ, exampleQ])(U.pick(L.cards), pool));
     const ids = L.cards.map(c => c.id), duels = KG.confusions.filter(cf => cf.pair.some(id => ids.includes(id)));
     if (duels.length) qs.push(duelQ(U.pick(duels)));
-    const lad = KG.ladders.find(l => L.groups.some(g => g.id === l.group.id));
+    const lad = KG.ladders.find(l => (L.ladderGroups || []).some(g => g.id === l.group.id));
     const out = shuffle(qs).slice(0, n - 1 - (lad ? 1 : 0));
     const m = matchCards(L.cards);
     if (m) out.splice(Math.floor(out.length / 2), 0, m);
@@ -395,7 +395,7 @@ window.KG = window.KG || {};
     const units = node.final ? KG.units.filter(u => u.chapter === ch) : [KG.units[node.unit]];
     const nodes = units.flatMap(u => u.nodes).filter(n => n.type !== 'boss');
     let qs = [];
-    for (const n of nodes) qs = qs.concat(sample(E.questionsFor(n).filter(q => q.type === 'mc'), node.final ? 3 : 4));
+    for (const n of nodes) qs = qs.concat(sample(E.questionsFor(n).filter(q => q.type === 'mc'), node.final ? 2 : 3));
     return sample(qs, node.final ? 20 : 15);
   }
 
@@ -430,7 +430,7 @@ window.KG = window.KG || {};
   function miniFor(node) {
     if (node.type === 'vocab') {
       const words = E.vocabSet(node.set), pool = chapterWords(words[0]);
-      return { type: 'mini', game: 'rain', title: 'Word Rain', targets: sample(words, 6).map(w => ({ g: w.g, en: w.short })), pool: pool.map(w => w.g),
+      return { type: 'mini', game: 'rain', title: 'Word Rain', targets: sample(words, 5).map(w => ({ g: w.g, en: w.short })), pool: pool.map(w => w.g),
         fallback: sample(words, 3).map(w => vocabQ(w, pool, 'g2e')) };
     }
     if (node.type === 'grammar') {
@@ -461,21 +461,21 @@ window.KG = window.KG || {};
       });
       plan.push(trial(node));
       const mg = miniFor(node);
-      return plan.concat(mg ? [mg] : [], conceptQuestions(node.lesson, first ? 8 : 11));
+      return plan.concat(mg ? [mg] : [], conceptQuestions(node.lesson, first ? 5 : 8));
     }
     if (node.type === 'vocab') {
       const words = E.vocabSet(node.set), pool = chapterWords(words[0]);
       if (!first) return [trial(node), miniFor(node)].concat(vocabLessonQuestions(node.set));
-      for (const c of chunks(U.shuffle(words), [3, 3, 4])) {
+      for (const c of chunks(U.shuffle(words), [3, 3])) {
         plan.push(teach({ words: c.map(w => ({ g: w.g, lex: w.lex, en: w.en, f: w.f, icon: w.icon, mn: w.mn })) }));
         for (const w of c) plan.push(guided(vocabQ(w, pool, 'g2e')));
       }
       plan.push(trial(node));
       plan.push(miniFor(node));
-      plan.push(matchWords(sample(words, 5)));
-      for (const w of sample(words, 5)) plan.push(vocabQ(w, pool, U.pick(['e2g', 'e2g', 'hook', 'sleuth'])));
+      if (words.length >= 3) plan.push(matchWords(sample(words, 5)));
+      for (const w of sample(words, 2)) plan.push(vocabQ(w, pool, U.pick(['e2g', 'e2g', 'hook', 'sleuth'])));
       const earlier = pool.filter(w => w.set < node.set);
-      for (const w of sample(earlier, 2)) plan.push(vocabQ(w, pool, 'g2e'));
+      for (const w of sample(earlier, 1)) plan.push(vocabQ(w, pool, 'g2e'));
       return plan;
     }
     if (node.type === 'reading') {

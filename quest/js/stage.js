@@ -344,7 +344,7 @@ export function createStage(ctx) {
     } else if (q.big) {
       const bigW = Math.min(hw * (q.small ? 1.9 : 1.5), q.small ? 13 : 9), bigH = (portrait ? hh * 0.3 : hh * 0.32) * (q.sub ? 0.8 : 1);
       const bigY = (portrait ? hh * 0.2 : hh * 0.18) + (q.sub ? hh * 0.04 : 0);
-      const big = new THREE.Mesh(new THREE.PlaneGeometry(bigW, bigH), new THREE.MeshBasicMaterial({ map: textCanvas(strip(q.big), { W: 1024, H: Math.round(1024 * bigH / bigW), greek: true, maxSize: 260, minSize: 40, color: '#fff7e0' }), transparent: true, depthWrite: false }));
+      const big = new THREE.Mesh(new THREE.PlaneGeometry(bigW, bigH), new THREE.MeshBasicMaterial({ map: textCanvas(strip(q.big), { W: 1024, H: Math.round(1024 * bigH / bigW), greek: true, maxSize: 260, minSize: 40, color: '#fff7e0', bg: 'rgba(24,16,6,.42)' }), transparent: true, depthWrite: false }));
       const shadow = new THREE.Mesh(big.geometry, new THREE.MeshBasicMaterial({ map: big.material.map, color: 0x000000, transparent: true, opacity: 0.45, depthWrite: false }));
       shadow.position.set(0.06, -0.06, -0.01);
       const bg = new THREE.Group(); bg.add(shadow, big); bg.userData = { base: new THREE.Vector3() };
@@ -573,7 +573,8 @@ export function createStage(ctx) {
   function miniBanner(text) {
     const { hh, hw } = frame();
     if (MG && MG.banner) drop(MG.banner);
-    const b = banner(text, Math.min(hw * 1.9, 13), hh * 0.17); place(b, 0, hh * 0.8); introAnim(b, 0);
+    // a little nearer the camera than the game pieces, so falling stones pass behind it
+    const b = banner(text, Math.min(hw * 1.75, 12), hh * 0.16); place(b, 0, hh * 0.7, 0.8); introAnim(b, 0);
     if (MG) MG.banner = b;
   }
   function miniEnd(ok, text) {

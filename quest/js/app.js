@@ -505,10 +505,10 @@
         <div><b>+${r.coins}</b><span>🪙</span></div></div>
       ${extra}
       <div class="col-btns">
-        ${node && r.passed && E.nodes[node.index + 1] ? `<button class="btn primary wide" data-act="start" data-arg="${E.nodes[node.index + 1].id}">Next: ${esc(E.nodes[node.index + 1].title)} ▶</button>` : ''}
-        ${villain ? `<button class="btn primary wide" data-act="villain" data-arg="${node.unit}">😈 Chase Skulch now</button>` : ''}
+        ${home !== 'world' && node && r.passed && E.nodes[node.index + 1] ? `<button class="btn primary wide" data-act="start" data-arg="${E.nodes[node.index + 1].id}">Next: ${esc(E.nodes[node.index + 1].title)} ▶</button>` : ''}
+ ${villain && home !== 'world' ? `<button class="btn primary wide" data-act="villain" data-arg="${node.unit}">😈 Chase Skulch now</button>` : ''}
         ${vMode && !r.passed ? `<button class="btn primary wide" data-act="villain" data-arg="${vMode}">😈 Riddle me again</button>` : ''}
-        ${home === 'world' ? `<button class="btn ${node && r.passed && E.nodes[node.index + 1] ? 'ghost' : 'primary'} wide" data-act="go" data-arg="world">🏞 Return to the adventure</button>` : ''}
+        ${home === 'world' ? `<button class="btn primary wide" data-act="go" data-arg="world">🏞 ${node && r.passed && E.nodes[node.index + 1] ? 'Walk on to the next person' : 'Return to the adventure'}</button>` : ''}
         ${node ? `<button class="btn ghost wide" data-act="start" data-arg="${node.id}">${r.passed ? 'Practice again' : 'Try again'}</button>` : ''}
         ${home === 'world' ? '' : `<button class="btn ghost wide" data-act="go" data-arg="${node ? 'path' : 'review'}">Back</button>`}</div></div>`;
     if (node && KG.world && KG.world.ok) KG.world.onLessonDone(node, r);
