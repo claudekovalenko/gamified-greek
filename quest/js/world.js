@@ -557,6 +557,38 @@ function animatePerson(p, speed, dt) {
   u.arms[0].rotation.x = -sw * 0.8; u.arms[1].rotation.x = sw * 0.8;
   u.body.position.y = Math.abs(Math.cos(u.phase)) * 0.08 * amt + Math.sin(u.phase * 0.35) * 0.015;
 }
+// Skulch the Riddle-Creep: pale, crouched, all eyes. He steals the questions you miss.
+function creep() {
+  const g = new THREE.Group(), body = new THREE.Group(); g.add(body);
+  const skin = 0xc9c7a8, dark = 0x8a8670;
+  const torso = tmesh(new THREE.SphereGeometry(0.42, 14, 12), skin); torso.scale.set(0.9, 1.15, 0.75); torso.position.set(0, 0.95, -0.05); torso.rotation.x = 0.5; body.add(torso);
+  for (let k = 0; k < 4; k++) { const rib = tmesh(new THREE.TorusGeometry(0.3 - k * 0.02, 0.012, 4, 14, Math.PI), dark, {}, 0); rib.position.set(0, 1.05 - k * 0.1, 0.2); rib.rotation.set(0.4, 0, Math.PI); body.add(rib); }
+  const cloth = tmesh(new THREE.CylinderGeometry(0.34, 0.3, 0.2, 12), 0x5a4a3a, {}, 0); cloth.position.y = 0.6; body.add(cloth);
+  const head = tmesh(new THREE.SphereGeometry(0.42, 18, 14), skin); head.scale.set(1.05, 0.95, 0.95); head.position.set(0, 1.62, 0.2); body.add(head);
+  for (const sd of [-1, 1]) {
+    const eye = tmesh(new THREE.SphereGeometry(0.15, 14, 12), 0xf2f6ff, {}, 0); eye.position.set(sd * 0.16, 1.68, 0.52); body.add(eye);
+    const iris = new THREE.Mesh(new THREE.SphereGeometry(0.085, 10, 8), new THREE.MeshBasicMaterial({ color: 0x4a8acf })); iris.position.set(sd * 0.16, 1.68, 0.64); body.add(iris);
+    const pupil = new THREE.Mesh(new THREE.SphereGeometry(0.045, 8, 6), new THREE.MeshBasicMaterial({ color: 0x050505 })); pupil.position.set(sd * 0.16, 1.68, 0.71); body.add(pupil);
+    const ear = tmesh(new THREE.ConeGeometry(0.1, 0.32, 6), skin, {}, 0); ear.position.set(sd * 0.44, 1.66, 0.15); ear.rotation.z = sd * -1.2; body.add(ear);
+  }
+  for (const hx of [-0.08, 0.02, 0.1]) { const hair = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.006, 0.35, 3), new THREE.MeshBasicMaterial({ color: 0x3a3a2a })); hair.position.set(hx, 2.08, 0.16); hair.rotation.z = hx * 3; body.add(hair); }
+  const mouth = new THREE.Mesh(new THREE.TorusGeometry(0.11, 0.018, 4, 10, Math.PI), new THREE.MeshBasicMaterial({ color: 0x2a1a1a })); mouth.position.set(0, 1.46, 0.55); body.add(mouth);
+  const tooth = tmesh(new THREE.BoxGeometry(0.04, 0.05, 0.02), 0xf0e8c0, {}, 0); tooth.position.set(0.03, 1.44, 0.57); body.add(tooth);
+  const legs = [], arms = [];
+  for (const sd of [-1, 1]) {
+    const hip = new THREE.Group(); hip.position.set(sd * 0.2, 0.62, 0);
+    const thigh = tmesh(new THREE.CylinderGeometry(0.06, 0.08, 0.45, 6), skin, {}, 0); thigh.position.set(0, -0.12, 0.18); thigh.rotation.x = -1.1; hip.add(thigh);
+    const shin = tmesh(new THREE.CylinderGeometry(0.05, 0.06, 0.45, 6), skin, {}, 0); shin.position.set(0, -0.36, 0.3); shin.rotation.x = 0.5; hip.add(shin);
+    const foot = tmesh(new THREE.BoxGeometry(0.14, 0.05, 0.34), skin, {}, 0); foot.position.set(0, -0.58, 0.36); hip.add(foot);
+    g.add(hip); legs.push(hip);
+    const sh = new THREE.Group(); sh.position.set(sd * 0.36, 1.18, 0.12);
+    const arm = tmesh(new THREE.CylinderGeometry(0.045, 0.055, 0.8, 6), skin, {}, 0); arm.position.y = -0.38; arm.rotation.x = -0.5; sh.add(arm);
+    for (let f = 0; f < 3; f++) { const fin = tmesh(new THREE.CylinderGeometry(0.012, 0.016, 0.16, 4), skin, {}, 0); fin.position.set((f - 1) * 0.04, -0.8, 0.26); fin.rotation.x = -0.9; sh.add(fin); }
+    body.add(sh); arms.push(sh);
+  }
+  g.userData = { body, legs, arms, phase: 0, creep: true };
+  return g;
+}
 function golem(color = 0x8a8a8a) {
   const g = new THREE.Group(), body = new THREE.Group(); g.add(body);
   const torso = mesh(new THREE.BoxGeometry(1.8, 1.8, 1.1), color); torso.position.y = 2.2; body.add(torso);
@@ -825,7 +857,7 @@ let beacon;
 function refreshMarkers() {
   const t = questTarget();
   for (const e of ents) {
-    e.mark.visible = !!(t.ent === e);
+    e.mark.visible = e.kind === 'villain' || t.ent === e;
     if (e.kind === 'guardian') { e.gate.visible = !gateOpen(e.zone); portals[e.zone].visible = gateOpen(e.zone); }
     if (e.kind === 'pedestal') {
       const done = E.stars(e.node.id) > 0;
@@ -839,7 +871,10 @@ function refreshMarkers() {
   beacon.visible = !!t.ent;
   if (t.ent) beacon.position.set(t.ent.x, groundAt(t.ent.x, t.ent.z) + 30, t.ent.z);
   const who = t.ent ? (t.ent.kind === 'mentor' ? `Visit ${ZONES[t.ent.zone].mentor[1]}` : t.ent.kind === 'pedestal' ? 'Restore the lost scroll' : `Challenge ${t.ent.label}`) : '';
-  $('wqtext').innerHTML = t.done ? 'All quests complete! Step into the Hall of Victory.' : `${who}: <b>${esc(t.node.title)}</b>`;
+  syncVillains();
+  const vs = Object.keys(E.state.villains || {}).map(Number);
+  $('wqtext').innerHTML = (t.done ? 'All quests complete! Step into the Hall of Victory.' : `${who}: <b>${esc(t.node.title)}</b> <span class="wq-go">▶ tap to start</span>`)
+    + (vs.length ? `<div class="wq-side">😈 Side quest: beat Skulch in ${vs.map(z => esc(ZONES[z].name)).join(', ')}</div>` : '');
   W.target = t.ent;
   updateHUD();
 }
@@ -882,6 +917,22 @@ function dialog(name, html, buttons) {
 function closeDialog() { dlgOpen = false; $('wdlg').classList.remove('on'); $('wdlg').innerHTML = ''; }
 function launch(id) { savePos(); closeDialog(); KG.app.startNode(id); }
 
+// Skulch hides in a region after you fail a lesson there; one creature per region
+const villains = [];
+function buildVillains() {
+  KG.units.forEach((u, i) => {
+    const z = -i * L - 14, x = pathX(z) + (i % 2 ? 4.5 : -4.5);
+    const o = creep(); o.scale.setScalar(1.25); put(o, x, z);
+    const e = addEnt({ kind: 'villain', zone: i, obj: o, x, z, label: 'Skulch the Riddle-Creep', tagY: 2.9 });
+    e.col = colliders[colliders.length - 1];
+    e.mark.visible = true; e.mark.material = marker('!', '#ff5a4a').material;
+    villains.push(e);
+  });
+}
+function syncVillains() {
+  const V = E.state.villains || {};
+  for (const e of villains) { const on = !!V[e.zone]; e.obj.visible = on; e.col.r = on ? 0.8 : 0; }
+}
 function talk(e) {
   const Z = ZONES[e.zone], app = KG.app;
   app.sfx('tap');
@@ -910,6 +961,11 @@ function talk(e) {
     dialog(`📜 ${esc(R.ref)}`, done ? `<p>You restored this scroll. Its words shine again:</p><p class="gk wd-verse">${esc(R.words.map(w => w.w + w.p).join(' '))}</p>` :
       `<p>A lost scroll! Its sentence is fading. It is built from words you have just learned: read it and translate it to restore it.</p>`,
       [{ label: done ? 'Read & translate again' : 'Restore the scroll ▶', cls: 'primary', fn: () => launch(n.id) }, { label: 'Leave' }]);
+  } else if (e.kind === 'villain') {
+    const v = (E.state.villains || {})[e.zone];
+    if (!v) return;
+    dialog('😈 Skulch the Riddle-Creep', `<p><b>“Sss! It wants its words back, does it? Skulch took them, yesss, ${v.qs.length} lovely little words and uses it got wrong. Answer Skulch's riddles, then, and maybe it gets them. Miss three and Skulch keeps them, yesss, forever.”</b></p><p class="muted small">Side quest: ${Math.max(6, Math.min(10, v.qs.length + 3))} riddles from the questions you missed, 3 hearts. Win for +40 XP and 15 🪙.</p>`,
+      [{ label: 'Riddle me ⚔', cls: 'primary', fn: () => { savePos(); closeDialog(); KG.app.startVillain(e.zone); } }, { label: 'Not now' }]);
   } else if (e.kind === 'guardian') {
     const n = e.node;
     if (gateOpen(e.zone)) return dialog(esc(e.label), '<p><span class="gk">Πάρελθε.</span> <i>(Pass by.)</i> You have proven yourself, scribe. The way is open.</p>', [{ label: 'Rematch ⚔', fn: () => launch(n.id) }, { label: 'Onward' }]);
@@ -1020,6 +1076,8 @@ canvas.addEventListener('pointerup', endPtr); canvas.addEventListener('pointerca
 canvas.addEventListener('wheel', e => { cam.dist = Math.min(16, Math.max(4, cam.dist + e.deltaY * 0.01)); e.preventDefault(); }, { passive: false });
 $('wjump').addEventListener('pointerdown', e => { input.jump = true; e.preventDefault(); });
 $('wtalk').addEventListener('click', () => tryTalk());
+// tap the quest box to start the next lesson from anywhere, no walking back
+$('wquest').addEventListener('click', () => { if (dlgOpen || battle) return; const t = questTarget(); if (t.node && E.unlocked(t.node)) launch(t.node.id); });
 $('wmapbtn').addEventListener('click', () => { if (!battle) worldMap(); });
 
 let nearEnt = null;
@@ -1109,15 +1167,17 @@ function step(dt) {
   // NPCs idle & interaction
   nearEnt = null; let best = 3.6;
   for (const e of ents) {
+    if (!e.obj.visible) continue;
     const d = Math.hypot(pos.x - e.x, pos.z - e.z);
+    if (e.kind === 'villain') { e.obj.userData.body.position.y = Math.abs(Math.sin(t * 5)) * 0.08; e.obj.userData.body.rotation.z = Math.sin(t * 2.3) * 0.12; }
     e.mark.position.y = (e.tagY || 2.7) + 0.9 + Math.sin(t * 3) * 0.12;
     if (e.kind === 'pedestal') { e.spin.rotation.y += dt; e.spin.position.y = 1.7 + Math.sin(t * 2) * 0.1; }
     else if (d < 12) { const want = Math.atan2(pos.x - e.x, pos.z - e.z); let dr = want - e.obj.rotation.y; dr = Math.atan2(Math.sin(dr), Math.cos(dr)); e.obj.rotation.y += dr * Math.min(1, dt * 3); }
-    if (e.kind !== 'pedestal') animatePerson(e.obj, 0, dt);
+    if (e.kind !== 'pedestal' && e.kind !== 'villain') animatePerson(e.obj, 0, dt);
     if (d < best) { best = d; nearEnt = e; }
   }
   const pr = $('wprompt');
-  if (nearEnt && !busy) { pr.innerHTML = `<b>E</b> / 💬 ${nearEnt.kind === 'pedestal' ? 'Examine' : nearEnt.kind === 'guardian' ? 'Confront' : 'Talk to'} ${esc(nearEnt.label)}`; pr.classList.add('on'); $('wtalk').classList.add('on'); }
+  if (nearEnt && !busy) { pr.innerHTML = `<b>E</b> / 💬 ${nearEnt.kind === 'pedestal' ? 'Examine' : nearEnt.kind === 'guardian' || nearEnt.kind === 'villain' ? 'Confront' : 'Talk to'} ${esc(nearEnt.label)}`; pr.classList.add('on'); $('wtalk').classList.add('on'); }
   else { pr.classList.remove('on'); $('wtalk').classList.remove('on'); }
 
   // quest arrow
@@ -1286,6 +1346,7 @@ W.debug = { player, camera, cam, P, ents, wisps, questTarget, teleport: (x, z) =
   skyDecor();
   scenery();
   buildEntities();
+  buildVillains();
   buildCollectibles();
   buildWisps();
   const w = ws();
@@ -1293,7 +1354,7 @@ W.debug = { player, camera, cam, P, ents, wisps, questTarget, teleport: (x, z) =
   if (typeof w.yaw === 'number') cam.yaw = w.yaw;
   camera.position.set(w.x, groundAt(w.x, w.z) + 5, w.z + 8);
   setPet();
-  stage = createStage({ renderer, person, golem, wispMesh, ZONES, KG, animatePerson, applyLook, buildPet, animatePet });
+  stage = createStage({ renderer, person, golem, creep, wispMesh, ZONES, KG, animatePerson, applyLook, buildPet, animatePet });
   W.debug.stage = stage;
   W.ok = true;
   document.dispatchEvent(new Event('world-ready'));

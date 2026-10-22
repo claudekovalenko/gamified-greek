@@ -277,6 +277,7 @@ KG.CHAPTERS = [6];
     { id: 'level5', icon: '⭐', name: 'Reader', desc: 'Reach level 5', test: (s, h) => h.level() >= 5 },
     { id: 'level10', icon: '🌟', name: 'Rising Scholar', desc: 'Reach level 10', test: (s, h) => h.level() >= 10 },
     { id: 'sparks', icon: '✨', name: 'Spark Collector', desc: 'Pick up every glowing word in the world', test: s => ((s.world || {}).letters || []).length >= KG.sparks.length },
+    { id: 'riddles', icon: '😈', name: 'Riddles in the Road', desc: 'Beat Skulch the Riddle-Creep and win your words back', test: s => (s.stats.villains || 0) >= 1 },
     { id: 'shades', icon: '👻', name: 'Shade Banisher', desc: 'Banish 25 Shades of Forgetting', test: s => ((s.world || {}).wisps || 0) >= 25 },
     { id: 'goal', icon: '🎯', name: 'Goal Getter', desc: 'Hit your daily goal', test: s => s.stats.goals >= 1 },
   ];

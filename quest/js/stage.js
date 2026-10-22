@@ -4,7 +4,7 @@
 import * as THREE from './vendor/three.module.min.js';
 
 export function createStage(ctx) {
-  const { renderer, person, golem, wispMesh, ZONES, KG } = ctx;
+  const { renderer, person, golem, creep, wispMesh, ZONES, KG } = ctx;
   const U = KG.util;
   const E_look = () => KG.engine.look();
   const GK = '"Gentium Plus", "Noto Serif", Georgia, serif';
@@ -116,6 +116,7 @@ export function createStage(ctx) {
   function setOpponent(kind, unit) {
     if (opp) scene.remove(opp);
     const Z = ZONES[unit];
+    if (kind === 'creep') { opp = creep(); opp.scale.setScalar(1.7); } else
     if (kind === 'guardian') { opp = golem([0x8a8a8a, 0x6a7a4a, 0xc9a43a, 0x4a6a8a, 0x6a6a7a, 0xa08060, 0xa0b0c0, 0xcfe0ff, 0xe0c060][unit]); opp.scale.setScalar(1.25); }
     else if (kind === 'shade') { opp = wispMesh(); opp.scale.setScalar(2.6); opp.userData.float = 2.6; }
     else if (kind === 'arcade') {
@@ -159,7 +160,7 @@ export function createStage(ctx) {
     opp.position.copy(oppPos); opp.rotation.y = 0;
     scene.add(opp);
     hpBar = null;
-    if (['guardian', 'shade', 'dummy', 'imp', 'rival'].includes(kind)) {
+    if (['guardian', 'shade', 'dummy', 'imp', 'rival', 'creep'].includes(kind)) {
       hpBar = new THREE.Sprite(new THREE.SpriteMaterial({ map: hpSprite(1), depthWrite: false }));
       hpBar.scale.set(4, 0.56, 1); hpBar.position.set(0, kind === 'guardian' ? 6 : kind === 'shade' ? 5.4 : 4.4, 0); hpBar.position.add(oppPos);
       scene.add(hpBar); S.hpObj = hpBar;
@@ -231,7 +232,16 @@ export function createStage(ctx) {
     const hh = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * D;
     return { hh, hw: hh * camera.aspect, portrait: camera.aspect < 0.9 };
   }
-  function clearUI() { for (const c of [...ui.children]) ui.remove(c); S.picks = []; S.sel = null; }
+  // Every question makes fresh canvas textures; free the old ones so a long
+  // lesson doesn't fill the phone's GPU memory and slow down.
+  function dispose(o) {
+    o.traverse(x => {
+      if (x.geometry) x.geometry.dispose();
+      for (const m of x.material ? [].concat(x.material) : []) { if (m === stoneMat) continue; if (m.map) m.map.dispose(); m.dispose(); }
+    });
+  }
+  const drop = o => { if (o) { ui.remove(o); dispose(o); } };
+  function clearUI() { for (const c of [...ui.children]) drop(c); S.picks = []; S.sel = null; }
 
   // ── animation helpers ──────────────────────────────────────
   const anim = fn => S.anims.push(fn);
@@ -248,18 +258,25 @@ export function createStage(ctx) {
       life -= dt * 1.1; const p = g.attributes.position;
       for (let i = 0; i < n; i++) { v[i].y -= 6 * dt; p.setXYZ(i, p.getX(i) + v[i].x * dt, p.getY(i) + v[i].y * dt, p.getZ(i) + v[i].z * dt); }
       p.needsUpdate = true; pts.material.opacity = Math.max(0, life);
-      if (life <= 0) { scene.remove(pts); return false; } return true;
+      if (life <= 0) { scene.remove(pts); g.dispose(); pts.material.dispose(); return false; } return true;
     });
   }
+  // Two lights made once and lent to orbs: adding or removing a light makes three.js
+  // recompile every shader, which freezes a phone for a moment on each answer.
+  const orbLights = [0, 1].map(() => { const l = new THREE.PointLight(0xffffff, 0, 6); scene.add(l); return l; });
+  const orbGeo = new THREE.SphereGeometry(1, 12, 10);
   function orb(from, to, color, onHit, size = 0.32) {
-    const o = new THREE.Mesh(new THREE.SphereGeometry(size, 12, 10), new THREE.MeshBasicMaterial({ color }));
-    const light = new THREE.PointLight(color, 8, 6); o.add(light);
+    const o = new THREE.Mesh(orbGeo, new THREE.MeshBasicMaterial({ color }));
+    o.scale.setScalar(size);
+    const light = orbLights.find(l => !l.userData.busy);
+    if (light) { light.userData.busy = true; light.color.setHex(color); light.intensity = 8; }
     scene.add(o);
     const mid = from.clone().lerp(to, 0.5); mid.y += 2;
     tween(0.38, t => {
       const a = from.clone().lerp(mid, t), b = mid.clone().lerp(to, t); o.position.copy(a.lerp(b, t));
-      o.scale.setScalar(1 + Math.sin(t * Math.PI) * 0.6);
-    }, () => { scene.remove(o); particles(to, color, 30, 4); onHit && onHit(); });
+      o.scale.setScalar(size * (1 + Math.sin(t * Math.PI) * 0.6));
+      if (light) light.position.copy(o.position);
+    }, () => { scene.remove(o); o.material.dispose(); if (light) { light.intensity = 0; light.userData.busy = false; } particles(to, color, 30, 4); onHit && onHit(); });
   }
   const heroHand = () => worldPos(hero).add(new THREE.Vector3(0.4, 1.4, -0.3));
   function heroCast() {
@@ -275,7 +292,7 @@ export function createStage(ctx) {
       scene.add(f);
       const v = new THREE.Vector3((Math.random() - 0.5) * 4, Math.random() * 3, Math.random() * 2), r = new THREE.Vector3(Math.random() * 6, Math.random() * 6, 0);
       let life = 1.2;
-      anim(dt => { life -= dt; v.y -= 12 * dt; f.position.addScaledVector(v, dt); f.rotation.x += r.x * dt; f.rotation.y += r.y * dt; if (life <= 0) { scene.remove(f); return false; } return true; });
+      anim(dt => { life -= dt; v.y -= 12 * dt; f.position.addScaledVector(v, dt); f.rotation.x += r.x * dt; f.rotation.y += r.y * dt; if (life <= 0) { scene.remove(f); f.geometry.dispose(); return false; } return true; });
     }
   }
   function glow(g, color = 0x3fdc7a) {
@@ -312,7 +329,19 @@ export function createStage(ctx) {
     const prompt = strip(q.prompt);
     const bw = Math.min(hw * 1.9, 13), bh = portrait ? hh * 0.26 : hh * 0.24;
     const b = banner(prompt, bw, bh); place(b, 0, hh - bh / 2 - hh * 0.12); introAnim(b, 0);
-    if (q.big) {
+    if (q.big && q.small) {
+      // a whole sentence or verse: on parchment so it reads against any sky
+      const bigW = Math.min(hw * 1.9, 13), bigH = (portrait ? hh * 0.3 : hh * 0.32) * (q.sub ? 0.8 : 1);
+      const bigY = (portrait ? hh * 0.2 : hh * 0.18) + (q.sub ? hh * 0.04 : 0);
+      const bg = banner(strip(q.big), bigW, bigH, true); place(bg, 0, bigY); introAnim(bg, 0.05);
+      S.big = bg;
+      if (q.sub) {
+        const sw = bigW, sh = hh * 0.11;
+        const sub = new THREE.Mesh(new THREE.PlaneGeometry(sw, sh), new THREE.MeshBasicMaterial({ map: textCanvas(strip(q.sub), { W: 1024, H: Math.round(1024 * sh / sw), maxSize: 84, minSize: 28, color: '#fff2c8', weight: 800, bg: 'rgba(40,28,12,.75)' }), transparent: true, depthWrite: false }));
+        const sg = new THREE.Group(); sg.add(sub); sg.userData = { base: new THREE.Vector3() };
+        place(sg, 0, bigY - bigH / 2 - sh * 0.55); introAnim(sg, 0.1);
+      }
+    } else if (q.big) {
       const bigW = Math.min(hw * (q.small ? 1.9 : 1.5), q.small ? 13 : 9), bigH = (portrait ? hh * 0.3 : hh * 0.32) * (q.sub ? 0.8 : 1);
       const bigY = (portrait ? hh * 0.2 : hh * 0.18) + (q.sub ? hh * 0.04 : 0);
       const big = new THREE.Mesh(new THREE.PlaneGeometry(bigW, bigH), new THREE.MeshBasicMaterial({ map: textCanvas(strip(q.big), { W: 1024, H: Math.round(1024 * bigH / bigW), greek: true, maxSize: 260, minSize: 40, color: '#fff7e0' }), transparent: true, depthWrite: false }));
@@ -346,12 +375,13 @@ export function createStage(ctx) {
   function askMatch(q) {
     const { hh, hw, portrait } = frame();
     const b = banner(strip(q.prompt), Math.min(hw * 1.9, 13), hh * 0.18); place(b, 0, hh * 0.78); introAnim(b, 0);
-    const n = q.pairs.length, gap = hh * 0.035, th = Math.min(hh * 0.27, (hh * 1.55 - gap * (n - 1)) / n), tw = hw * 0.9;
+    // rows fit between the banner and the help line at the bottom
+    const n = q.pairs.length, gap = hh * 0.035, th = Math.min(hh * 0.27, (hh * 1.32 - gap * (n - 1)) / n), tw = hw * 0.92;
     const L = U.shuffle(q.pairs.map((p, i) => ({ t: p[0], i }))), R = U.shuffle(q.pairs.map((p, i) => ({ t: p[1], i })));
     S.match = { sel: null, done: 0, miss: 0, n };
     [L, R].forEach((col, side) => col.forEach((it, k) => {
       const s = slab(it.t, tw, th, { greek: side === 0 && q.greekLeft, face: side ? '#f3e7c8' : '#e9f0f8' });
-      place(s, side ? hw * 0.5 : -hw * 0.5, hh * 0.56 - th / 2 - k * (th + gap));
+      place(s, side ? hw * 0.5 : -hw * 0.5, hh * 0.58 - th / 2 - k * (th + gap));
       introAnim(s, k * 0.05 + side * 0.1);
       s.userData.pick = { type: 'mt', side, i: it.i };
       S.picks.push(s);
@@ -449,7 +479,7 @@ export function createStage(ctx) {
       const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, len, 6), new THREE.MeshBasicMaterial({ color: 0xffd166 }));
       beam.position.copy(pa).lerp(pb, 0.5); beam.lookAt(pb); beam.rotateX(Math.PI / 2); scene.add(beam);
       glow(a); glow(g); KG.app.sfx('good');
-      tween(0.5, t => { beam.scale.x = beam.scale.z = 1 - t; a.scale.setScalar(1 - t * 0.9); g.scale.setScalar(1 - t * 0.9); }, () => { scene.remove(beam); a.visible = g.visible = false; });
+      tween(0.5, t => { beam.scale.x = beam.scale.z = 1 - t; a.scale.setScalar(1 - t * 0.9); g.scale.setScalar(1 - t * 0.9); }, () => { scene.remove(beam); beam.geometry.dispose(); beam.material.dispose(); a.visible = g.visible = false; });
       if (++m.done === m.n) { S.answered = true; setTimeout(() => S.h.matchDone(m.miss), 550); }
     } else {
       m.miss++; KG.app.sfx('bad');
@@ -542,7 +572,7 @@ export function createStage(ctx) {
   let MG = null;
   function miniBanner(text) {
     const { hh, hw } = frame();
-    if (MG && MG.banner) ui.remove(MG.banner);
+    if (MG && MG.banner) drop(MG.banner);
     const b = banner(text, Math.min(hw * 1.9, 13), hh * 0.17); place(b, 0, hh * 0.8); introAnim(b, 0);
     if (MG) MG.banner = b;
   }
@@ -551,7 +581,7 @@ export function createStage(ctx) {
     MG.over = true; const cb = MG.done, hits = MG.hits, total = MG.total;
     setTimeout(() => { MG = null; cb({ ok, hits, total, text }); }, 500);
   }
-  function removePick(g) { ui.remove(g); S.picks = S.picks.filter(x => x !== g); }
+  function removePick(g) { drop(g); S.picks = S.picks.filter(x => x !== g); }
   S.mini = (q, done) => {
     clearUI(); S.q = q; S.answered = false; S.locked = false;
     MG = { q, done, hits: 0, total: 0, t: 0, over: false, items: [] };
@@ -704,7 +734,7 @@ export function createStage(ctx) {
     const { hh, hw } = frame(), right = MG.q.chunks[MG.idx];
     const pool = MG.q.chunks.slice(MG.idx + 1).concat(MG.q.extras).filter(c => c !== right);
     const opts = U.shuffle([right, ...U.sample(U.uniq(pool), 2)]);
-    if (MG.line) ui.remove(MG.line);
+    if (MG.line) drop(MG.line);
     MG.line = banner(MG.built.join(' ') || '…', Math.min(hw * 1.94, 14), hh * 0.2); place(MG.line, 0, hh * 0.24);
     opts.forEach((o, i) => {
       const g = slab(o, hw * 1.7, hh * 0.13, { face: '#f3e7c8' });
@@ -740,7 +770,7 @@ export function createStage(ctx) {
     for (const p of S.picks) if (p !== pick && p !== right && p.visible) tween(0.4, t => p.children[0].material.forEach && p.children[0].material.forEach(m => { m.transparent = true; m.opacity = 1 - t * 0.65; }));
   };
   S.result = ok => { heroCast(); if (ok) { orb(heroHand(), worldPos(opp || hero).add(new THREE.Vector3(0, 2.4, 0)), 0xffd166, () => oppReact(true)); } else oppReact(false); };
-  S.hp = frac => { if (hpBar) { hpBar.material.map = hpSprite(Math.max(0, frac)); hpBar.material.needsUpdate = true; } };
+  S.hp = frac => { if (hpBar) { const old = hpBar.material.map; hpBar.material.map = hpSprite(Math.max(0, frac)); hpBar.material.needsUpdate = true; if (old) old.dispose(); } };
   S.combo = n => {
     S.comboN = n;
     aura.material.opacity = n >= 3 ? Math.min(0.9, 0.3 + n * 0.05) : 0;

@@ -304,8 +304,12 @@ window.KG = window.KG || {};
     const ex = examplesOf(c);
     if (!ex.length) return plainQ(c, pool);
     const e = U.pick(ex);
-    return mc(`🔍 Which use is this?${e.ref ? ` <span class="muted">(${esc(e.ref)})</span>` : ''}`, cardName(c), cardOthers(c, pool),
-      { big: e.greek ? KG.guillemet(e.greek) : KG.plain(e.english), sub: e.greek ? KG.plain(e.english) : '', explain: cardExplain(c, e.note), cid: c.id, small: true, hint: groupHint(c) });
+    // an English line that just is the answer ("they" for αὐτοί) is left off
+    const en = KG.plain(e.english || ''), low = s => String(s || '').toLowerCase().replace(/[^a-z ]/g, '').trim();
+    const gives = [c.name, c.short, c.gist, c.tile].some(x => low(x) && (low(x) === low(en) || low(x).includes(low(en)) && low(en).length > 1));
+    const ref = e.ref && !/^the /i.test(e.ref) ? e.ref : '';
+    return mc(`🔍 Which use is this?${ref ? ` <span class="muted">(${esc(ref)})</span>` : ''}`, cardName(c), cardOthers(c, pool),
+      { big: e.greek ? KG.guillemet(e.greek) : en, sub: e.greek && !gives ? en : '', explain: cardExplain(c, e.note), cid: c.id, small: true, hint: groupHint(c) });
   }
   function hookQ(c, pool) {
     if (!c.mnemonic) return plainQ(c, pool);
@@ -520,6 +524,35 @@ window.KG = window.KG || {};
     if (perfect && passed) E.questProgress('perfect');
     E.gainXP(xp, coins);
     return { xp, coins, acc, perfect, passed, stars: rec.stars, firstClear, boosted, spell, chest };
+  };
+
+  // ── Skulch the Riddle-Creep: fail a lesson and he steals what you missed ──
+  const KEEP = ['prompt', 'big', 'sub', 'small', 'options', 'answer', 'explain', 'greekOpts', 'vkey', 'cid', 'hint', 'speak'];
+  E.spawnVillain = (unit, missed = []) => {
+    const V = E.state.villains || (E.state.villains = {});
+    const v = V[unit] || (V[unit] = { since: U.day(), qs: [] });
+    for (const q of missed) {
+      if (q.type !== 'mc' || v.qs.some(x => x.prompt === q.prompt && x.big === q.big)) continue;
+      v.qs.push(Object.fromEntries(KEEP.filter(k => q[k] !== undefined).map(k => [k, q[k]])));
+    }
+    v.qs = v.qs.slice(-12);
+    E.save();
+    return v;
+  };
+  // his riddles: what you missed, topped up from the region's words and uses
+  E.villainQuestions = unit => {
+    const v = (E.state.villains || {})[unit]; if (!v) return [];
+    const qs = v.qs.map(q => { const opts = shuffle(q.options); return Object.assign({ type: 'mc' }, q, { options: opts, answer: opts.indexOf(q.options[q.answer]) }); });
+    const nodes = KG.units[unit].nodes.filter(n => n.type === 'vocab' || n.type === 'grammar');
+    const extra = shuffle(nodes.flatMap(n => E.questionsFor(n).filter(q => q.type === 'mc')));
+    const want = Math.max(6, Math.min(10, qs.length + 3));
+    return shuffle(qs).slice(0, want - 2).concat(extra).slice(0, want);
+  };
+  E.defeatVillain = unit => {
+    const S = E.state;
+    if (S.villains) delete S.villains[unit];
+    S.stats.villains = (S.stats.villains || 0) + 1;
+    E.gainXP(40, 15);
   };
 
   E.recordAnswer = (q, correct, isReview) => {

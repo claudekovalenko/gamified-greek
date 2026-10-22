@@ -98,11 +98,13 @@
   const ST = () => KG.world.stage;
   function stageKind(o) {
     if (o.mode === 'boss') return 'guardian';
+    if (o.mode === 'villain') return 'creep';
     if (o.mode === 'review' || o.mode === 'mistakes') return 'shade';
     if (o.node && o.node.type === 'reading') return 'scroll';
     return 'mentor';
   }
-  const stageUnit = o => (o.node ? o.node.unit : (E.nextNode() || { unit: 0 }).unit);
+  const stageUnit = o => (o.node ? o.node.unit : o.villain !== undefined ? o.villain : (E.nextNode() || { unit: 0 }).unit);
+  const hearts = () => P.mode === 'boss' || P.mode === 'villain';
   function enterStage(kind, unit) {
     document.body.classList.remove('in-world');
     document.body.classList.add('playing', 'in-stage');
@@ -260,7 +262,7 @@
     const pct = (P.i / P.qs.length) * 100;
     return `<div class="ph"><button class="x" data-act="quit" aria-label="Quit">✕</button>
       <div class="prog"><i style="width:${pct}%"></i></div>
-      ${P.mode === 'boss' ? `<div class="hearts">${'❤'.repeat(P.hearts)}<span class="lost">${'❤'.repeat(3 - P.hearts)}</span></div>` : ''}
+      ${hearts() ? `<div class="hearts">${'❤'.repeat(P.hearts)}<span class="lost">${'❤'.repeat(3 - P.hearts)}</span></div>` : ''}
       <div class="combo ${P.combo >= 3 ? 'hot' : ''}">${P.combo >= 2 ? `🔥${P.combo}` : ''}</div></div>`;
   }
   // [bracketed] parts of a demo glow
@@ -406,9 +408,10 @@
         if (P.combo > 0 && P.combo % 5 === 0) toast(`⚡ ${P.combo}× combo! Bonus XP`);
       } else {
         P.wrong++; P.combo = 0; sfx('bad');
-        if (P.mode === 'boss') P.hearts--;
+        if (q.type === 'mc' && !q.guided) (P.missed || (P.missed = [])).push(q);
+        if (hearts()) P.hearts--;
         // Ask a missed question once more at the end of the lesson (retrieval after a delay).
-        if (P.mode !== 'boss' && !q.retry) {
+        if (!hearts() && !q.retry) {
           const again = Object.assign({}, P.qs[P.i], { retry: true });
           if (again.type === 'mc') { again.options = shuffle(again.options); again.answer = again.options.indexOf(q.options[q.answer]); }
           P.qs.push(again);
@@ -417,7 +420,7 @@
     }
     if (P.is3D) {
       ST().combo(P.combo);
-      if (P.mode === 'boss' || P.mode === 'review' || P.mode === 'mistakes') ST().hp(1 - P.correct / Math.max(1, P.qs.filter(x => !x.retry).length));
+      if (hearts() || P.mode === 'review' || P.mode === 'mistakes') ST().hp(1 - P.correct / Math.max(1, P.qs.filter(x => !x.retry).length));
       else if (P.trial) ST().hp(1 - P.trial.correct / Math.max(1, P.qs.slice(P.trial.start).filter(x => !x.retry && x.type !== 'teach').length));
       if (q.type === 'match' || q.type === 'order') ST().result(ok);
     }
@@ -450,7 +453,7 @@
   }
   function next() {
     if (P) clearTimeout(P.autoT);
-    if (P.mode === 'boss' && P.hearts <= 0) return finish();
+    if (hearts() && P.hearts <= 0) return finish();
     P.i++;
     if (P.i >= P.qs.length) return finish();
     renderQ();
@@ -458,14 +461,26 @@
   function finish() {
     const res = { correct: P.correct, wrong: P.wrong, xp: P.xp, maxCombo: P.maxCombo, hearts: P.hearts };
     let r, title, extra = '';
-    if (P.node) {
+    let villain = null;
+    if (P.mode === 'villain') {
+      const won = P.hearts > 0, graded = res.correct + res.wrong;
+      if (won) E.defeatVillain(P.villain); else E.gainXP(res.xp, 0);
+      r = { xp: won ? res.xp + 40 : res.xp, coins: won ? 15 : 0, acc: graded ? res.correct / graded : 1, passed: won, perfect: !res.wrong };
+      title = won ? '😈 Skulch is beaten!' : '😈 Skulch got away…';
+      extra = won ? '<p>“Nooo! Our lovely words!” He drops them all and scuttles off into the dark. <b>+40 XP, +15 🪙</b></p>'
+        : `<p>“Sss, it fails again! Skulch keeps them!” He is still waiting in <b>${esc(KG.units[P.villain].place)}</b>. Learn the hooks in the Codex and try again.</p>`;
+    } else if (P.node) {
       r = E.finishLesson(P.node, res);
+      if (!r.passed) {
+        villain = E.spawnVillain(P.node.unit, P.missed || []);
+        extra += `<div class="villain-note">😈 <b>Skulch the Riddle-Creep</b> snatched the ${villain.qs.length || ''} question${villain.qs.length === 1 ? '' : 's'} you missed and scuttled off into <b>${esc(KG.units[P.node.unit].place)}</b>. Beat his riddles in a side quest to win them back!</div>`;
+      }
       if (P.mode === 'boss') title = r.passed ? '⚔ Boss defeated!' : '💀 The boss won this time';
       else title = r.passed ? (r.perfect ? '💎 Flawless!' : 'Lesson complete!') : 'Almost there!';
-      if (!r.passed) extra = `<p>${P.mode === 'boss' ? 'Replay the region\'s lessons, drill your weakest concepts in Review, and try again.' : 'Score 70% or more to earn a star and unlock the next lesson.'}</p>`;
+      if (!r.passed) extra = extra + `<p>${P.mode === 'boss' ? 'Replay the region\'s lessons, drill your weakest concepts in Review, and try again.' : 'Score 70% or more to earn a star and unlock the next lesson.'}</p>`;
       if (r.passed && r.firstClear) { const nx = E.nodes[P.node.index + 1]; if (nx) extra = `<p>🔓 Unlocked: <b>${esc(nx.title)}</b></p>`; }
       if (!r.passed) extra += `<p class="small muted">${P.mode === 'boss' ? '' : 'Tip: open 📖 Learn on the stop to see every hook and example first.'}</p>`;
-      if (r.chest) {
+      if (r.chest && r.passed) {
         const pz = r.chest.prize;
         extra = `<div class="chest"><div class="chest-ic">🎁</div><div><div class="sp-k">Treasure chest!</div>${pz ? `<b>${esc(pz.it.name)}</b> ${pz.it.icon || ''} <span class="muted small">(${pz.slot})</span><div class="small">Wear it from your Profile → Wardrobe</div>` : ''}<div class="small">+${r.chest.coins} 🪙</div></div></div>` + extra;
       }
@@ -478,7 +493,7 @@
       title = P.mode === 'mistakes' ? '📝 Mistakes reviewed' : '🔁 Review complete!';
     }
     if (r.passed) { sfx('win'); confetti(r.perfect ? 200 : 110); }
-    const node = P.node;
+    const node = P.node, vMode = P.mode === 'villain' ? String(P.villain) : '';
     if (P.is3D) ST().celebrate(r.passed);
     main.innerHTML = `<div class="results ${P.is3D ? 's3card' : ''}">
       <h1>${title}</h1>
@@ -490,8 +505,10 @@
         <div><b>+${r.coins}</b><span>🪙</span></div></div>
       ${extra}
       <div class="col-btns">
-        ${home === 'world' ? `<button class="btn primary wide" data-act="go" data-arg="world">🏞 Return to the adventure</button>` :
-          node && r.passed && E.nodes[node.index + 1] ? `<button class="btn primary wide" data-act="start" data-arg="${E.nodes[node.index + 1].id}">Next lesson ▶</button>` : ''}
+        ${node && r.passed && E.nodes[node.index + 1] ? `<button class="btn primary wide" data-act="start" data-arg="${E.nodes[node.index + 1].id}">Next: ${esc(E.nodes[node.index + 1].title)} ▶</button>` : ''}
+        ${villain ? `<button class="btn primary wide" data-act="villain" data-arg="${node.unit}">😈 Chase Skulch now</button>` : ''}
+        ${vMode && !r.passed ? `<button class="btn primary wide" data-act="villain" data-arg="${vMode}">😈 Riddle me again</button>` : ''}
+        ${home === 'world' ? `<button class="btn ${node && r.passed && E.nodes[node.index + 1] ? 'ghost' : 'primary'} wide" data-act="go" data-arg="world">🏞 Return to the adventure</button>` : ''}
         ${node ? `<button class="btn ghost wide" data-act="start" data-arg="${node.id}">${r.passed ? 'Practice again' : 'Try again'}</button>` : ''}
         ${home === 'world' ? '' : `<button class="btn ghost wide" data-act="go" data-arg="${node ? 'path' : 'review'}">Back</button>`}</div></div>`;
     if (node && KG.world && KG.world.ok) KG.world.onLessonDone(node, r);
@@ -526,6 +543,12 @@
       <p class="muted small">Each quest: +15 🪙 and +25 XP. New quests every day.</p></div>`;
   }
   KG.app_questsCard = questsCard;
+  function startVillain(unit) {
+    closeSheet();
+    const qs = E.villainQuestions(unit);
+    if (!qs.length) return toast('Skulch is nowhere to be seen. 🕳');
+    begin({ qs, mode: 'villain', villain: unit });
+  }
   function startReview(kind) {
     let words, qs;
     if (kind === 'mistakes') {
@@ -797,6 +820,7 @@
       const box = $('#hintbox'); if (!box) return;
       P.hinted = P.i; box.hidden = false; box.innerHTML = `🪝 ${esc(P.q.hint)}`; sfx('tap');
     },
+    villain: u => startVillain(+u),
     review: () => startReview('review'), mistakes: () => startReview('mistakes'), weak: () => startReview('weak'), weakc: () => startReview('weakc'), cram: () => startReview('cram'),
     arcade: k => startArcade(k), apick: (i, el) => arcadePick(i, el),
     quitArcade: () => { if (A) clearInterval(A.timer); A = null; go('arcade'); },
@@ -842,7 +866,7 @@
   // ── boot ────────────────────────────────────────────────────
   const msg = E.checkStreak();
   renderTop();
-  KG.app = { go, startNode, openNode, sfx, speak, toast, confetti, floatXP, renderTop, showLearn, readVerse: id => readVerse(id),
+  KG.app = { go, startNode, startVillain, openNode, sfx, speak, toast, confetti, floatXP, renderTop, showLearn, readVerse: id => readVerse(id),
     closeSheet };
   // The 3D world loads as a module after this script; open it once it reports ready,
   // and fall back to the path map if WebGL is unavailable.

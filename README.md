@@ -42,6 +42,8 @@ The [Koine Quest](https://github.com/claudekovalenko/gamefied-greek) 3D adventur
 - **Mini-games**: Word Rain (words), Sorting Spell (strike each Greek line with its use), Sentence Race (the vocab app's practice sentences, as scrolls).
 - On a phone: drag on the right to walk, on the left to look around; talk and jump buttons sit bottom-left.
 - **Hooks everywhere**: a 🪝 hint button on questions (a word's sound-alike, or the group's hook; half XP), each region's memory line on its banner and from its mentor and guardian, and a Hook book in the Codex with every hook in the chapter.
+- **Skulch the Riddle-Creep**: fail a lesson or a guardian and he steals the questions you missed and hides in that region. A side quest: beat his riddles (3 hearts) to win them back.
+- **No walking back**: tap the Quest box to start the next lesson from anywhere, and every results screen offers the next lesson straight away.
 - Glowing words to pick up along the road, Shades of Forgetting (spaced review of words and uses), spells, loot, daily quests, an arcade, and Review drills for weak words, weak concepts and a whole-chapter cram.
 
 It reads the same `data/content.json`, so it stays in sync with the source apps. To open another chapter as a world, add its number to `KG.CHAPTERS` in `quest/js/content.js`.

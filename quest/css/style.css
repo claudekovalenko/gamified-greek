@@ -509,3 +509,7 @@ body.in-stage .main > .s3 { pointer-events: none; }
 .hookbook ul { margin: 6px 0; padding-left: 1.2em; }
 .lexhook { grid-column: 1 / -1; font-size: .78rem; color: var(--muted); }
 .wd-hook { background: rgba(224,165,38,.15); border-radius: 8px; padding: 6px 8px; }
+.villain-note { background: #2a1630; color: #f3e6ff; border: 2px solid #8a3aff; border-radius: 12px; padding: 10px 12px; margin: 10px 0; text-align: left; line-height: 1.4; }
+.wquest { cursor: pointer; pointer-events: auto; }
+.wq-go { display: inline-block; font-size: .72rem; color: #ffd166; margin-left: 4px; }
+.wq-side { margin-top: 4px; font-size: .78rem; color: #ffb3a8; font-weight: 800; }
