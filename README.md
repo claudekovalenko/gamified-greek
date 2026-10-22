@@ -44,7 +44,11 @@ The [Koine Quest](https://github.com/claudekovalenko/gamefied-greek) 3D adventur
 - **Hooks everywhere**: a 🪝 hint button on questions (a word's sound-alike, or the group's hook; half XP), each region's memory line on its banner and from its mentor and guardian, and a Hook book in the Codex with every hook in the chapter.
 - **Skulch the Riddle-Creep**: fail a lesson or a guardian and he steals the questions you missed and hides in that region. A side quest: beat his riddles (3 hearts) to win them back.
 - **One person per lesson**: every short lesson (5 words, or 2–3 uses) is taught by its own character along the road; finish it and walk on to the next. Riddle chests between them open with one right answer and refill daily.
-- Glowing words to pick up along the road, Shades of Forgetting (spaced review of words and uses), spells, loot, daily quests, an arcade, and Review drills for weak words, weak concepts and a whole-chapter cram.
+- **Side quests**, fed by the review queue (due words first): a 🔤 **Rune Circle** in every region (walk and hop across lettered stones to spell the Greek word), 📦 **Courier** errands (find the right glowing word nearby and carry it back) and 🎣 **Word Fishing** at the river (name the fish's word before it slips away).
+- **Shades of Forgetting**: a bolt of light from your hand banishes them; they ask for due words and for uses that have come due, and an elite shade takes three right answers in a row.
+- **Spacing**: words and uses each have a review schedule. A missed word is due again the same day; a missed question in a lesson comes back a few questions later, then once more at the end.
+- **The look**: a painted sky with sun, clouds and stars, moving water, trees and grass in the wind, sparkles and dust, a hero who leans into a run; hits on the trial stage show damage numbers, combos set the hero's aura burning.
+- Glowing words to pick up along the road, spells, loot, daily quests, an arcade, and Review drills for weak words, weak concepts and a whole-chapter cram.
 
 It reads the same `data/content.json`, so it stays in sync with the source apps. To open another chapter as a world, add its number to `KG.CHAPTERS` in `quest/js/content.js`.
 

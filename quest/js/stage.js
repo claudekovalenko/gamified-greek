@@ -16,19 +16,12 @@ export function createStage(ctx) {
   const S = { active: false, scene, camera, kind: 'mentor', unit: 0, picks: [], anims: [], q: null, h: null, shake: 0 };
 
   // ── environment ────────────────────────────────────────────
-  const skyMat = new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.BackSide, fog: false, depthWrite: false });
-  const skyGeo = new THREE.SphereGeometry(300, 24, 12);
-  const sky = new THREE.Mesh(skyGeo, skyMat);
+  const FX = ctx.FX, LOW = (KG.engine.state.settings || {}).gfx === 'low';
+  const sky = FX.sky(300);
   scene.add(sky);
-  function paintSky(top, mid, bot) {
-    const p = skyGeo.attributes.position, cols = [], T = new THREE.Color(top), M = new THREE.Color(mid), B = new THREE.Color(bot);
-    for (let i = 0; i < p.count; i++) {
-      const y = p.getY(i) / 300;
-      const c = y > 0 ? M.clone().lerp(T, Math.min(1, y * 1.5)) : M.clone().lerp(B, Math.min(1, -y * 3));
-      cols.push(c.r, c.g, c.b);
-    }
-    skyGeo.setAttribute('color', new THREE.Float32BufferAttribute(cols, 3));
-  }
+  const paintSky = (top, mid, bot, stars = 0) => sky.userData.set({ top, mid, bot, sun: 0xfff1d6, clouds: 0.4, stars, sunDir: [0.3, 0.35, -0.9] });
+  // sparkles for every hit, cast and win
+  const SPK = FX.sparks(scene, LOW ? 300 : 800);
   scene.fog = new THREE.Fog(0xb8d8f0, 40, 160);
   const hemi = new THREE.HemisphereLight(0xe8f4ff, 0x6a5a40, 1.15);
   const sun = new THREE.DirectionalLight(0xffe2b0, 2.4);
@@ -197,7 +190,7 @@ export function createStage(ctx) {
   function slab(text, w, h, { greek = false, num = null, face = '#f3e7c8', color = '#2a1d0c' } = {}) {
     const g = new THREE.Group();
     const ratio = w / h, W = 512, H = Math.max(96, Math.round(512 / ratio));
-    const tex = textCanvas(text, { W, H, greek, color, bg: face, maxSize: Math.round(H * (greek ? 0.62 : 0.42)), minSize: 16, border: '#b8935a' });
+    const tex = textCanvas(text, { W, H, greek, color, bg: face, maxSize: Math.round(H * (greek ? 0.62 : 0.42)), minSize: 16, border: '#b8935a', pad: Math.min(26, Math.round(H * 0.13)) });
     const front = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.8, emissive: 0x000000 });
     const box = new THREE.Mesh(new THREE.BoxGeometry(w, h, 0.28), [stoneMat, stoneMat, stoneMat, stoneMat, front, stoneMat]);
     box.castShadow = true;
@@ -249,18 +242,10 @@ export function createStage(ctx) {
   const ease = t => 1 - Math.pow(1 - t, 3);
   const worldPos = o => o.getWorldPosition(new THREE.Vector3());
   function particles(pos, color, n = 40, spread = 5) {
-    const g = new THREE.BufferGeometry(), arr = new Float32Array(n * 3), v = [];
-    for (let i = 0; i < n; i++) { arr.set([pos.x, pos.y, pos.z], i * 3); v.push(new THREE.Vector3((Math.random() - 0.5) * spread, Math.random() * spread * 0.8, (Math.random() - 0.5) * spread)); }
-    g.setAttribute('position', new THREE.BufferAttribute(arr, 3));
-    const pts = new THREE.Points(g, new THREE.PointsMaterial({ color, size: 0.22, transparent: true, depthWrite: false }));
-    scene.add(pts); let life = 1;
-    anim(dt => {
-      life -= dt * 1.1; const p = g.attributes.position;
-      for (let i = 0; i < n; i++) { v[i].y -= 6 * dt; p.setXYZ(i, p.getX(i) + v[i].x * dt, p.getY(i) + v[i].y * dt, p.getZ(i) + v[i].z * dt); }
-      p.needsUpdate = true; pts.material.opacity = Math.max(0, life);
-      if (life <= 0) { scene.remove(pts); g.dispose(); pts.material.dispose(); return false; } return true;
-    });
+    SPK.emit(pos, { color, n, speed: spread, up: 0.7, gravity: -5, size: 0.4, life: 1 });
+    SPK.emit(pos, { color: 0xffffff, n: Math.ceil(n / 4), speed: spread * 0.4, up: 0.4, gravity: 0, size: 0.7, life: 0.45 });
   }
+
   // Two lights made once and lent to orbs: adding or removing a light makes three.js
   // recompile every shader, which freezes a phone for a moment on each answer.
   const orbLights = [0, 1].map(() => { const l = new THREE.PointLight(0xffffff, 0, 6); scene.add(l); return l; });
@@ -301,9 +286,44 @@ export function createStage(ctx) {
     tween(0.6, t => { fm.emissiveIntensity = 0.9 * (1 - t) + 0.25; g.scale.setScalar(1 + Math.sin(t * Math.PI) * 0.12); });
     particles(worldPos(g), 0xffd166, 36, 5);
   }
+  // floating numbers and words over the action
+  const FOES = ['guardian', 'shade', 'dummy', 'imp', 'rival', 'creep'];
+  function popText(pos, text, color = '#ffd166', size = 1) {
+    const c = document.createElement('canvas'); c.width = 512; c.height = 128; const x = c.getContext('2d');
+    x.font = `900 84px ${UI}`; x.textAlign = 'center'; x.textBaseline = 'middle';
+    x.lineWidth = 14; x.strokeStyle = 'rgba(40,20,0,.85)'; x.strokeText(text, 256, 66);
+    x.fillStyle = color; x.fillText(text, 256, 66);
+    const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
+    const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: t, depthTest: false, transparent: true }));
+    sp.renderOrder = 20; sp.position.copy(pos); scene.add(sp);
+    const vx = (Math.random() - 0.5) * 1.2;
+    tween(1.1, k => {
+      const s0 = (k < 0.15 ? k / 0.15 * 1.3 : 1.3 - Math.min(0.3, (k - 0.15) * 1.5)) * size;
+      sp.scale.set(3.2 * s0, 0.8 * s0, 1); sp.position.y = pos.y + k * 1.6; sp.position.x = pos.x + vx * k;
+      sp.material.opacity = k < 0.7 ? 1 : 1 - (k - 0.7) / 0.3;
+    }, () => { scene.remove(sp); t.dispose(); sp.material.dispose(); });
+  }
+  // an expanding ring where a spell lands
+  const ringGeo = new THREE.RingGeometry(0.8, 1, 40);
+  function shock(pos, color = 0xffd166, size = 3) {
+    const m = new THREE.Mesh(ringGeo, new THREE.MeshBasicMaterial({ color, transparent: true, side: THREE.DoubleSide, depthWrite: false, blending: THREE.AdditiveBlending }));
+    m.position.copy(pos); m.lookAt(camera.position); scene.add(m);
+    tween(0.45, k => { m.scale.setScalar(0.2 + ease(k) * size); m.material.opacity = 1 - k; }, () => { scene.remove(m); m.material.dispose(); });
+  }
+  function oppHit() {
+    if (!opp) return;
+    const p = worldPos(opp).add(new THREE.Vector3(0, S.oppKind === 'guardian' ? 3.4 : 2.4, 0)), n = S.comboN || 0;
+    shock(p, n >= 5 ? 0xff9a3a : 0xffd166, n >= 5 ? 4.5 : 3);
+    if (!FOES.includes(S.oppKind)) { popText(p.clone().add(new THREE.Vector3(0, 0.6, 0)), U.pick(['Καλῶς!', 'Εὖγε!', 'Well done!', 'Yes!']), '#fff2c0'); KG.app.sfx('hit'); return; }
+    const dmg = 10 + n * 2;
+    popText(p.clone().add(new THREE.Vector3(0, 0.6, 0)), n >= 5 ? `CRIT −${dmg * 2}` : `−${dmg}`, n >= 5 ? '#ff9a3a' : '#ffe9a8', n >= 5 ? 1.25 : 1);
+    if (n >= 3 && n % 5 === 0) popText(p.clone().add(new THREE.Vector3(0, 1.6, 0)), `${n}× COMBO!`, '#7fd0ff', 1.1);
+    KG.app.sfx('hit'); S.shake = Math.max(S.shake, n >= 5 ? 0.3 : 0.15);
+  }
   function oppReact(hit) {
     if (!opp) return;
     if (hit) {
+      oppHit();
       tween(0.4, t => { opp.position.z = oppPos.z - Math.sin(t * Math.PI) * 0.8; opp.rotation.x = -Math.sin(t * Math.PI) * 0.15; });
     } else {
       // opponent strikes back
@@ -342,9 +362,11 @@ export function createStage(ctx) {
         place(sg, 0, bigY - bigH / 2 - sh * 0.55); introAnim(sg, 0.1);
       }
     } else if (q.big) {
-      const bigW = Math.min(hw * (q.small ? 1.9 : 1.5), q.small ? 13 : 9), bigH = (portrait ? hh * 0.3 : hh * 0.32) * (q.sub ? 0.8 : 1);
+      const bigH = (portrait ? hh * 0.3 : hh * 0.32) * (q.sub ? 0.8 : 1), txt = strip(q.big);
+      // short words get a snug plane so they can be drawn big
+      const bigW = Math.min(hw * 1.5, 9, bigH * (1.2 + txt.length * 0.42)), BH = Math.round(1024 * bigH / bigW);
       const bigY = (portrait ? hh * 0.2 : hh * 0.18) + (q.sub ? hh * 0.04 : 0);
-      const big = new THREE.Mesh(new THREE.PlaneGeometry(bigW, bigH), new THREE.MeshBasicMaterial({ map: textCanvas(strip(q.big), { W: 1024, H: Math.round(1024 * bigH / bigW), greek: true, maxSize: 260, minSize: 40, color: '#fff7e0', bg: 'rgba(24,16,6,.42)' }), transparent: true, depthWrite: false }));
+      const big = new THREE.Mesh(new THREE.PlaneGeometry(bigW, bigH), new THREE.MeshBasicMaterial({ map: textCanvas(txt, { W: 1024, H: BH, greek: true, maxSize: Math.round(BH * 0.78), minSize: 40, color: '#fff7e0', bg: 'rgba(24,16,6,.42)', pad: Math.round(BH * 0.06) }), transparent: true, depthWrite: false }));
       const shadow = new THREE.Mesh(big.geometry, new THREE.MeshBasicMaterial({ map: big.material.map, color: 0x000000, transparent: true, opacity: 0.45, depthWrite: false }));
       shadow.position.set(0.06, -0.06, -0.01);
       const bg = new THREE.Group(); bg.add(shadow, big); bg.userData = { base: new THREE.Vector3() };
@@ -496,7 +518,7 @@ export function createStage(ctx) {
     S.grass.material.color.copy(g);
     const tints = { guardian: [0x3a4a6a, 0x9ab0d0, 0x4a3a3a], shade: [0x2a1a4a, 0x7a6aa8, 0x3a2a4a], arcade: [0x1f3b6a, 0x7fb0e0, 0xe0d0b0] };
     const [top, mid, bot] = tints[kind] || [0x4a88c8, 0xb8d8f0, 0xf0e4c8];
-    paintSky(top, mid, bot); scene.fog.color.setHex(mid);
+    paintSky(top, mid, bot, kind === 'shade' ? 0.6 : 0); scene.fog.color.setHex(mid);
     hemi.intensity = kind === 'shade' ? 0.7 : 1.15;
     setOpponent(kind, unit);
     clearUI(); S.q = null;
@@ -591,11 +613,14 @@ export function createStage(ctx) {
 
   // Word Rain: catch the Greek word that means the English target
   function rainStart() { MG.round = 0; MG.total = MG.q.targets.length; rainRound(); }
+  // each word caught (or missed) goes back into spaced review
+  const word = (tgt, ok) => { if (MG && MG.q.onWord && tgt) MG.q.onWord(tgt.g, ok); };
   function rainRound() {
     for (const g of MG.items) removePick(g);
     MG.items = [];
     if (MG.round >= MG.q.targets.length) return miniEnd(MG.hits >= MG.total - 1, `You caught ${MG.hits} of ${MG.total} words.`);
-    const tgt = MG.q.targets[MG.round++], { hh, hw } = frame();
+    const tgt = MG.tgt = MG.q.targets[MG.round++], { hh, hw } = frame();
+    MG.slip = false;
     miniBanner(`Catch the word for: "${tgt.en}"`);
     const words = U.shuffle([tgt.g, ...U.sample(MG.q.pool.filter(g => g !== tgt.g), 3)]);
     const tw = hw * 0.44, th = hh * 0.13;
@@ -617,17 +642,17 @@ export function createStage(ctx) {
       g.position.y -= g.userData.vy * dt; g.userData.base.y = g.position.y; g.rotation.z = Math.sin(MG.t * 3 + g.position.x) * 0.06;
       if (g.position.y < -hh * 0.95) {
         g.visible = false;
-        if (g.userData.pick.ok) { MG.wait = true; KG.app.sfx('bad'); oppReact(false); setTimeout(rainRound, 700); }
+        if (g.userData.pick.ok) { MG.wait = true; KG.app.sfx('bad'); oppReact(false); word(MG.tgt, false); setTimeout(rainRound, 700); }
       }
     }
   }
   function rainTap(g) {
     if (MG.wait || !g.visible) return;
     if (g.userData.pick.ok) {
-      MG.hits++; MG.wait = true; KG.app.sfx('good'); heroCast();
+      MG.hits++; MG.wait = true; KG.app.sfx('good'); heroCast(); word(MG.tgt, !MG.slip);
       orb(heroHand(), worldPos(g), 0xffd166, () => { glow(g); oppReact(true); });
       setTimeout(rainRound, 800);
-    } else { KG.app.sfx('bad'); shatter(g); }
+    } else { KG.app.sfx('bad'); shatter(g); MG.slip = true; }
   }
 
   // Sorting Spell: strike each falling Greek line with its use (up to six gates, in two rows)
@@ -781,7 +806,8 @@ export function createStage(ctx) {
     clearUI();
     if (win) {
       for (let i = 0; i < 4; i++) setTimeout(() => particles(new THREE.Vector3((Math.random() - 0.5) * 10, 4 + Math.random() * 3, -2 + Math.random() * 4), U.pick([0xffd166, 0x7fd0ff, 0xff8fab, 0x7ed58f]), 60, 8), i * 220);
-      if (opp && ['guardian', 'shade', 'dummy', 'imp', 'rival'].includes(S.oppKind)) tween(1.2, t => { opp.rotation.x = -t * 0.5; opp.position.y = oppPos.y - t * 2; opp.scale.setScalar((S.oppKind === 'shade' ? 2.6 : S.oppKind === 'guardian' ? 1.25 : 1) * (1 - t * 0.5)); });
+      if (opp && FOES.includes(S.oppKind)) { const p = worldPos(opp).add(new THREE.Vector3(0, 2, 0)); shock(p, 0xffffff, 7); setTimeout(() => { particles(p, 0xffd166, 80, 9); shock(p, 0xffd166, 10); popText(p.clone().add(new THREE.Vector3(0, 2, 0)), 'K.O.!', '#ffd166', 1.5); }, 500); }
+      if (opp && FOES.includes(S.oppKind)) tween(1.2, t => { opp.rotation.x = -t * 0.5; opp.position.y = oppPos.y - t * 2; opp.scale.setScalar((S.oppKind === 'shade' ? 2.6 : S.oppKind === 'guardian' ? 1.25 : S.oppKind === 'creep' ? 1.7 : 1) * (1 - t * 0.5)); });
       else if (opp && opp.userData.body) nod();
       tween(0.8, t => { hero.position.y = Math.sin(t * Math.PI) * 1.2; hero.rotation.y = Math.PI + t * Math.PI * 2; });
     } else {
@@ -819,12 +845,18 @@ export function createStage(ctx) {
     }
     ctx.animatePerson(hero, 0, dt);
     if (pet) { if (pet.userData.fly) pet.position.y = 2.6 + Math.sin(t * 2.5) * 0.25; else pet.position.y = Math.abs(Math.sin(t * 3)) * 0.05; ctx.animatePet(pet, t, dt); }
+    // a hot streak sets the hero's aura burning: gold, then orange, then blue
+    if ((S.comboN || 0) >= 3 && (S.flameT = (S.flameT || 0) - dt) <= 0) {
+      S.flameT = LOW ? 0.12 : 0.05; const n = S.comboN, a = Math.random() * Math.PI * 2;
+      SPK.emit(new THREE.Vector3(hero.position.x + Math.cos(a) * 0.9, 0.2, hero.position.z + Math.sin(a) * 0.9), { color: n >= 10 ? 0x7fd0ff : n >= 5 ? 0xff8a3a : 0xffd166, n: 2, speed: 0.4, up: 1, gravity: 2.5 + n * 0.1, drag: 0.5, size: 0.38, life: 0.7 });
+    }
     aura.scale.setScalar(1 + Math.sin(t * 4) * 0.08 + (S.comboN || 0) * 0.02); aura.rotation.z += dt;
     if (S.big) S.big.position.y = S.big.userData.base.y + Math.sin(t * 2) * 0.06;
     for (const p of S.picks) if (p.visible && p.userData.base && !(S.sel === p)) p.rotation.y = Math.sin(t * 1.3 + p.userData.base.x) * 0.04;
     if (MG && !MG.over) { MG.t += dt; ({ rain: rainUpdate, defense: defenseUpdate, race: raceUpdate }[MG.q.game] || (() => {}))(dt); }
     else if (!MG) hero.position.z += (5.2 - hero.position.z) * Math.min(1, dt * 4);
     S.anims = S.anims.filter(fn => fn(dt) !== false);
+    SPK.update(dt);
   };
   S.render = r => {
     r.autoClear = false; r.clear();

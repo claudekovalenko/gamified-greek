@@ -135,7 +135,9 @@ window.KG = window.KG || {};
 
   // ── spaced repetition (Leitner boxes) ───────────────────────
   // Box 1 → review tomorrow; each correct review moves the card up one box and
-  // roughly doubles the gap. A miss sends it back to box 1.
+  // roughly doubles the gap. A miss sends it back to box 1 and makes it due again
+  // today (the shades and side quests bring it back while it's fresh); getting it
+  // right after that only counts as relearned, so it returns tomorrow.
   const INTERVALS = [0, 1, 2, 4, 8, 16, 35, 75];
   E.vocabByGreek = Object.fromEntries(KG.vocab.map(w => [w.g, w]));
   // Words added from the Reading Room live in state.custom and join the same deck.
@@ -151,8 +153,15 @@ window.KG = window.KG || {};
     let r = V[g];
     if (!r) { V[g] = { box: 1, due: U.addDays(t, 1), seen: 1, miss: correct ? 0 : 1 }; return; }
     r.seen++;
-    if (!correct) { r.box = 1; r.due = U.addDays(t, 1); r.miss++; return; }
+    if (!correct) { r.box = 1; r.due = t; r.lapse = 1; r.miss++; return; }
+    if (r.lapse) { r.lapse = 0; r.due = U.addDays(t, 1); return; }
     if (r.due <= t) { r.box = Math.min(INTERVALS.length - 1, r.box + 1); r.due = U.addDays(t, INTERVALS[r.box]); }
+  };
+  // review order: due words first (lowest box, most missed), then the rest by how soon they fall due
+  E.reviewOrder = words => {
+    const t = U.day(), V = E.state.vocab;
+    const key = w => { const r = V[w.g]; if (!r) return 50; return (r.due <= t ? 0 : 20 + U.diffDays(t, r.due)) + r.box - Math.min(3, r.miss) * 0.5 + Math.random() * 2; };
+    return words.slice().sort((a, b) => key(a) - key(b));
   };
   E.dueWords = () => {
     const t = U.day();
@@ -162,12 +171,17 @@ window.KG = window.KG || {};
     .sort((a, b) => (a[1].box - b[1].box) || (b[1].miss - a[1].miss))
     .slice(0, n).map(([g]) => E.word(g)).filter(Boolean);
   E.masteredWords = () => Object.values(E.state.vocab).filter(r => r.box >= 4).length;
-  // concept tracking: right/wrong per card, for the weakest-concepts drill
+  // concept tracking: right/wrong per card, for the weakest-concepts drill, and the same
+  // Leitner schedule as the words, so a use you've met comes back just before you'd forget it
   E.cardAnswer = (cid, correct) => {
-    const C = E.state.cards || (E.state.cards = {}), r = C[cid] || (C[cid] = { right: 0, wrong: 0, last: 0 });
+    const C = E.state.cards || (E.state.cards = {}), t = U.day(), r = C[cid] || (C[cid] = { right: 0, wrong: 0, last: 0 });
     if (correct) r.right++; else r.wrong++;
     r.last = correct ? 1 : 0;
+    if (!r.box) { r.box = 1; r.due = U.addDays(t, 1); return; }
+    if (!correct) { r.box = 1; r.due = U.addDays(t, 1); return; }
+    if (r.due <= t) { r.box = Math.min(INTERVALS.length - 1, r.box + 1); r.due = U.addDays(t, INTERVALS[r.box]); }
   };
+  E.dueCards = () => { const t = U.day(), C = E.state.cards || {}; return KG.cards.filter(c => C[c.id] && C[c.id].box && C[c.id].due <= t).sort((a, b) => C[a.id].box - C[b.id].box); };
   E.weakCards = (n = 10) => KG.cards.filter(c => (E.state.cards || {})[c.id])
     .map(c => ({ c, r: E.state.cards[c.id] }))
     .sort((a, b) => (a.r.last - b.r.last) || ((b.r.wrong - b.r.right) - (a.r.wrong - a.r.right)))
@@ -183,6 +197,8 @@ window.KG = window.KG || {};
     { id: 'combo', text: 'Reach a {n}× combo', n: [5, 8, 10] },
     { id: 'coins', text: 'Collect {n} coins in the world', n: [5, 8, 12] },
     { id: 'perfect', text: 'Finish a lesson without a mistake', n: [1, 1, 1] },
+    { id: 'runes', text: 'Spell {n} words in a Rune Circle', n: [2, 3, 5] },
+    { id: 'courier', text: 'Run {n} word errands for the villagers', n: [2, 3, 5] },
   ];
   E.daily = () => {
     const S = E.state, t = U.day();

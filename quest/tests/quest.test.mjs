@@ -74,3 +74,23 @@ test('replays and arcade pools work', () => {
     checkQuestion(E.hookQ(c, KG.cards), 'hook');
   }
 });
+
+test('spacing: a missed word is due again today, then relearned; uses get their own schedule', () => {
+  E.reset();
+  const g = KG.vocab[0].g, today = KG.util.day();
+  E.srsAnswer(g, true);
+  E.srsAnswer(g, false);
+  assert.equal(E.state.vocab[g].due, today, 'missed: due again today');
+  E.srsAnswer(g, true);
+  assert.equal(E.state.vocab[g].box, 1, 'relearning does not promote');
+  assert.equal(E.state.vocab[g].due, KG.util.addDays(today, 1));
+  const c = KG.cards[0];
+  E.cardAnswer(c.id, true);
+  assert.equal(E.state.cards[c.id].due, KG.util.addDays(today, 1), 'a new use comes back tomorrow');
+  E.state.cards[c.id].due = today;
+  assert.ok(E.dueCards().some(x => x.id === c.id));
+  E.cardAnswer(c.id, true);
+  assert.equal(E.state.cards[c.id].box, 2);
+  assert.ok(!E.dueCards().some(x => x.id === c.id));
+  for (const card of KG.cards) checkQuestion(E.conceptQ(card), `review ${card.id}`);
+});

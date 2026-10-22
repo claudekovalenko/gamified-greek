@@ -18,6 +18,14 @@
     o.connect(g).connect(actx.destination);
     o.start(actx.currentTime + start); o.stop(actx.currentTime + start + dur + 0.05);
   }
+  // a short burst of filtered noise: splashes and whooshes
+  function noise(dur, vol, freq) {
+    const n = actx.sampleRate * dur, buf = actx.createBuffer(1, n, actx.sampleRate), d = buf.getChannelData(0);
+    for (let i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / n);
+    const src = actx.createBufferSource(), f = actx.createBiquadFilter(), g = actx.createGain();
+    src.buffer = buf; f.type = 'bandpass'; f.frequency.value = freq; g.gain.value = vol;
+    src.connect(f).connect(g).connect(actx.destination); src.start();
+  }
   function sfx(kind) {
     if (!S().settings.sound) return;
     try {
@@ -27,6 +35,11 @@
       else if (kind === 'combo') { tone(880, 0, 0.1); tone(1175, 0.07, 0.1); tone(1568, 0.14, 0.2); }
       else if (kind === 'win') [523, 659, 784, 1047].forEach((f, i) => tone(f, i * 0.11, 0.3, 'triangle'));
       else if (kind === 'tap') tone(440, 0, 0.05, 'triangle', 0.05);
+      else if (kind === 'coin') { tone(1319, 0, 0.07, 'square', 0.035); tone(1760, 0.06, 0.16, 'square', 0.03); }
+      else if (kind === 'hit') { tone(220, 0, 0.08, 'square', 0.06); tone(110, 0.02, 0.18, 'sawtooth', 0.05); }
+      else if (kind === 'splash') { noise(0.35, 0.08, 1800); tone(520, 0, 0.12, 'sine', 0.05); }
+      else if (kind === 'reel') [660, 740, 830, 990].forEach((f, i) => tone(f, i * 0.05, 0.08, 'triangle', 0.06));
+      else if (kind === 'whoosh') noise(0.25, 0.06, 900);
       else if (kind === 'level') [392, 523, 659, 784, 1047, 1319].forEach((f, i) => tone(f, i * 0.09, 0.35, 'triangle'));
     } catch (e) { /* audio unavailable */ }
   }
@@ -306,6 +319,7 @@
   function renderMini(q) {
     main.innerHTML = `<div class="s3">${header()}<div class="s3center"><div class="minititle">🎮 ${esc(q.title)}</div></div><div class="foot s3foot" id="foot"><div class="muted center s3help">${MINI_HELP[q.game]}</div></div></div>`;
     sfx('combo');
+    q.onWord = (g, ok) => { if (S().vocab[g]) E.srsAnswer(g, ok); };
     ST().mini(q, res => {
       if (!P || P.q !== q) return;
       P.xp += res.hits * 3;
@@ -410,11 +424,13 @@
         P.wrong++; P.combo = 0; sfx('bad');
         if (q.type === 'mc' && !q.guided) (P.missed || (P.missed = [])).push(q);
         if (hearts()) P.hearts--;
-        // Ask a missed question once more at the end of the lesson (retrieval after a delay).
-        if (!hearts() && !q.retry) {
-          const again = Object.assign({}, P.qs[P.i], { retry: true });
-          if (again.type === 'mc') { again.options = shuffle(again.options); again.answer = again.options.indexOf(q.options[q.answer]); }
-          P.qs.push(again);
+        // Spaced retries: a missed question comes back a few questions later, and if
+        // it's missed again, once more at the end (retrieval after a growing gap).
+        if (!hearts() && (q.retry || 0) < 2 && q.type !== 'mini') {
+          const again = Object.assign({}, P.qs[P.i], { retry: (q.retry || 0) + 1 });
+          if (again.type === 'mc') { again.options = shuffle(again.options); again.answer = again.options.indexOf(q.options[q.answer]); again.hinted = false; }
+          if (again.retry === 1) P.qs.splice(Math.min(P.qs.length, P.i + 3 + Math.floor(Math.random() * 2)), 0, again);
+          else P.qs.push(again);
         }
       }
     }
@@ -518,14 +534,14 @@
 
   // ── review ──────────────────────────────────────────────────
   function renderReview() {
-    const due = E.dueWords(), M = S().mistakes, studied = Object.keys(S().vocab).length;
+    const due = E.dueWords(), M = S().mistakes, studied = Object.keys(S().vocab).length, dueC = E.dueCards();
     const boxes = [1, 2, 3, 4, 5, 6, 7].map(b => Object.values(S().vocab).filter(r => r.box === b).length);
     const maxB = Math.max(1, ...boxes);
     main.innerHTML = `${questsCard()}<h1 class="vh">Review</h1>
       <p class="muted">Spaced repetition shows you each word just before you would forget it. A few minutes a day keeps every word alive.</p>
       <div class="card big-cta ${due.length ? 'hot' : ''}">
-        <div><h3>🔁 Daily review</h3><p>${due.length ? `<b>${due.length}</b> word${due.length > 1 ? 's' : ''} ready for review` : studied ? 'All caught up! Come back tomorrow.' : 'Finish a vocabulary lesson to start your deck.'}</p></div>
-        <button class="btn primary" data-act="review" ${due.length ? '' : 'disabled'}>Start</button></div>
+        <div><h3>🔁 Daily review</h3><p>${due.length ? `<b>${due.length}</b> word${due.length > 1 ? 's' : ''} ready for review` : studied ? 'All words caught up!' : 'Finish a vocabulary lesson to start your deck.'}${dueC.length ? `<br>🔍 <b>${dueC.length}</b> use${dueC.length > 1 ? 's' : ''} to spot again: ${dueC.slice(0, 3).map(c => esc(c.name)).join(', ')}${dueC.length > 3 ? '…' : ''}` : ''}</p></div>
+        <button class="btn primary" data-act="review" ${due.length || dueC.length ? '' : 'disabled'}>Start</button></div>
       <div class="card big-cta"><div><h3>📝 Mistake notebook</h3><p>${M.length ? `<b>${M.length}</b> question${M.length > 1 ? 's' : ''} you missed recently` : 'No mistakes saved. Nice!'}</p></div>
         <button class="btn primary" data-act="mistakes" ${M.length ? '' : 'disabled'}>Fix</button></div>
       <div class="card big-cta"><div><h3>🎯 Weakest words</h3><p>Extra practice on the words you miss most.</p></div>
@@ -561,9 +577,11 @@
       qs = shuffle(nodes.flatMap(n => sample(E.questionsFor(n).filter(q => q.type === 'mc'), 2))).slice(0, 15);
       return begin({ qs, mode: 'review' });
     }
-    words = kind === 'review' ? sample(E.dueWords(), 15) : E.weakWords(10);
+    words = kind === 'review' ? E.reviewOrder(E.dueWords()).slice(0, 15) : E.weakWords(10);
     const studied = Object.keys(S().vocab).map(g => E.vocabByGreek[g]).filter(Boolean);
     qs = words.map(w => E.vocabQ(w, studied.length > 8 ? studied : KG.vocab, (S().vocab[w.g] || {}).box >= 3 ? 'e2g' : U.pick(['g2e', 'g2e', 'hook'])));
+    // uses that have come due are woven in among the words
+    if (kind === 'review') for (const c of E.dueCards().slice(0, 8)) qs.splice(Math.floor(Math.random() * (qs.length + 1)), 0, E.conceptQ(c));
     begin({ qs, mode: 'review' });
   }
 
