@@ -139,9 +139,13 @@ export function makeFX(THREE, { LOW = false } = {}) {
           #else
             vNF = (modelMatrix * vec4(transformed, 1.)).xyz;
           #endif`);
-        sh.fragmentShader = 'varying vec3 vNF;\n' + sh.fragmentShader.replace('#include <clipping_planes_fragment>', `#include <clipping_planes_fragment>
+        sh.fragmentShader = 'uniform vec3 uHero;\nvarying vec3 vNF;\n' + sh.fragmentShader.replace('#include <clipping_planes_fragment>', `#include <clipping_planes_fragment>
           { float nd = distance(vNF, cameraPosition); vec2 q = floor(gl_FragCoord.xy); float th = fract(dot(q, vec2(.5, .25)) + fract(q.y * .5) * .5);
-            if (nd < 4.5 && th > (nd - 1.5) / 3.) discard; }`);
+            if (nd < 4.5 && th > (nd - 1.5) / 3.) discard;
+            // anything standing between the camera and the hero thins out so the hero stays in view
+            vec3 ab = uHero + vec3(0., 1.2, 0.) - cameraPosition; float k = clamp(dot(vNF - cameraPosition, ab) / dot(ab, ab), 0., 1.);
+            float off = distance(vNF, cameraPosition + ab * k);
+            if (k > .02 && k < .9 && off < 2.4 && th > .25 + off * .2) discard; }`);
       }
       if (push) {
         sh.uniforms.uTint = grassTint;
