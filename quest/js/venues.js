@@ -128,8 +128,18 @@ export function makeVenues(ctx) {
       const log = B.add(new THREE.CylinderGeometry(0.24, 0.24, 1.9, 8), 0x7a5230, x, 0.24, z); log.rotation.set(0, -a, Math.PI / 2);
       B.col(x, z, 0.55);
     }
+    // a pot on a tripod over the flames, steaming gently, and a kettle and bedroll nearby
+    for (let k = 0; k < 3; k++) { const a = k / 3 * Math.PI * 2 + 0.3, l = B.add(new THREE.CylinderGeometry(0.04, 0.05, 2.1, 5), 0x4a3020, Math.cos(a) * 0.55, 0.95, Math.sin(a) * 0.55); l.rotation.set(-Math.sin(a) * 0.5, 0, Math.cos(a) * 0.5); }
+    B.add(new THREE.CylinderGeometry(0.01, 0.01, 0.5, 3), 0x2a2a2a, 0, 1.65, 0);
+    const pot = B.add(new THREE.SphereGeometry(0.3, 10, 8, 0, Math.PI * 2, 0, Math.PI * 0.62), 0x3a3a40, 0, 1.38, 0, { metalness: 0.5, roughness: 0.5 }); pot.rotation.x = Math.PI;
+    B.add(new THREE.CylinderGeometry(0.035, 0.05, 0.03, 10), 0x2a2a30, 0, 1.38, 0);
+    const roll = B.add(new THREE.CylinderGeometry(0.22, 0.22, 1.2, 10), 0x5a7a9a, 1.8, 0.22, -1.6); roll.rotation.set(0, 0.6, Math.PI / 2);
+    let steamT = 0;
     B.col(0, 0, 0.9);
-    return { B, teacher: [0, -2.0], entry: [0, 3.5], update: (dt, t) => flame(dt, t, B.F) }; // close enough to talk to across the fire
+    return { B, teacher: [0, -2.0], entry: [0, 3.5], update: (dt, t) => { // close enough to talk to across the fire
+      flame(dt, t, B.F);
+      if (ctx.smoke && (steamT -= dt) <= 0) { steamT = 0.5; const p = B.F.w(0, 0); ctx.smoke(V3(p.x, B.G.position.y + 1.6, p.z)); }
+    } };
   }
 
   // ── 🛒 market stall ────────────────────────────────────────
@@ -149,9 +159,20 @@ export function makeVenues(ctx) {
     B.add(new THREE.BoxGeometry(0.6, 0.6, 0.6), 0xb08850, 1.95, 0.3, -0.4); B.add(new THREE.BoxGeometry(0.5, 0.5, 0.5), 0xa07840, 1.95, 0.85, -0.4);
     B.add(new THREE.SphereGeometry(0.12, 8, 6), 0xffe9a8, 1.3, 2.15, 0.85, { emissive: 0xffc04a, emissiveIntensity: 1.3 });
     B.glowAt(0xffc870, 1.6, 1.3, 2.15, 0.85);
+    // a scalloped fringe on the awning, bunting overhead, hanging pots and a rug of baskets out front
+    const fringe = [];
+    for (let i = 0; i < 12; i++) { const f = B.add(new THREE.ConeGeometry(0.13, 0.22, 3), i % 2 ? 0xc9452b : 0xf5ecd0, -1.375 + i * 0.25, 2.33, 1.02); f.rotation.x = Math.PI; fringe.push(f); }
+    const flags = [], fc = [0xe0a526, 0x2f5f8f, 0xc9452b, 0x7aa84a, 0x8a5aa8];
+    for (let i = 0; i < 9; i++) { const x = -1.45 + i * 0.36, y = 2.5 - Math.sin(i / 8 * Math.PI) * 0.35; const f = B.add(new THREE.ConeGeometry(0.1, 0.24, 3), fc[i % 5], x, y, 0.82); f.rotation.x = Math.PI; flags.push(f); }
+    for (const x of [-0.7, 0.4]) { B.add(new THREE.CylinderGeometry(0.01, 0.01, 0.4, 3), 0x3a2a1a, x, 2.15, 0.6); B.add(new THREE.SphereGeometry(0.17, 8, 6), x < 0 ? 0xb5523a : 0x8a7a6a, x, 1.85, 0.6).scale.y = 1.2; }
+    const rug = B.add(new THREE.PlaneGeometry(1.8, 1.1), 0x8a2a3a, -0.2, 0.03, 1.55); rug.rotation.x = -Math.PI / 2;
+    for (const [x, c] of [[-0.75, 0xe0a526], [-0.2, 0x7aa84a], [0.35, 0xc9452b]]) { B.add(new THREE.CylinderGeometry(0.22, 0.17, 0.25, 9), 0xb08850, x, 0.15, 1.55); B.add(new THREE.SphereGeometry(0.18, 7, 5), c, x, 0.27, 1.55).scale.y = 0.5; }
     for (const x of [-0.95, 0, 0.95]) B.col(x, 0.25, 0.55);
     B.col(1.95, -0.4, 0.45);
-    return { B, teacher: [0, -0.6], entry: [0, 2.3] };
+    return { B, teacher: [0, -0.6], entry: [0, 2.6], update: (dt, t) => {
+      fringe.forEach((f, i) => { f.rotation.z = Math.sin(t * 2.4 + i * 0.6) * 0.18; });
+      flags.forEach((f, i) => { f.rotation.x = Math.PI + Math.sin(t * 3 + i) * 0.25; });
+    } };
   }
 
   // ── 🏠 cottage: walk in through the door into a room of its own ──
