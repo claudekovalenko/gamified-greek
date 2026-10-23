@@ -166,6 +166,7 @@ function paintSky() {
   FX.setNight(Math.min(1, atm.stars * 1.4));
   AUR.set(INDOOR ? 0 : atm.stars > 0.5 ? 0.7 : 0);
   FX.setLight({ sun: atm.sun.getHex(), sunI: atm.sunI, hemi: atm.hemi, stars: atm.stars });
+  BLOOM.grade(...(INDOOR ? [0xfff4e8, 1.05] : (MOODS[MOOD] || {}).grade || [0xffffff, 1.06]));
   waterMat.userData.setSun((MOODS[MOOD] || {}).sunDir || [0.35, 0.42, -0.84], atm.sun.clone().lerp(new THREE.Color(0xffffff), 0.3));
   try { VEN.setDaylight(atm.stars > 0.5 ? 0.35 : Math.min(1, atm.sunI / 2.2), atm.stars > 0.5 ? 0x8aa8ff : 0xffffff); } catch (e) { /* the venues aren't made yet */ }
   waterMat.userData.setColors(...(M.water || [0x1f6a9a, 0x5ac0e0]), atm.mid);

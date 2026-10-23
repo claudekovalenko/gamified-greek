@@ -202,7 +202,7 @@ export function makeFX(THREE, { LOW = false } = {}) {
     const caps = renderer.capabilities;
     // needs half-float render targets (some older phones can't draw into them): otherwise a plain render
     const ext = renderer.extensions;
-    if (!caps.isWebGL2 || !(ext.has('EXT_color_buffer_float') || ext.has('EXT_color_buffer_half_float'))) return { render: (s, c) => renderer.render(s, c), enabled: false, strength: { value: 0 } };
+    if (!caps.isWebGL2 || !(ext.has('EXT_color_buffer_float') || ext.has('EXT_color_buffer_half_float'))) return { render: (s, c) => renderer.render(s, c), enabled: false, strength: { value: 0 }, grade() {} };
     const mk = (w, h, o = {}) => new THREE.WebGLRenderTarget(w, h, Object.assign({ type: THREE.HalfFloatType, depthBuffer: false }, o));
     let W = 0, H = 0, main, a, b;
     const quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2)), qs = new THREE.Scene(), qc = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
@@ -216,9 +216,12 @@ export function makeFX(THREE, { LOW = false } = {}) {
           c += (texture2D(tSrc, vUv + uDir * 1.385).rgb + texture2D(tSrc, vUv - uDir * 1.385).rgb) * .316;
           c += (texture2D(tSrc, vUv + uDir * 3.231).rgb + texture2D(tSrc, vUv - uDir * 3.231).rgb) * .07;
           gl_FragColor = vec4(c, 1.); }` });
-    const comp = new THREE.ShaderMaterial({ uniforms: { tSrc: { value: null }, tBloom: { value: null }, uStr: { value: strength } }, vertexShader: vs, depthTest: false,
-      fragmentShader: `uniform sampler2D tSrc, tBloom; uniform float uStr; varying vec2 vUv;
-        void main() { gl_FragColor = vec4(texture2D(tSrc, vUv).rgb + texture2D(tBloom, vUv).rgb * uStr, 1.);
+    const comp = new THREE.ShaderMaterial({ uniforms: { tSrc: { value: null }, tBloom: { value: null }, uStr: { value: strength }, uGrade: { value: new THREE.Color(1, 1, 1) }, uSat: { value: 1 } }, vertexShader: vs, depthTest: false,
+      fragmentShader: `uniform sampler2D tSrc, tBloom; uniform float uStr, uSat; uniform vec3 uGrade; varying vec2 vUv;
+        void main() { vec3 c = texture2D(tSrc, vUv).rgb + texture2D(tBloom, vUv).rgb * uStr;
+          // a gentle grade: a tint for the hour, and a touch more (or less) colour
+          float l = dot(c, vec3(.2126, .7152, .0722)); c = mix(vec3(l), c, uSat) * uGrade;
+          gl_FragColor = vec4(c, 1.);
           #include <tonemapping_fragment>
           #include <colorspace_fragment>
         }` });
@@ -235,6 +238,8 @@ export function makeFX(THREE, { LOW = false } = {}) {
     const pass = (m, target) => { quad.material = m; renderer.setRenderTarget(target); renderer.render(qs, qc); };
     const api = {
       enabled: true, strength: comp.uniforms.uStr,
+      // tint (a colour near white) and saturation for the hour
+      grade(tint = 0xffffff, sat = 1) { comp.uniforms.uGrade.value.set(tint); comp.uniforms.uSat.value = sat; },
       render(scene, camera) {
         if (!api.enabled) { renderer.setRenderTarget(null); return renderer.render(scene, camera); }
         fit();
