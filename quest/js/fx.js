@@ -281,6 +281,17 @@ export function makeFX(THREE, { LOW = false } = {}) {
           }
           diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * vec3(1.1, 1.05, .82), k * smoothstep(.55, .85, n1) * .45);
           diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * vec3(.9, 1., 1.08), k * smoothstep(.6, .9, 1. - n1) * .3);
+          // steep slopes show layered rock: bands of stone and ledges where grass can't hold
+          {
+            vec3 gn = normalize(cross(dFdx(vGW), dFdy(vGW)));
+            float steep = smoothstep(.7, .45, abs(gn.y)) * k;
+            if (steep > 0.) {
+              float band = sin(vGW.y * 1.9 + vn(vGW.xz * .08) * 5.), crack = vn(vec2(vGW.x + vGW.z, vGW.y) * vec2(.6, 3.));
+              vec3 stone = diffuseColor.rgb * mix(vec3(.62, .6, .55), vec3(.82, .8, .72), smoothstep(-.3, .6, band)) * (.85 + .3 * crack) + vec3(.06, .05, .04);
+              diffuseColor.rgb = mix(diffuseColor.rgb, stone, steep * .55);
+              diffuseColor.rgb *= 1. - steep * .18 * smoothstep(.85, .97, band);
+            }
+          }
           // the shadows of clouds drifting over the land
           float cs = smoothstep(.5, .72, vn(vGW.xz * .018 + uTime * vec2(.018, .011)) * .7 + vn(vGW.xz * .05 + uTime * vec2(.03, .02)) * .3);
           diffuseColor.rgb *= 1. - cs * .26 * uCloudShade;
