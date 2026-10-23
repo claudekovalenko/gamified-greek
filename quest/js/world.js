@@ -559,6 +559,37 @@ function critterMesh(kind) {
   return g;
 }
 
+// villagers out for a stroll along the road: they walk to and fro, and wave as you pass
+const walkers = [];
+function buildWalkers() {
+  const robes = [0x8a6a4a, 0x5a7a9a, 0x9a5a5a, 0x6a8a5a, 0xa08a5a], hairs = [0x2a1a10, 0x8a5a2a, 0xbbbbbb, 0x4a2a1a];
+  for (let i = 0; i < NZ * (LOW ? 1 : 2); i++) {
+    const p = person({ robe: robes[i % 5], hair: hairs[(i * 3) % 4], skin: [0xf0c8a0, 0xd8a878, 0xb07850, 0xe8b890][i % 4], hood: i % 3 === 0, scale: 0.92 });
+    const z0 = -Math.floor(i / (LOW ? 1 : 2)) * L - 20 - (i % 2) * L * 0.45;
+    const w = { obj: p, z0, z: z0, dir: i % 2 ? 1 : -1, side: i % 2 ? 1.4 : -1.4, wave: 0, span: 12 + (i % 3) * 6 };
+    scene.add(p); walkers.push(w);
+  }
+}
+function updateWalkers(dt, t, pos) {
+  for (const w of walkers) {
+    const o = w.obj.position;
+    if (Math.abs(o.z - pos.z) > 70) continue;
+    const near = Math.hypot(pos.x - o.x, pos.z - o.z);
+    if (near < 4 && w.wave <= 0 && !w.waved) { w.wave = 2; w.waved = true; }
+    if (near > 10) w.waved = false;
+    if (w.wave > 0) {
+      w.wave -= dt; const u = w.obj.userData; u.arms[1].rotation.x = -2.6; u.arms[1].rotation.z = -0.3 + Math.sin(t * 10) * 0.35;
+      w.obj.rotation.y += (Math.atan2(pos.x - o.x, pos.z - o.z) - w.obj.rotation.y) * Math.min(1, dt * 5); animatePerson(w.obj, 0, dt);
+      if (w.wave <= 0) u.arms[1].rotation.z = 0;
+      continue;
+    }
+    w.z += w.dir * dt * 1.4;
+    if (Math.abs(w.z - w.z0) > w.span) w.dir = -Math.sign(w.z - w.z0);
+    const x = pathX(w.z) + w.side, x2 = pathX(w.z + w.dir) + w.side;
+    o.set(x, groundAt(x, w.z), w.z); w.obj.rotation.y = Math.atan2(x2 - x, w.dir);
+    animatePerson(w.obj, 1.6, dt);
+  }
+}
 // a few animals in each region (sheep, deer, goats), ducks on the river and swans on the lake;
 // they wander near home and keep their distance from you
 const critters = [];
@@ -1782,7 +1813,7 @@ function step(dt) {
   updateNearGrass(pos);
   CRIT.update(dt, t, pos, groundAt, INDOOR ? 0 : atm.stars < 0.5 ? 1 : 0);
   for (let k = anims.length - 1; k >= 0; k--) if (anims[k](dt, t) === false) anims.splice(k, 1);
-  updateAmbience(dt, t, pos); updateCritters(dt, t, pos);
+  updateAmbience(dt, t, pos); updateCritters(dt, t, pos); updateWalkers(dt, t, pos);
   // unopened chests rattle now and then, and sparkle at the keyhole
   for (const c of chests) {
     if (!c.glow.visible || Math.abs(c.z - pos.z) > 40) continue;
@@ -1883,13 +1914,13 @@ W.onLessonDone = (node, r) => {
     if (e) burst(new THREE.Vector3(e.x, groundAt(e.x, e.z) + 2, e.z), 0xffffff);
   });
 };
-W.debug = { critters, BOW, BLOOM, BURSTS, ARENA, get moodNow() { return MOOD; }, get indoor() { return !!INDOOR; }, mood: m => { MOOD = m; blendAtmosphere(P.zone < 0 ? 0 : P.zone, 1); }, sim: (n, dt = 1 / 60) => { for (let i = 0; i < n; i++) step(dt); }, colliders, VEN, og: (x, z, r, t) => openGround(x, z, r, t), SQ, scene, startBattle: w => startBattle(w), player, camera, cam, P, ents, wisps, questTarget, teleport: (x, z) => { player.position.set(x, groundAt(x, z), z); snapCamera(); } };
+W.debug = { walkers, critters, BOW, BLOOM, BURSTS, ARENA, get moodNow() { return MOOD; }, get indoor() { return !!INDOOR; }, mood: m => { MOOD = m; blendAtmosphere(P.zone < 0 ? 0 : P.zone, 1); }, sim: (n, dt = 1 / 60) => { for (let i = 0; i < n; i++) step(dt); }, colliders, VEN, og: (x, z, r, t) => openGround(x, z, r, t), SQ, scene, startBattle: w => startBattle(w), player, camera, cam, P, ents, wisps, questTarget, teleport: (x, z) => { player.position.set(x, groundAt(x, z), z); snapCamera(); } };
 
 // ── build ─────────────────────────────────────────────────────
 (async () => {
   try { await Promise.race([document.fonts.load(`700 40px "Gentium Plus"`), new Promise(r => setTimeout(r, 2500))]); } catch (e) { /* fall back to serif */ }
   buildTerrain();
-  scenery(); buildCritters();
+  scenery(); buildCritters(); buildWalkers();
   buildEntities();
   buildVillains();
   buildChests();
