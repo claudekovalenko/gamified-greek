@@ -46,6 +46,18 @@ window.KG = window.KG || {};
     return defaults();
   }
   const E = KG.engine = { state: load(), listeners: [] };
+  // XP, coins, streak and words are yours across chapters; each chapter keeps its own world (where you stand, what you found, who lurks there)
+  {
+    const S = E.state, ch = KG.CHAPTERS[0], was = S.ch ?? 6;
+    if (was !== ch) {
+      S.byCh = S.byCh || {};
+      S.byCh[was] = { world: S.world, villains: S.villains };
+      const d = S.byCh[ch] || {};
+      S.world = d.world; S.villains = d.villains;
+      if (!S.world) delete S.world; if (!S.villains) delete S.villains;
+      S.ch = ch;
+    }
+  }
   E.save = () => { try { localStorage.setItem(STORE, JSON.stringify(E.state)); } catch (e) { /* ignore */ } };
   E.reset = () => { E.state = defaults(); E.save(); };
   E.importState = json => { const d = defaults(), s = JSON.parse(json); if (typeof s.xp !== 'number') throw new Error('Not a Going Deeper Quest backup'); E.state = Object.assign(d, s); E.save(); };

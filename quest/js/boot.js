@@ -7,7 +7,9 @@
   try {
     const res = await fetch('../data/content.json', { cache: 'no-cache' });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    KG.build(await res.json());
+    const C = await res.json();
+    KG.pickChapter(C);
+    KG.build(C);
   } catch (e) {
     main.innerHTML = `<div class="loading">Could not load the words and concepts (${String(e.message || e)}). Check your connection and reload.</div>`;
     return;

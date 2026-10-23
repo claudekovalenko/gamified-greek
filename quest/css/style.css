@@ -674,3 +674,8 @@ body.irisfx::after { content: ''; position: fixed; inset: 0; z-index: 60; pointe
 .s3 .s3foot > .muted:not(.s3help) { color: var(--ink); opacity: .8; margin: 6px 0; }
 /* the arcade clock over a 3D game: a compact pill, not a bar across the whole screen */
 .s3 .atimer { flex: 0 1 300px; margin: 0 auto; font-size: 1.05rem; padding: 2px 4px; box-shadow: 0 2px 8px rgba(0,0,0,.25); }
+/* chapter picker */
+.chrow { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 8px; }
+.chbtn { display: grid; gap: 2px; text-align: left; padding: 10px 12px; border-radius: 14px; background: var(--bg2); border: 2px solid var(--line); color: var(--ink); }
+.chbtn b { font-size: 1.4rem; font-family: var(--gk, serif); } .chbtn span { font-size: .75rem; color: var(--muted); } .chbtn em { font-style: normal; font-size: .72rem; font-weight: 800; color: var(--brand); text-transform: uppercase; letter-spacing: .04em; }
+.chbtn.on { border-color: var(--gold); background: color-mix(in srgb, var(--gold) 18%, var(--card)); }

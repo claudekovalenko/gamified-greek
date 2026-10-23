@@ -4,8 +4,25 @@
 // source app becomes playable by adding its number to KG.CHAPTERS.
 window.KG = window.KG || {};
 
-// The chapters that are worlds in the game, in order.
+// The chapter that is the world in the game. You pick it in the Codex (or with ?ch=N);
+// until you do, it is the one whose class came most recently, so a newly synced
+// chapter is playable at once and you can always play ahead.
 KG.CHAPTERS = [6];
+KG.CH_KEY = 'going-deeper-quest-chapter';
+KG.pickChapter = C => {
+  const all = (C.chapters || []).filter(c => c.words || c.cards);
+  KG.ALL_CHAPTERS = all;
+  const ok = n => all.some(c => c.n === n);
+  let n = +(new URLSearchParams(location.search).get('ch') || 0);
+  if (!ok(n)) { try { n = +(localStorage.getItem(KG.CH_KEY) || 0); } catch (e) { n = 0; } }
+  if (!ok(n)) {
+    const today = new Date().toISOString().slice(0, 10), past = all.filter(c => !c.classDate || c.classDate <= today);
+    const pick = (past.length ? past : all).slice().sort((a, b) => String(a.classDate || '').localeCompare(String(b.classDate || '')) || a.n - b.n).pop();
+    n = pick ? pick.n : 6;
+  }
+  KG.CHAPTERS = [n];
+};
+KG.setChapter = n => { try { localStorage.setItem(KG.CH_KEY, String(n)); } catch (e) { /* storage off */ } location.href = location.pathname + '#world'; location.reload(); };
 
 (function () {
   'use strict';

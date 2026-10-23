@@ -739,7 +739,13 @@
   let lexFilter = '';
   function renderCodex() {
     const r = readiness(), readings = E.nodes.filter(n => n.type === 'reading');
-    main.innerHTML = `<h1 class="vh">Codex</h1>
+    // pick the chapter you play: past classes to revise, the next ones to get ahead
+    const today = U.day(), chs = KG.ALL_CHAPTERS || [];
+    const chapterCard = chs.length > 1 ? `<div class="card chpick"><h3>📚 Chapter <span class="muted small">your level, coins and words carry over</span></h3><div class="chrow">${chs.map(c => {
+      const on = KG.CHAPTERS.includes(c.n), soon = c.classDate && c.classDate > today;
+      return `<button class="chbtn ${on ? 'on' : ''}" data-act="chapter" data-arg="${c.n}" ${on ? 'disabled' : ''}><b>${c.n}</b><span>${c.words} words · ${c.cards} uses</span><em>${on ? 'playing' : soon ? 'get ahead' : c.classDate ? 'revise' : ''}</em></button>`;
+    }).join('')}</div></div>` : '';
+    main.innerHTML = `<h1 class="vh">Codex</h1>${chapterCard}
       <div class="card prof"><div class="ring" style="--p:${r.score * 360}deg"><span>${Math.round(r.score * 100)}%</span></div>
         <div><div class="muted">Quiz readiness · Chapter ${KG.CHAPTERS.join(', ')}</div><h3>${r.stage}</h3>
         <p>📜 Words studied <b>${r.studied}/${r.words}</b> · solid in review <b>${r.mastered}</b></p>
@@ -909,6 +915,7 @@
     villain: u => startVillain(+u),
     review: () => startReview('review'), mistakes: () => startReview('mistakes'), weak: () => startReview('weak'), weakc: () => startReview('weakc'), cram: () => startReview('cram'),
     arcade: k => startArcade(k), apick: (i, el) => arcadePick(i, el),
+    chapter: n => { if (confirm(`Switch to Chapter ${n}? Your level, coins and words carry over; each chapter keeps its own world.`)) KG.setChapter(+n); },
     quitArcade: () => { if (A) { clearInterval(A.timer); if (A.mini && A.is3D) ST().stopMini(); } A = null; go('arcade'); },
     readVerse,
     equip: a => { const [sl, id] = a.split(':'); if (E.equip(sl, id)) { sfx('tap'); renderProfile(); } },
