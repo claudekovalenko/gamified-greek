@@ -432,6 +432,44 @@ export function makeFX(THREE, { LOW = false } = {}) {
     };
   }
 
+  // ── sunbeams: soft shafts of light slanting down among the trees near the hero ──
+  // update(dt, center, camera position, ground(x, z), strength 0..1, sunDir)
+  function sunShafts(scene, n = LOW ? 0 : 7) {
+    const c = document.createElement('canvas'); c.width = 32; c.height = 128; const x = c.getContext('2d');
+    const g = x.createLinearGradient(0, 0, 0, 128); g.addColorStop(0, 'rgba(255,240,200,0)'); g.addColorStop(0.25, 'rgba(255,240,200,.9)'); g.addColorStop(1, 'rgba(255,240,200,0)');
+    x.fillStyle = g; x.fillRect(0, 0, 32, 128);
+    const h = x.createLinearGradient(0, 0, 32, 0); h.addColorStop(0, 'rgba(0,0,0,1)'); h.addColorStop(0.5, 'rgba(0,0,0,0)'); h.addColorStop(1, 'rgba(0,0,0,1)');
+    x.globalCompositeOperation = 'destination-out'; x.fillStyle = h; x.fillRect(0, 0, 32, 128);
+    const tex = new THREE.CanvasTexture(c);
+    const mat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, fog: false });
+    const geo = new THREE.PlaneGeometry(1, 1); geo.translate(0, -0.5, 0);
+    const S = [];
+    for (let i = 0; i < n; i++) { const m = new THREE.Mesh(geo, mat); m.visible = false; scene.add(m); S.push({ m, x: 0, z: 0, t: Math.random(), w: 2.5 + Math.random() * 3, set: false }); }
+    let fade = 0;
+    const dir = new THREE.Vector3(), xA = new THREE.Vector3(), zA = new THREE.Vector3(), basis = new THREE.Matrix4();
+    return {
+      update(dt, cen, cam, ground, k, sunDir) {
+        fade += (k - fade) * Math.min(1, dt * 0.7);
+        mat.opacity = fade * 0.26;
+        for (const s of S) {
+          s.m.visible = fade > 0.02; if (!s.m.visible) continue;
+          s.t += dt * 0.05;
+          if (!s.set || s.t > 1 || Math.hypot(s.x - cen.x, s.z - cen.z) > 30) {
+            const a = Math.random() * 6.283, r = 6 + Math.random() * 18; s.x = cen.x + Math.cos(a) * r; s.z = cen.z + Math.sin(a) * r; s.t = 0; s.set = true;
+          }
+          const life = Math.sin(s.t * Math.PI);
+          dir.set(...(sunDir || [0.35, 0.42, -0.84])).normalize();
+          const L = 16;
+          s.m.position.set(s.x + dir.x * L, ground(s.x, s.z) + dir.y * L + 1, s.z + dir.z * L);
+          s.m.scale.set(s.w * life, L * 1.3, 1);
+          // stand the quad along the sun direction, turned to face the camera as far as it can
+          zA.copy(cam).sub(s.m.position); zA.addScaledVector(dir, -zA.dot(dir)).normalize();
+          xA.crossVectors(dir, zA); basis.makeBasis(xA, dir, zA); s.m.quaternion.setFromRotationMatrix(basis);
+        }
+      },
+    };
+  }
+
   // ── shooting stars streak across the night sky now and then ──
   function shootingStars(scene) {
     const pos = new Float32Array(6), geo = new THREE.BufferGeometry();
@@ -672,5 +710,5 @@ export function makeFX(THREE, { LOW = false } = {}) {
     return { update, group: G };
   }
 
-  return { time, hero, bloom, rim, rimCol, rimAmt, setLight, cloudShade, farHills, shootingStars, critters, arena, bursts, pondLife, groundDetail, sky, water, windify, portalMaterial, sparks, glow, blobShadow, heroPose, flyToHUD, tick: t => { time.value = t; } };
+  return { time, hero, bloom, sunShafts, rim, rimCol, rimAmt, setLight, cloudShade, farHills, shootingStars, critters, arena, bursts, pondLife, groundDetail, sky, water, windify, portalMaterial, sparks, glow, blobShadow, heroPose, flyToHUD, tick: t => { time.value = t; } };
 }
