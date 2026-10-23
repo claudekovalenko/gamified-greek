@@ -1494,7 +1494,11 @@ function step(dt) {
   if (P.onGround && hs > 6.5 && (P.dustT = (P.dustT || 0) - dt) <= 0) { P.dustT = 0.11; DUST.emit(pos, { color: 0xcdbb98, n: 2, speed: 0.8, up: 0.3, gravity: 0.3, drag: 2, size: 0.35, size1: 0.9, life: 0.55 }); }
   if (!LOW && hs > 2 && (P.wandT = (P.wandT || 0) - dt) <= 0) { P.wandT = 0.06; SPK.emit(player.userData.arms[1].localToWorld(tmp2.set(0, -0.8, 0.3)), { color: 0xffe08a, n: 1, speed: 0.3, up: 0.3, gravity: 0.4, size: 0.18, life: 0.6 }); }
   animatePerson(player, P.onGround ? hs : 0, dt);
-  FX.heroPose(player, { speed: P.onGround ? hs : 0, onGround: P.onGround, vy: P.vel.y, landed: P.landT, t, turn: P.turn });
+  P.idle = hs < 0.2 && P.onGround && !busy ? (P.idle || 0) + dt : 0;
+  if (FX.heroPose(player, { speed: P.onGround ? hs : 0, onGround: P.onGround, vy: P.vel.y, landed: P.landT, t, turn: P.turn, idle: P.idle })) {
+    const tip = player.userData.arms[1].localToWorld(tmp2.set(0, -0.9, 0.3));
+    SPK.emit(tip, { colors: [0xffe08a, 0xb388ff, 0x7fd0ff], n: 16, speed: 1.6, up: 0.8, gravity: 0.5, size: 0.3, life: 0.9 });
+  }
   if (pet) {
     const back = player.rotation.y + Math.PI * 0.75, tx = pos.x + Math.sin(back) * 1.4, tz = pos.z + Math.cos(back) * 1.4;
     pet.position.x += (tx - pet.position.x) * Math.min(1, dt * 3); pet.position.z += (tz - pet.position.z) * Math.min(1, dt * 3);

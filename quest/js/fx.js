@@ -716,7 +716,8 @@ export function makeFX(THREE, { LOW = false } = {}) {
   }
 
   // ── the hero's body language: breathing, leaning into a run, squash on landing ──
-  function heroPose(p, { speed = 0, onGround = true, vy = 0, landed = 0, t = 0, turn = 0 }) {
+  // idle: seconds standing still; after a while the hero twirls the wand now and then. Returns true at the twirl's peak.
+  function heroPose(p, { speed = 0, onGround = true, vy = 0, landed = 0, t = 0, turn = 0, idle = 0 }) {
     const u = p.userData; if (!u || !u.body) return;
     const run = Math.min(1, speed / 9);
     u.body.rotation.x = onGround ? run * 0.22 : vy > 0 ? -0.12 : 0.18;
@@ -728,6 +729,12 @@ export function makeFX(THREE, { LOW = false } = {}) {
     if (u.arms && speed < 0.3 && onGround) { u.arms[0].rotation.z = 0.06 + Math.sin(t * 2.2) * 0.03; u.arms[1].rotation.z = -0.06 - Math.sin(t * 2.2) * 0.03; }
     else if (u.arms && !onGround) { u.arms[0].rotation.z = 0.6; u.arms[1].rotation.z = -0.6; }
     else if (u.arms) { u.arms[0].rotation.z = 0.05; u.arms[1].rotation.z = -0.05; }
+    // standing still for a while: look around, then raise the wand for a little twirl of sparks
+    const c = idle > 4 ? ((idle - 4) % 7) / 1.8 : 9;
+    if (u.arms) u.arms[1].rotation.x = c < 1 ? -Math.sin(c * Math.PI) * 1.9 : u.arms[1].rotation.x * 0.85;
+    u.body.rotation.y = c < 1 ? Math.sin(c * Math.PI) * 0.25 : idle > 4 ? Math.sin((idle - 4) * 0.7) * 0.18 * Math.min(1, idle - 4) : u.body.rotation.y * 0.85;
+    const peak = c < 1 && c > 0.45 && !u.twirled; if (c < 0.45 || c >= 1) u.twirled = false; if (peak) u.twirled = true;
+    return peak;
   }
 
   // ── a pickup flies from the world to its counter in the HUD ──
