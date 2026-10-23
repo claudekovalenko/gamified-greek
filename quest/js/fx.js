@@ -249,6 +249,12 @@ export function makeFX(THREE, { LOW = false } = {}) {
           float n1 = vn(vGW.xz * .07), n2 = vn(vGW.xz * .45 + 3.1), n3 = vn(vGW.xz * 2.3 + 7.7);
           float k = ${amt.toFixed(2)};
           diffuseColor.rgb *= 1. + k * (.2 * (n1 - .5) + .1 * (n2 - .5) + .06 * (n3 - .5));
+          // close up: fine grain (grass tufts, pebbles, soil) so the ground reads as a surface, fading out with distance
+          float near = smoothstep(45., 6., distance(vGW, cameraPosition));
+          if (near > 0.) {
+            float f1 = vn(vGW.xz * 7.3), f2 = vn(vGW.xz * 17. + 5.), sp = step(.86, vn(vGW.xz * 11. - 9.));
+            diffuseColor.rgb *= 1. + near * k * (.16 * (f1 - .5) + .12 * (f2 - .5) - .1 * sp);
+          }
           diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * vec3(1.1, 1.05, .82), k * smoothstep(.55, .85, n1) * .45);
           diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * vec3(.9, 1., 1.08), k * smoothstep(.6, .9, 1. - n1) * .3);
           // the shadows of clouds drifting over the land
