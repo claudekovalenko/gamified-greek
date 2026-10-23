@@ -741,8 +741,8 @@ function person({ skin = 0xf0c8a0, robe = 0x3f7d3a, hair = 0x6a3e1e, hood = fals
   }
   if (staff) { const st = tmesh(new THREE.CylinderGeometry(0.05, 0.05, 2.4, 8), 0x6a4a2a, {}, 0); st.position.set(0.55, 1.2, 0.15); body.add(st); const gem = mesh(new THREE.OctahedronGeometry(0.15), 0x7fd0ff, { emissive: 0x3fa0ff }); gem.position.set(0.55, 2.45, 0.15); body.add(gem); }
   g.scale.setScalar(scale);
-  { const sh = FX.blobShadow(0.75); sh.position.y = 0.03; g.add(sh); } // a soft contact shadow, so feet sit on the ground
-  g.userData = { body, legs, arms, eyes, cloak, phase: 0 };
+  const shadow = FX.blobShadow(0.75); shadow.position.y = 0.03; g.add(shadow); // a soft contact shadow, so feet sit on the ground
+  g.userData = { body, legs, arms, eyes, cloak, shadow, phase: 0 };
   return g;
 }
 function animatePerson(p, speed, dt) {
@@ -1625,6 +1625,8 @@ function step(dt) {
   if (!LOW && hs > 2 && (P.wandT = (P.wandT || 0) - dt) <= 0) { P.wandT = 0.06; SPK.emit(player.userData.arms[1].localToWorld(tmp2.set(0, -0.8, 0.3)), { color: 0xffe08a, n: 1, speed: 0.3, up: 0.3, gravity: 0.4, size: 0.18, life: 0.6 }); }
   animatePerson(player, P.onGround ? hs : 0, dt);
   P.idle = hs < 0.2 && P.onGround && !busy ? (P.idle || 0) + dt : 0;
+  // the hero's contact shadow stays on the ground below a jump, shrinking and fading with height
+  { const sh = player.userData.shadow, h = Math.max(0, pos.y - groundAt(pos.x, pos.z)); if (sh) { sh.position.y = 0.03 - h / player.scale.y; sh.scale.setScalar(Math.max(0.4, 1 - h * 0.15)); sh.material.opacity = Math.max(0.3, 1 - h * 0.2); } }
   if (FX.heroPose(player, { speed: P.onGround ? hs : 0, onGround: P.onGround, vy: P.vel.y, landed: P.landT, t, turn: P.turn, idle: P.idle })) {
     const tip = player.userData.arms[1].localToWorld(tmp2.set(0, -0.9, 0.3));
     SPK.emit(tip, { colors: [0xffe08a, 0xb388ff, 0x7fd0ff], n: 16, speed: 1.6, up: 0.8, gravity: 0.5, size: 0.3, life: 0.9 });
