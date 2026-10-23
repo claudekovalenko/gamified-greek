@@ -277,5 +277,61 @@ export function makeFX(THREE, { LOW = false } = {}) {
     ], { duration: 750, easing: 'cubic-bezier(.5,0,.75,.4)' }).onfinish = () => { d.remove(); target.animate([{ transform: 'scale(1.35)' }, { transform: 'scale(1)' }], { duration: 250 }); };
   }
 
-  return { time, sky, water, windify, portalMaterial, sparks, glow, blobShadow, heroPose, flyToHUD, tick: t => { time.value = t; } };
+  // ── life in the air: a flock of birds wheeling overhead, butterflies near the path ──
+  // update(dt, t, center, ground(x, z), day 0..1): birds and butterflies keep near the
+  // player and fade away at night.
+  function critters(scene, { birds = LOW ? 5 : 9, flies = LOW ? 4 : 8 } = {}) {
+    const G = new THREE.Group(); scene.add(G);
+    const dark = new THREE.MeshBasicMaterial({ color: 0x2a2630, side: THREE.DoubleSide, transparent: true });
+    const wingGeo = new THREE.BufferGeometry();
+    wingGeo.setAttribute('position', new THREE.Float32BufferAttribute([0, 0, -0.18, 0, 0, 0.22, 0.9, 0, 0.05], 3));
+    wingGeo.computeVertexNormals();
+    const bodyGeo = new THREE.ConeGeometry(0.09, 0.6, 4); bodyGeo.rotateX(Math.PI / 2);
+    const B = [];
+    for (let i = 0; i < birds; i++) {
+      const g = new THREE.Group(), body = new THREE.Mesh(bodyGeo, dark), wl = new THREE.Mesh(wingGeo, dark), wr = new THREE.Mesh(wingGeo, dark);
+      wr.scale.x = -1; g.add(body, wl, wr); g.scale.setScalar(1.4); G.add(g);
+      B.push({ g, wl, wr, ph: Math.random() * 6, r: 18 + (i % 3) * 5 + Math.random() * 3, h: 16 + (i % 4) * 2.5, a: i * 0.7, sp: 0.22 + Math.random() * 0.06, glide: 0 });
+    }
+    const flyCols = [0xffb84a, 0xf06a8a, 0x8ad0ff, 0xfff07a, 0xc89aff, 0xffffff];
+    const flyGeo = new THREE.PlaneGeometry(0.22, 0.18); flyGeo.translate(0.11, 0, 0);
+    const F = [];
+    for (let i = 0; i < flies; i++) {
+      const m = new THREE.MeshBasicMaterial({ color: flyCols[i % flyCols.length], side: THREE.DoubleSide, transparent: true });
+      const g = new THREE.Group(), wl = new THREE.Mesh(flyGeo, m), wr = new THREE.Mesh(flyGeo, m);
+      wl.rotation.x = wr.rotation.x = -Math.PI / 2; wr.scale.x = -1; g.add(wl, wr); G.add(g);
+      F.push({ g, wl, wr, m, x: 0, z: 0, y: 0, tx: 0, tz: 0, ph: Math.random() * 6, set: false });
+    }
+    let fade = 1;
+    function update(dt, t, c, ground, day = 1) {
+      fade += ((day > 0.5 ? 1 : 0) - fade) * Math.min(1, dt * 0.8);
+      G.visible = fade > 0.02; if (!G.visible) return;
+      dark.opacity = fade;
+      for (const b of B) {
+        b.a += dt * b.sp;
+        const x = c.x + Math.cos(b.a) * b.r, z = c.z + Math.sin(b.a) * b.r, y = c.y + b.h + Math.sin(b.a * 3) * 1.2;
+        b.g.position.set(x, y, z); b.g.rotation.set(0, -b.a, Math.sin(t * 0.5 + b.r) * 0.15); // facing along the circle, banking
+        b.glide = Math.sin(t * 0.4 + b.r) > 0.3 ? 1 : 0;
+        const f = b.glide ? 0.15 : Math.sin(t * 9 + b.ph) * 0.7;
+        b.wl.rotation.z = f; b.wr.rotation.z = -f;
+      }
+      for (const f of F) {
+        f.m.opacity = fade;
+        if (!f.set || Math.hypot(f.x - c.x, f.z - c.z) > 22) {
+          const a = Math.random() * 6.28, r = 4 + Math.random() * 12;
+          f.x = f.tx = c.x + Math.cos(a) * r; f.z = f.tz = c.z + Math.sin(a) * r; f.set = true;
+        }
+        if (Math.hypot(f.tx - f.x, f.tz - f.z) < 0.3) { const a = Math.random() * 6.28; f.tx = f.x + Math.cos(a) * 2.5; f.tz = f.z + Math.sin(a) * 2.5; }
+        const dx = f.tx - f.x, dz = f.tz - f.z, d = Math.hypot(dx, dz) || 1;
+        f.x += dx / d * dt * 1.1 + Math.sin(t * 3 + f.ph) * dt * 0.6; f.z += dz / d * dt * 1.1 + Math.cos(t * 2.6 + f.ph) * dt * 0.6;
+        const gy = ground(f.x, f.z) + 0.8 + Math.sin(t * 2 + f.ph) * 0.35;
+        f.y += (gy - f.y) * Math.min(1, dt * 3);
+        f.g.position.set(f.x, f.y, f.z); f.g.rotation.y = Math.atan2(dx, dz);
+        const w = Math.sin(t * 16 + f.ph) * 1.1; f.wl.rotation.y = w; f.wr.rotation.y = -w;
+      }
+    }
+    return { update, group: G };
+  }
+
+  return { time, critters, sky, water, windify, portalMaterial, sparks, glow, blobShadow, heroPose, flyToHUD, tick: t => { time.value = t; } };
 }

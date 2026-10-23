@@ -122,6 +122,7 @@ const sky = FX.sky(500);
 scene.add(sky);
 // sparkles and dust
 const SPK = FX.sparks(scene), DUST = FX.sparks(scene, LOW ? 80 : 200, { additive: false });
+const CRIT = FX.critters(scene); // birds overhead, butterflies by the path
 const hemi = new THREE.HemisphereLight(0xdff0ff, 0x5a6a3a, 1.1);
 scene.add(hemi);
 // Each world has its own sky, fog and light; they blend as you travel.
@@ -1555,6 +1556,7 @@ function step(dt) {
   }
 
   SPK.update(dt); DUST.update(dt);
+  CRIT.update(dt, t, pos, groundAt, INDOOR ? 0 : atm.stars < 0.5 ? 1 : 0);
   for (let k = anims.length - 1; k >= 0; k--) if (anims[k](dt, t) === false) anims.splice(k, 1);
   updateAmbience(dt, t, pos);
   SQ.update(dt, t, pos, P.onGround);
