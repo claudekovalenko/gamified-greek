@@ -1691,6 +1691,8 @@ function step(dt) {
   for (const l of letters) {
     if (!l.s.visible) continue;
     l.s.position.y = groundAt(l.x, l.z) + 1.3 + Math.sin(t * 2 + l.i) * 0.2;
+    // a little sparkle rises from each letter now and then, so they read as treasures
+    if (!LOW && Math.random() < dt * 1.2 && Math.abs(pos.x - l.x) + Math.abs(pos.z - l.z) < 35) SPK.emit(l.s.position, { color: 0xffe08a, n: 1, speed: 0.3, up: 0.8, gravity: 0.6, size: 0.25, life: 0.9, spread: 0.6 });
     if (Math.hypot(pos.x - l.x, pos.z - l.z) < 1.3 && Math.abs(pos.y + 1 - l.s.position.y) < 2) {
       l.s.visible = false; w.letters.push(l.i);
       const A = KG.sparks[l.i];
