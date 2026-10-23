@@ -399,7 +399,7 @@ function scatterTrees() {
     rocks.setMatrixAt(i, m);
   }
   rocks.castShadow = rocks.receiveShadow = true; scene.add(rocks);
-  const NF = LOW ? 600 : 1500, fl = new THREE.InstancedMesh(FX.flowerGeo(), FX.windify(new THREE.MeshStandardMaterial({ roughness: 1, vertexColors: true }), { amp: 0.35, freq: 2 }), NF);
+  const NF = LOW ? 600 : 1500, fl = new THREE.InstancedMesh(FX.flowerGeo(), FX.windify(new THREE.MeshStandardMaterial({ roughness: 1, vertexColors: true }), { amp: 0.35, freq: 2, nearFade: true }), NF);
   const fcols = [0xffe066, 0xff8fab, 0xffffff, 0xb197fc, 0xff6b6b];
   for (let i = 0; i < NF; i++) {
     const z = -Math.random() * -END_Z, x = pathX(z) + (Math.random() < 0.5 ? -1 : 1) * (3 + Math.random() * 14), fs = 1.2 + Math.random() * 1.2;
@@ -473,7 +473,7 @@ function grass() {
   blade.setAttribute('normal', new THREE.Float32BufferAttribute([0, 0, 1, 0, 0, 1, 0, 0, 1], 3));
   blade.setAttribute('color', new THREE.Float32BufferAttribute([0.62, 0.62, 0.62, 0.62, 0.62, 0.62, 1.1, 1.1, 1.0], 3));
   const mat = new THREE.MeshBasicMaterial({ side: THREE.DoubleSide, vertexColors: true });
-  FX.windify(mat, { amp: 0.24, freq: 1.8, push: true });
+  FX.windify(mat, { amp: 0.24, freq: 1.8, push: true, nearFade: true });
   const im = new THREE.InstancedMesh(blade, mat, N);
   buildNearGrass(mat, blade);
   const m = new THREE.Matrix4(), q = new THREE.Quaternion(), sc = new THREE.Vector3(), p = new THREE.Vector3(), c = new THREE.Color();
