@@ -1152,7 +1152,8 @@ function dialog(name, html, buttons) {
   d.classList.add('on');
   d.querySelectorAll('[data-wb]').forEach(el => el.onclick = () => { const b = buttons[+el.dataset.wb]; if (b.keep !== true) closeDialog(); if (b.fn) b.fn(); });
 }
-function closeDialog() { dlgOpen = false; $('wdlg').classList.remove('on'); $('wdlg').innerHTML = ''; }
+let talkTo = null; // the one you're talking with: the camera frames the two of you
+function closeDialog() { dlgOpen = false; talkTo = null; $('wdlg').classList.remove('on'); $('wdlg').innerHTML = ''; }
 function launch(id) { savePos(); closeDialog(); KG.app.startNode(id); }
 
 // Skulch hides in a region after you fail a lesson there; one creature per region
@@ -1173,6 +1174,7 @@ function syncVillains() {
 }
 const k0 = e => ents.find(x => x.kind === 'mentor' && x.zone === e.zone) === e; // the first person in a region
 function talk(e) {
+  talkTo = e.obj && e.kind !== 'pedestal' && e.kind !== 'vgate' ? e : null;
   const Z = ZONES[e.zone], app = KG.app;
   app.sfx('tap');
   if (e.kind === 'side') return SQ.start(e);
@@ -1535,10 +1537,13 @@ function step(dt) {
     tmp.set(pos.x - dx / dl * 5.5 - dz / dl * sd, Math.max(pos.y, aim.y) + (foe ? 5 : 4), pos.z - dz / dl * 5.5 + dx / dl * sd);
     tmp.y = Math.max(tmp.y, groundAt(tmp.x, tmp.z) + 1);
   }
+  // talking: an over-the-shoulder shot, the speaker framed above the dialogue box
+  const tk = dlgOpen && talkTo && !aim && !INDOOR ? talkTo.obj.position : null;
+  if (tk) { const dx = tk.x - pos.x, dz = tk.z - pos.z, dl = Math.hypot(dx, dz) || 1; tmp.set(pos.x - dx / dl * 2.4 + dz / dl * 3.2, pos.y + 2.4, pos.z - dz / dl * 2.4 - dx / dl * 3.2); tmp.y = Math.max(tmp.y, groundAt(tmp.x, tmp.z) + 1); }
   if (INDOOR && !aim) { INDOOR.roomCam(pos, tmp); let dy = INDOOR.face - cam.yaw; cam.yaw += Math.atan2(Math.sin(dy), Math.cos(dy)) * Math.min(1, dt * 3); }
   if (INDOOR) INDOOR.clampCam(tmp);
   camera.position.lerp(tmp, cam.snap ? 1 : Math.min(1, dt * (aim ? 4 : 8))); cam.snap = false;
-  camLook.lerp(tmp2.set(pos.x, pos.y + 1.4, pos.z).lerp(focus || tmp2, focus ? (foe ? 0.45 : 0.7) : 0), Math.min(1, dt * 6));
+  if (tk) camLook.lerp(tmp2.set(pos.x + (tk.x - pos.x) * 0.7, pos.y + 0.5, pos.z + (tk.z - pos.z) * 0.7), Math.min(1, dt * 5)); else camLook.lerp(tmp2.set(pos.x, pos.y + 1.4, pos.z).lerp(focus || tmp2, focus ? (foe ? 0.45 : 0.7) : 0), Math.min(1, dt * 6));
   camera.lookAt(camLook);
   if (S_SHAKE > 0) { S_SHAKE = Math.max(0, S_SHAKE - dt); camera.position.x += (Math.random() - 0.5) * S_SHAKE; camera.position.y += (Math.random() - 0.5) * S_SHAKE; }
   sun.position.set(pos.x + 30, pos.y + 60, pos.z + 20); sun.target.position.set(pos.x, pos.y, pos.z);
@@ -1564,7 +1569,7 @@ function step(dt) {
     const d = Math.hypot(pos.x - e.x, pos.z - e.z);
     if (e.kind === 'villain') { e.obj.userData.body.position.y = Math.abs(Math.sin(t * 5)) * 0.08; e.obj.userData.body.rotation.z = Math.sin(t * 2.3) * 0.12; }
     e.mark.position.y = (e.tagY || 2.7) + 0.9 + Math.sin(t * 3) * 0.12;
-    if (e.tag) e.tag.visible = !INDOOR || camera.position.distanceTo(e.obj.position) > 3.2; // no giant name in your face in a small room
+    if (e.tag) e.tag.visible = e !== talkTo && (!INDOOR || camera.position.distanceTo(e.obj.position) > 3.2); // no giant name in your face (in a small room, or mid-conversation)
     if (e.kind === 'side' || e.kind === 'vgate') { if (d < best) { best = d; nearEnt = e; } continue; }
     if (e.kind === 'chest') { if (e.glow.visible) e.glow.position.y = 1.9 + Math.sin(t * 3) * 0.12; }
     else if (e.kind === 'pedestal') { e.spin.rotation.y += dt; e.spin.position.y = 1.7 + Math.sin(t * 2) * 0.1; }
