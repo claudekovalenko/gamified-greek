@@ -140,12 +140,12 @@ export function makeFX(THREE, { LOW = false } = {}) {
             vNF = (modelMatrix * vec4(transformed, 1.)).xyz;
           #endif`);
         sh.fragmentShader = 'uniform vec3 uHero;\nvarying vec3 vNF;\n' + sh.fragmentShader.replace('#include <clipping_planes_fragment>', `#include <clipping_planes_fragment>
-          { float nd = distance(vNF, cameraPosition); vec2 q = floor(gl_FragCoord.xy); float th = fract(dot(q, vec2(.5, .25)) + fract(q.y * .5) * .5);
-            if (nd < 4.5 && th > (nd - 1.5) / 3.) discard;
+          { float nd = distance(vNF, cameraPosition); vec2 q = floor(gl_FragCoord.xy); float th = fract(52.9829189 * fract(dot(q, vec2(.06711056, .00583715)))); // interleaved gradient noise: a fine, even dissolve
+            if (nd < 3.6 && th > (nd - 1.2) / 2.4) discard;
             // anything standing between the camera and the hero thins out so the hero stays in view
             vec3 ab = uHero + vec3(0., 1.2, 0.) - cameraPosition; float k = clamp(dot(vNF - cameraPosition, ab) / dot(ab, ab), 0., 1.);
             float off = distance(vNF, cameraPosition + ab * k);
-            if (k > .02 && k < .9 && off < 2.4 && th > .25 + off * .2) discard; }`);
+            if (k > .45 && k < .92 && off < 1.6 && th > .3 + off * .35) discard; }`);
       }
       if (push) {
         sh.uniforms.uTint = grassTint;
@@ -819,9 +819,9 @@ export function makeFX(THREE, { LOW = false } = {}) {
   // the stem is kept green by vertex colour; instance colour tints the petals
   function flowerGeo() {
     const parts = [], col = (g, c) => { const n = g.attributes.position.count, a = new Float32Array(n * 3); for (let i = 0; i < n; i++) a.set(c, i * 3); g.setAttribute('color', new THREE.BufferAttribute(a, 3)); return g; };
-    const stem = new THREE.CylinderGeometry(0.012, 0.015, 0.26, 4); stem.translate(0, 0.13, 0); parts.push(col(stem.toNonIndexed(), [0.35, 0.55, 0.25]));
-    for (let k = 0; k < 5; k++) { const p = new THREE.SphereGeometry(0.055, 5, 3); p.scale(1, 0.35, 0.6); p.translate(0.06, 0.27, 0); p.rotateY(k / 5 * Math.PI * 2); parts.push(col(p.toNonIndexed(), [1, 1, 1])); }
-    const c = new THREE.SphereGeometry(0.035, 5, 3); c.translate(0, 0.285, 0); parts.push(col(c.toNonIndexed(), [1.6, 1.3, 0.4]));
+    const stem = new THREE.CylinderGeometry(0.012, 0.015, 0.26, 3, 1, true); stem.translate(0, 0.13, 0); parts.push(col(stem.toNonIndexed(), [0.35, 0.55, 0.25]));
+    for (let k = 0; k < 5; k++) { const p = new THREE.SphereGeometry(0.055, 4, 2); p.scale(1, 0.35, 0.6); p.translate(0.06, 0.27, 0); p.rotateY(k / 5 * Math.PI * 2); parts.push(col(p.toNonIndexed(), [1, 1, 1])); }
+    const c = new THREE.OctahedronGeometry(0.035, 0); c.translate(0, 0.285, 0); parts.push(col(c, [1.6, 1.3, 0.4]));
     const pos = [], nor = [], cl = [];
     for (const g of parts) { pos.push(...g.attributes.position.array); nor.push(...g.attributes.normal.array); cl.push(...g.attributes.color.array); }
     const g = new THREE.BufferGeometry();
