@@ -129,6 +129,7 @@ const BLOOM = FX.bloom(renderer); BLOOM.enabled = BLOOM.enabled && !LOW;
 const bloomPerf = { acc: 0, n: 0, t: 0 };
 const ARENA = FX.arena(scene); // the rune circle of a shade battle
 const BURSTS = FX.bursts(scene); // light pillars when a foe is banished
+const PRINTS = FX.footprints(scene); // footprints fading behind you on the road
 const HILLS = FX.farHills(scene); // far mountain ranges on the horizon
 const STARS = FX.shootingStars(scene); // a shooting star now and then at night
 const SHAFTS = FX.sunShafts(scene); // sunbeams slanting down among the trees
@@ -1478,6 +1479,9 @@ function step(dt) {
   // a puff of dust on landing and from running feet; sparkles trail from the hand
   if (wasAir && P.onGround && fall < -4) { P.landT = 0.18; DUST.emit(pos, { color: 0xd8c8a8, n: 10, speed: 2.4, up: 0.15, gravity: 0, drag: 3, size: 0.5, size1: 1.3, life: 0.6 }); }
   P.landT = Math.max(0, (P.landT || 0) - dt);
+  // footprints in the dirt of the road
+  if (P.onGround && hs > 1.5 && !INDOOR && (P.stepT = (P.stepT || 0) - dt * hs) <= 0) { P.stepT = 2.4; if (Math.abs(pos.x - pathX(pos.z)) < 2.4) PRINTS.step(pos, player.rotation.y, groundAt(pos.x, pos.z)); }
+  PRINTS.update(dt);
   if (P.onGround && hs > 6.5 && (P.dustT = (P.dustT || 0) - dt) <= 0) { P.dustT = 0.11; DUST.emit(pos, { color: 0xcdbb98, n: 2, speed: 0.8, up: 0.3, gravity: 0.3, drag: 2, size: 0.35, size1: 0.9, life: 0.55 }); }
   if (!LOW && hs > 2 && (P.wandT = (P.wandT || 0) - dt) <= 0) { P.wandT = 0.06; SPK.emit(player.userData.arms[1].localToWorld(tmp2.set(0, -0.8, 0.3)), { color: 0xffe08a, n: 1, speed: 0.3, up: 0.3, gravity: 0.4, size: 0.18, life: 0.6 }); }
   animatePerson(player, P.onGround ? hs : 0, dt);

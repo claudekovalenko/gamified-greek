@@ -525,6 +525,23 @@ export function makeFX(THREE, { LOW = false } = {}) {
     };
   }
 
+  // ── footprints that fade behind you on soft ground: step(pos, heading, y) every stride ──
+  function footprints(scene, max = LOW ? 0 : 40) {
+    const geo = new THREE.CircleGeometry(0.11, 10); geo.rotateX(-Math.PI / 2); geo.scale(1, 1, 1.7);
+    const P = [];
+    for (let i = 0; i < max; i++) { const m = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: 0x3a2a18, transparent: true, opacity: 0, depthWrite: false })); m.visible = false; m.renderOrder = 1; scene.add(m); P.push({ m, t: 0 }); }
+    let k = 0, side = 1;
+    return {
+      step(p, heading, y, tint = 0x3a2a18) {
+        if (!max) return;
+        const f = P[k = (k + 1) % max]; side = -side;
+        f.m.position.set(p.x + Math.cos(heading) * 0.17 * side, y + 0.03, p.z - Math.sin(heading) * 0.17 * side);
+        f.m.rotation.y = heading; f.m.material.color.setHex(tint); f.m.visible = true; f.t = 6;
+      },
+      update(dt) { for (const f of P) if (f.t > 0) { f.t -= dt; f.m.material.opacity = Math.min(0.28, f.t * 0.08); if (f.t <= 0) f.m.visible = false; } },
+    };
+  }
+
   // ── motes of light spiralling into a portal: add vortex() to the portal group, call update(dt) ──
   function vortex(R = 3, n = LOW ? 40 : 90, color = 0xfff0c0) {
     const pos = new Float32Array(n * 3), S = [];
@@ -765,5 +782,5 @@ export function makeFX(THREE, { LOW = false } = {}) {
     return { update, group: G };
   }
 
-  return { time, hero, vortex, setNight, skyEnv, bloom, sunShafts, rim, rimCol, rimAmt, setLight, cloudShade, farHills, shootingStars, critters, arena, bursts, pondLife, groundDetail, sky, water, windify, portalMaterial, sparks, glow, blobShadow, heroPose, flyToHUD, tick: t => { time.value = t; } };
+  return { time, hero, footprints, vortex, setNight, skyEnv, bloom, sunShafts, rim, rimCol, rimAmt, setLight, cloudShade, farHills, shootingStars, critters, arena, bursts, pondLife, groundDetail, sky, water, windify, portalMaterial, sparks, glow, blobShadow, heroPose, flyToHUD, tick: t => { time.value = t; } };
 }
