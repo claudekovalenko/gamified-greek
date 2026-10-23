@@ -838,6 +838,8 @@ export function createStage(ctx) {
     SPK.update(dt);
   };
   S.render = r => {
+    // the island glows softly (spells, flames, lamps) when the host lends a bloom pass; the tablets are drawn on top
+    if (ctx.bloom && ctx.bloom.enabled) { ctx.bloom.render(scene, camera); r.autoClear = false; r.clearDepth(); r.render(uiScene, camera); r.autoClear = true; return; }
     r.autoClear = false; r.clear();
     r.render(scene, camera);
     r.clearDepth();

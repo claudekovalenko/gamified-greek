@@ -1687,8 +1687,9 @@ function loop() {
   const dt = Math.min(0.05, clock.getDelta());
   FX.tick(clock.elapsedTime);
   if (mode === 'stage') { renderer.toneMappingExposure = 1; stage.update(dt, clock.elapsedTime); stage.render(renderer); }
-  else { step(dt); renderer.toneMappingExposure = EXPO + FLASH; BLOOM.render(scene, camera);
-    if (BLOOM.enabled) { bloomPerf.acc += dt; bloomPerf.n++; if ((bloomPerf.t += dt) > 3) { if (bloomPerf.acc / bloomPerf.n > 1 / 38) BLOOM.enabled = false; bloomPerf.acc = bloomPerf.n = bloomPerf.t = 0; } } }
+  else { step(dt); renderer.toneMappingExposure = EXPO + FLASH; BLOOM.render(scene, camera); }
+  // the glow is the first thing to go if frames run slow (in the world or on the stage)
+  if (BLOOM.enabled) { bloomPerf.acc += dt; bloomPerf.n++; if ((bloomPerf.t += dt) > 3) { if (bloomPerf.acc / bloomPerf.n > 1 / 38) BLOOM.enabled = false; bloomPerf.acc = bloomPerf.n = bloomPerf.t = 0; } }
 }
 function startLoop() { if (!active) { active = true; clock.getDelta(); loop(); } }
 function resize() {
@@ -1773,7 +1774,7 @@ W.debug = { BLOOM, BURSTS, ARENA, get moodNow() { return MOOD; }, get indoor() {
   if (typeof w.yaw === 'number') cam.yaw = w.yaw;
   camera.position.set(w.x, groundAt(w.x, w.z) + 5, w.z + 8);
   setPet();
-  stage = createStage({ FX, look: LOOK, renderer, person, golem, creep, wispMesh, ZONES, KG, animatePerson, applyLook, buildPet, animatePet });
+  stage = createStage({ FX, bloom: BLOOM, look: LOOK, renderer, person, golem, creep, wispMesh, ZONES, KG, animatePerson, applyLook, buildPet, animatePet });
   W.debug.stage = stage;
   W.ok = true;
   document.dispatchEvent(new Event('world-ready'));
