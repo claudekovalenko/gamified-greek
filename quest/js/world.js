@@ -741,6 +741,7 @@ function person({ skin = 0xf0c8a0, robe = 0x3f7d3a, hair = 0x6a3e1e, hood = fals
   }
   if (staff) { const st = tmesh(new THREE.CylinderGeometry(0.05, 0.05, 2.4, 8), 0x6a4a2a, {}, 0); st.position.set(0.55, 1.2, 0.15); body.add(st); const gem = mesh(new THREE.OctahedronGeometry(0.15), 0x7fd0ff, { emissive: 0x3fa0ff }); gem.position.set(0.55, 2.45, 0.15); body.add(gem); }
   g.scale.setScalar(scale);
+  { const sh = FX.blobShadow(0.75); sh.position.y = 0.03; g.add(sh); } // a soft contact shadow, so feet sit on the ground
   g.userData = { body, legs, arms, eyes, cloak, phase: 0 };
   return g;
 }
