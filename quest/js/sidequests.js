@@ -34,8 +34,22 @@ export function makeSideQuests(ctx) {
   const anims = [];
   const tween = (dur, fn, done) => { let t = 0; anims.push(dt => { t = Math.min(1, t + dt / dur); fn(t); if (t >= 1) { if (done) done(); return false; } return true; }); };
 
-  function glowWord(text, color = '#fff2c0', bg = 'rgba(30,20,60,.55)') {
-    return ctx.textSprite(text, { size: 64, bg, color, font: `700 64px ${ctx.GREEK}`, scale: 0.012 });
+  // the rune circle's letters: bare glowing glyphs over the stones
+  const runeGlyph = ch => ctx.textSprite(ch, { size: 64, bg: null, color: '#fff6d8', font: `700 64px ${ctx.GREEK}`, scale: 0.012 });
+  // a word to find out in the world: dark ink on a bright parchment tag with a gold rim, readable from across a field
+  function glowWord(text) {
+    const size = 72, font = `700 ${size}px ${ctx.GREEK}`, c = document.createElement('canvas'), x = c.getContext('2d');
+    x.font = font;
+    const w = Math.ceil(x.measureText(text).width + size * 1.1), h = Math.ceil(size * 1.65), r = h / 2.4;
+    c.width = w; c.height = h; x.font = font;
+    const pill = i => { x.beginPath(); x.moveTo(r, i); x.lineTo(w - r, i); x.arc(w - r, h / 2, h / 2 - i, -Math.PI / 2, Math.PI / 2); x.lineTo(r, h - i); x.arc(r, h / 2, h / 2 - i, Math.PI / 2, Math.PI * 1.5); x.closePath(); };
+    pill(0); x.fillStyle = '#d8a43a'; x.fill();
+    pill(6); x.fillStyle = '#fff6dc'; x.fill();
+    x.fillStyle = '#2a1d0c'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText(text, w / 2, h / 2 + 3);
+    const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
+    const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: t, depthWrite: false, fog: false }));
+    sp.scale.set(w * 0.0125, h * 0.0125, 1); sp.renderOrder = 10;
+    return sp;
   }
   // the words to use: what the review queue wants, with enough letters / glosses to play
   const clean = en => String(en).replace(/\s*\([^)]*\)/g, '').trim();
@@ -157,7 +171,7 @@ export function makeSideQuests(ctx) {
       const a = i / 12 * Math.PI * 2, tx = x + Math.cos(a) * 4.4, tz = z + Math.sin(a) * 4.4, ty = ctx.groundAt(tx, tz);
       const m = new T.Mesh(new T.CylinderGeometry(0.85, 0.95, 0.22, 10), new T.MeshStandardMaterial({ color: 0x9a948a, roughness: 0.9, flatShading: true, emissive: 0x000000 }));
       m.position.set(tx, ty + 0.06, tz); m.receiveShadow = true; ctx.add(m);
-      const L = glowWord(' '); L.position.set(tx, ty + 1, tz); ctx.add(L);
+      const L = runeGlyph(' '); L.position.set(tx, ty + 1, tz); ctx.add(L);
       const tl = { m, x: tx, z: tz, y: ty, L, ch: '' };
       setTileLetter(tl, ALPHA[((i * 5 + Math.round(x)) % 24 + 24) % 24]);
       tiles.push(tl);
@@ -172,7 +186,7 @@ export function makeSideQuests(ctx) {
   }
   function setTileLetter(tl, ch) {
     tl.ch = ch;
-    const s = glowWord(ch, '#fff6d8', null); s.position.copy(tl.L.position); s.scale.multiplyScalar(1.4);
+    const s = runeGlyph(ch); s.position.copy(tl.L.position); s.scale.multiplyScalar(1.4);
     tl.L.parent.remove(tl.L); tl.L.material.map.dispose(); tl.L = s; ctx.add(s);
   }
   function startRunes(e) {
@@ -218,7 +232,7 @@ export function makeSideQuests(ctx) {
     const r = run, w = r.list[r.i], e = r.e, ok = r.miss <= 1;
     ctx.record(w, ok); if (ok) r.good++;
     ctx.speak(w.g); ctx.sfx('combo');
-    const s = glowWord(w.g, '#ffffff'); s.scale.multiplyScalar(1.8); s.position.set(e.x, ctx.groundAt(e.x, e.z) + 3.4, e.z); ctx.add(s);
+    const s = glowWord(w.g); s.scale.multiplyScalar(1.8); s.position.set(e.x, ctx.groundAt(e.x, e.z) + 3.4, e.z); ctx.add(s);
     tween(2.2, t => { s.position.y += 0.012; s.material.opacity = 1 - Math.max(0, t - 0.6) / 0.4; }, () => s.parent.remove(s));
     ctx.SPK.emit(s.position, { colors: [0xffd166, 0x9ad0ff, 0xffffff], n: 50, speed: 5, size: 0.4 });
     ctx.reward(ok ? 6 : 3, ok ? 1 : 0, 'runes');

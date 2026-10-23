@@ -679,3 +679,5 @@ body.irisfx::after { content: ''; position: fixed; inset: 0; z-index: 60; pointe
 .chbtn { display: grid; gap: 2px; text-align: left; padding: 10px 12px; border-radius: 14px; background: var(--bg2); border: 2px solid var(--line); color: var(--ink); }
 .chbtn b { font-size: 1.4rem; font-family: var(--gk, serif); } .chbtn span { font-size: .75rem; color: var(--muted); } .chbtn em { font-style: normal; font-size: .72rem; font-weight: 800; color: var(--brand); text-transform: uppercase; letter-spacing: .04em; }
 .chbtn.on { border-color: var(--gold); background: color-mix(in srgb, var(--gold) 18%, var(--card)); }
+/* side-quest panels: the quiet button matches the parchment instead of plain white */
+.sq-panel .btn.ghost { background: #f3e3c0; border: 2px solid #b8935a; color: #5a3a1a; box-shadow: 0 2px 0 rgba(120,80,30,.25); }

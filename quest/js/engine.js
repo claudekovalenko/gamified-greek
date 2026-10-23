@@ -380,8 +380,9 @@ window.KG = window.KG || {};
   function ladderQ(l) {
     const g = l.group;
     return {
-      type: 'order', prompt: `🪜 Put them in order: ${esc(g.name)}`,
-      verse: l.acrostic ? `${g.spot} ${g.key} — ${g.mnemonic}` : `${g.spot} ${g.name}`,
+      // the hook's own steps are shown ("To me → For me → Let me"), so you know which order is meant
+      type: 'order', prompt: `🪜 Tap the uses in this order: <b>${l.cards.map(c => esc(c.tile)).join(' → ')}</b>`,
+      verse: `${l.acrostic ? `${g.spot} ${g.key} — ${g.mnemonic}` : `${g.spot} ${g.name}`}: ${l.cards.map(c => c.tile).join(' → ')}`,
       chunks: l.cards.map(c => c.short), extras: [], tr: l.cards.map(c => `${c.tile} — ${c.short}`).join(' · '),
     };
   }

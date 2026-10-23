@@ -1620,6 +1620,8 @@ function step(dt) {
     if (k.KeyA || k.ArrowLeft) r -= 1; if (k.KeyD || k.ArrowRight) r += 1;
     if (input.joy) { const jm = Math.hypot(input.joy.dx, input.joy.dy); if (jm > 0.12) { const k = (jm - 0.12) / 0.88 / jm; f -= input.joy.dy * k; r += input.joy.dx * k; } }
   }
+  // indoors you look through the hero's eyes: left and right turn your head (and you walk where you look) instead of side-stepping
+  if (INDOOR && !busy && r) { cam.yaw -= r * dt * 2.4; P.moveYaw = cam.yaw; r = 0; }
   const mag = Math.min(1, Math.hypot(f, r));
   const run = input.keys.ShiftLeft || input.keys.ShiftRight;
   // on a stick, speed follows how far you push: a gentle walk, then a run at the edge
