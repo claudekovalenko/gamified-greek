@@ -184,7 +184,10 @@ export function makeVenues(ctx) {
     B.add(new THREE.BoxGeometry(W + 0.4, fy - lo + 0.6, D + 0.4), 0x9a8f80, 0, (fy + lo - 0.6) / 2 - 0.06, 0);
     B.add(new THREE.BoxGeometry(W, 0.12, D), 0xa07850, 0, fy - 0.06, 0);
     const walls = new THREE.Group(); walls.position.y = fy; B.G.add(walls);
-    const plaster = 0xeadfc8, timber = 0x5a3a20, w = (x, z, len, alongX) => B.add(new THREE.BoxGeometry(alongX ? len : 0.3, H, alongX ? 0.3 : len), plaster, x, H / 2, z, undefined, walls);
+    // every cottage is its own: walls, roof, rug and timbers vary with the teacher
+    const V = (o.id || 0) * 7 + 3, pick = L => L[V % L.length];
+    const plaster = pick([0xeadfc8, 0xf2e6c8, 0xe8d8c0, 0xdfe6e0, 0xf0dcc8]), timber = pick([0x5a3a20, 0x4a2e1a, 0x6a4a2a]), roofC = pick([0xb5523a, 0x5a6a8a, 0x8a5a3a, 0x6a8a4a, 0x9a3a3a, 0x4a5a6a]);
+    const rugC = pick([0x8a2a3a, 0x2f5f8f, 0x3f7d5a, 0x7a4a9a]), w = (x, z, len, alongX) => B.add(new THREE.BoxGeometry(alongX ? len : 0.3, H, alongX ? 0.3 : len), plaster, x, H / 2, z, undefined, walls);
     w(0, -D / 2, W, true); w(-W / 2, 0, D, false); w(W / 2, 0, D, false);
     const seg = (W - 1.8) / 2; w(-(0.9 + seg / 2), D / 2, seg, true); w(0.9 + seg / 2, D / 2, seg, true);
     B.add(new THREE.BoxGeometry(1.8, H - 2.35, 0.3), plaster, 0, (H + 2.35) / 2, D / 2, undefined, walls);
@@ -195,17 +198,22 @@ export function makeVenues(ctx) {
       windowMats.add(B.add(new THREE.BoxGeometry(0.36, 0.9, 1.2), 0xffe08a, s * W / 2, 1.7, 0, { emissive: 0xffb84a, emissiveIntensity: 0.7 }, walls).material);
       B.add(new THREE.BoxGeometry(0.42, 0.1, 1.4), timber, s * W / 2, 1.2, 0, undefined, walls);
     }
+    // flower boxes under the windows
+    for (const sd of [-1, 1]) {
+      B.add(new THREE.BoxGeometry(0.3, 0.22, 1.3), timber, sd * (W / 2 + 0.2), 1.12, 0, undefined, walls);
+      for (let k = 0; k < 4; k++) B.add(new THREE.SphereGeometry(0.11, 6, 5), pick([[0xe05a6a, 0xffd166], [0xc84aa8, 0xffffff], [0xffa040, 0xe0e050]])[k % 2], sd * (W / 2 + 0.24), 1.3, -0.45 + k * 0.3, undefined, walls);
+    }
     // the door stands open
     const hinge = new THREE.Group(); hinge.position.set(0.9, fy, D / 2 + 0.15); hinge.rotation.y = 1.9; B.G.add(hinge);
     B.add(new THREE.BoxGeometry(1.0, 2.2, 0.1), 0x6a3a1a, -0.5, 1.1, 0, undefined, hinge);
     const roof = new THREE.Group(); roof.position.y = fy + H; B.G.add(roof);
-    const cone = B.add(new THREE.ConeGeometry((W + 1.4) / Math.SQRT2, 2.6, 4, 1), 0xb5523a, 0, 1.3, 0, undefined, roof);
+    const cone = B.add(new THREE.ConeGeometry((W + 1.4) / Math.SQRT2, 2.6, 4, 1), roofC, 0, 1.3, 0, undefined, roof);
     cone.rotation.y = Math.PI / 4; cone.scale.z = (D + 1.4) / (W + 1.4);
     B.add(new THREE.BoxGeometry(0.7, 2, 0.7), 0x8a7a6a, W / 2 - 1.4, 1.5, -D / 2 + 1.3, undefined, roof);
     let smokeT = 0; const chim = B.F.w(W / 2 - 1.4, -D / 2 + 1.3);
     // inside: a rug, a table, books, a fire and a board with the lesson
     const inn = new THREE.Group(); inn.position.y = fy; B.G.add(inn);
-    const rug = B.add(new THREE.CircleGeometry(1.7, 24), 0x8a2a3a, 0, 0.02, 0.6, undefined, inn); rug.rotation.x = -Math.PI / 2;
+    const rug = B.add(new THREE.CircleGeometry(1.7, 24), rugC, 0, 0.02, 0.6, undefined, inn); rug.rotation.x = -Math.PI / 2;
     const trim = B.add(new THREE.RingGeometry(1.45, 1.6, 24), 0xe0b040, 0, 0.03, 0.6, undefined, inn); trim.rotation.x = -Math.PI / 2;
     B.add(new THREE.BoxGeometry(1.6, 0.08, 0.9), 0x8a5a2a, -2.4, 0.8, -1.5, undefined, inn);
     for (const x of [-0.7, 0.7]) for (const z of [-0.35, 0.35]) B.add(new THREE.BoxGeometry(0.08, 0.8, 0.08), 0x5a3a20, -2.4 + x, 0.4, -1.5 + z, undefined, inn);
