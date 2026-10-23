@@ -288,6 +288,14 @@ function buildTerrain() {
     cols.push(c.r, c.g, c.b);
   }
   g.setAttribute('color', new THREE.Float32BufferAttribute(cols, 3));
+  // near the river and the lake each vertex remembers the water level, for wet sand and foam along the shore
+  const riverY = height(pathX(RIVER_Z), RIVER_Z) + 0.9, lakeY = height(LAKE.x, LAKE.z) + 2.6, shore = new Float32Array(p.count);
+  for (let i = 0; i < p.count; i++) {
+    const x = p.getX(i), z = p.getZ(i);
+    if (Math.abs(z - RIVER_Z) < 12 && Math.abs(x - pathX(RIVER_Z)) < 62) shore[i] = 1000 + riverY;
+    else if (Math.hypot(x - LAKE.x, z - LAKE.z) < LAKE.r * 1.05 + 6) shore[i] = 1000 + lakeY;
+  }
+  g.setAttribute('shore', new THREE.BufferAttribute(shore, 1));
   g.computeVertexNormals();
   const t = new THREE.Mesh(g, FX.groundDetail(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.95, flatShading: false })));
   t.receiveShadow = true;

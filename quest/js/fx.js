@@ -263,11 +263,12 @@ export function makeFX(THREE, { LOW = false } = {}) {
   }
 
   // ── ground: painterly patches of light and shade, warmer and cooler, on any vertex-coloured ground ──
+  // the geometry may carry a 'shore' attribute: 1000 + the water level near that point (0, the default, means no water), for wet sand and foam
   function groundDetail(material, { amt = 1.25 } = {}) {
     material.onBeforeCompile = sh => {
       sh.uniforms.uTime = time; sh.uniforms.uCloudShade = cloudShade;
-      sh.vertexShader = 'varying vec3 vGW;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n vGW = (modelMatrix * vec4(transformed, 1.)).xyz;');
-      sh.fragmentShader = 'uniform float uTime, uCloudShade;\nvarying vec3 vGW;\n' + NOISE.replace(/OCT/g, '3') + '\n' + sh.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>
+      sh.vertexShader = 'attribute float shore; varying float vShoreY; varying vec3 vGW;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n vGW = (modelMatrix * vec4(transformed, 1.)).xyz; vShoreY = shore - 1000.;');
+      sh.fragmentShader = 'uniform float uTime, uCloudShade;\nvarying vec3 vGW; varying float vShoreY;\n' + NOISE.replace(/OCT/g, '3') + '\n' + sh.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>
         {
           float n1 = vn(vGW.xz * .07), n2 = vn(vGW.xz * .45 + 3.1), n3 = vn(vGW.xz * 2.3 + 7.7);
           float k = ${amt.toFixed(2)};
@@ -283,6 +284,16 @@ export function makeFX(THREE, { LOW = false } = {}) {
           // the shadows of clouds drifting over the land
           float cs = smoothstep(.5, .72, vn(vGW.xz * .018 + uTime * vec2(.018, .011)) * .7 + vn(vGW.xz * .05 + uTime * vec2(.03, .02)) * .3);
           diffuseColor.rgb *= 1. - cs * .26 * uCloudShade;
+          // the shore: wet, darker sand just above the water, and a line of foam lapping at the edge
+          {
+            float h = vGW.y - vShoreY;
+            if (vShoreY > -500. && h > -.4 && h < .9) {
+              diffuseColor.rgb *= 1. - .22 * smoothstep(.9, .05, h) * step(0., h);
+              float lap = .12 + .1 * sin(uTime * 1.3 + vGW.x * .4 + vGW.z * .3);
+              float foam = smoothstep(.1, 0., abs(h - lap)) * (.55 + .45 * vn(vGW.xz * 3. + uTime * .4));
+              diffuseColor.rgb = mix(diffuseColor.rgb, vec3(.95, .97, 1.), foam * .7);
+            }
+          }
         }`);
     };
     material.customProgramCacheKey = () => 'ground' + amt;
