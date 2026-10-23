@@ -818,6 +818,20 @@ export function makeFX(THREE, { LOW = false } = {}) {
     s.userData.glow = { size, opacity }; glows.push(s);
     return s;
   }
+  // ── a street-lamp head: six glowing glass panes under an iron cap, on a collar; place it at the bulb's height ──
+  let LANT = null;
+  function lantern() {
+    if (!LANT) {
+      const iron = new THREE.MeshStandardMaterial({ color: 0x2a2622, roughness: 0.55, metalness: 0.5, flatShading: true });
+      LANT = { iron, glass: new THREE.MeshStandardMaterial({ color: 0xffe9a8, emissive: 0xffc04a, emissiveIntensity: 1.2, flatShading: true }),
+        pane: new THREE.CylinderGeometry(0.19, 0.14, 0.38, 6), cap: new THREE.ConeGeometry(0.3, 0.24, 6), collar: new THREE.CylinderGeometry(0.16, 0.1, 0.08, 6), knob: new THREE.SphereGeometry(0.05, 6, 4) };
+      LANT.cap.translate(0, 0.31, 0); LANT.collar.translate(0, -0.23, 0); LANT.knob.translate(0, 0.46, 0);
+    }
+    const g = new THREE.Group();
+    g.add(new THREE.Mesh(LANT.pane, LANT.glass), new THREE.Mesh(LANT.cap, LANT.iron), new THREE.Mesh(LANT.collar, LANT.iron), new THREE.Mesh(LANT.knob, LANT.iron));
+    g.children[1].castShadow = true;
+    return g;
+  }
   // a warm pool of light on the ground under a lamp: unseen by day, glowing at night (lay it flat at the lamp's foot)
   function lightPool(color = 0xffc870, size = 5) {
     if (!poolTex) { const c = document.createElement('canvas'); c.width = c.height = 64; const x = c.getContext('2d'); const g = x.createRadialGradient(32, 32, 0, 32, 32, 32); g.addColorStop(0, 'rgba(255,255,255,1)'); g.addColorStop(0.5, 'rgba(255,255,255,.4)'); g.addColorStop(1, 'rgba(255,255,255,0)'); x.fillStyle = g; x.fillRect(0, 0, 64, 64); poolTex = new THREE.CanvasTexture(c); }
@@ -1001,5 +1015,5 @@ export function makeFX(THREE, { LOW = false } = {}) {
         <span class="wm2-dot">${it.state === 'locked' ? '🔒' : it.icon || '•'}</span><span class="wm2-label ${pts[i][0] > W / 2 ? 'left' : ''}"><b>${i + 1}. ${esc(it.name)}</b><small>${esc(it.sub)}</small></span>${it.state === 'here' ? '<span class="wm2-you">🧙</span>' : ''}</button>`).join('')}</div></div>`;
   }
 
-  return { time, wetness, signBoard, hero, aurora, gusts, rainbow, flowerGeo, footprints, mapHTML, vortex, lightPool, setNight, skyEnv, bloom, sunShafts, rim, rimCol, rimAmt, setLight, cloudShade, farHills, shootingStars, critters, arena, bursts, pondLife, groundDetail, sky, water, windify, portalMaterial, sparks, glow, blobShadow, heroPose, flyToHUD, tick: t => { time.value = t; } };
+  return { time, lantern, wetness, signBoard, hero, aurora, gusts, rainbow, flowerGeo, footprints, mapHTML, vortex, lightPool, setNight, skyEnv, bloom, sunShafts, rim, rimCol, rimAmt, setLight, cloudShade, farHills, shootingStars, critters, arena, bursts, pondLife, groundDetail, sky, water, windify, portalMaterial, sparks, glow, blobShadow, heroPose, flyToHUD, tick: t => { time.value = t; } };
 }

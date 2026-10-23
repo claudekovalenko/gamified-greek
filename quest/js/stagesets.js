@@ -134,7 +134,7 @@ export function makeSets(THREE, { LOW, golem, FX }) {
       ground(g, 0x6fae4f);
       hillHouse(g, -13, -17, 0x2f6a3a); hillHouse(g, 12, -20, 0xc9452b); hillHouse(g, -24, -4, 0x2f5f8f);
       grove(g, 26, 22, 45, ['round', 'round', 'pine'], 0x4f8f3a, rand);
-      for (const x of [-8, 8]) { g.add(at(cyl(0.08, 0.1, 2.6, 0x3a3a3a, 6), x, 1.3, -1)); g.add(at(mk(new THREE.SphereGeometry(0.24, 8, 8), 0xffe9a8, { emissive: 0xffc04a, emissiveIntensity: 1.2 }), x, 2.7, -1)); if (FX) { const h = FX.glow(0xffc870, 1.8); h.position.set(x, 2.7, -1); g.add(h); const pl = FX.lightPool(0xffc870, 4.5); pl.position.set(x, 0.05, -1); g.add(pl); } }
+      for (const x of [-8, 8]) { g.add(at(cyl(0.08, 0.1, 2.6, 0x3a3a3a, 6), x, 1.3, -1)); g.add(at(FX ? FX.lantern() : mk(new THREE.SphereGeometry(0.24, 8, 8), 0xffe9a8, { emissive: 0xffc04a, emissiveIntensity: 1.2 }), x, 2.7, -1)); if (FX) { const h = FX.glow(0xffc870, 1.8); h.position.set(x, 2.7, -1); g.add(h); const pl = FX.lightPool(0xffc870, 4.5); pl.position.set(x, 0.05, -1); g.add(pl); } }
       for (let i = 0; i < 6; i++) { const f = box(0.12, 1, 0.12, 0x7a5a3a); g.add(at(f, 10 + i * 1.3, 0.5, -6)); }
       g.add(at(box(7, 0.1, 0.1, 0x8a6a40), 13.2, 0.8, -6));
       dais(g, 'stump');

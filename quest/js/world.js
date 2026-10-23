@@ -453,7 +453,7 @@ function temple(x, z, s = 1, face = 0, ruined = false) {
 function lampPost(x, z) {
   const g = new THREE.Group();
   const p = mesh(new THREE.CylinderGeometry(0.08, 0.1, 2.4, 6), 0x3a3a3a); p.position.y = 1.2; g.add(p);
-  const l = mesh(new THREE.SphereGeometry(0.22, 8, 8), 0xffe9a8, { emissive: 0xffc04a, emissiveIntensity: 1.2 }); l.position.y = 2.5; g.add(l);
+  const l = FX.lantern(); l.position.y = 2.5; g.add(l);
   const h = FX.glow(0xffc870, 1.8); h.position.y = 2.5; g.add(h);
   const pool = FX.lightPool(0xffc870, 4.5); pool.position.y = 0.08; g.add(pool); // a pool of light on the ground at night
   put(g, x, z);
@@ -870,7 +870,7 @@ const PEOPLE = [
 const ROBES = [0x7a5230, 0x2f6a5a, 0x8a6a2a, 0x7a2f6a, 0x5a4a8a, 0xa0522d, 0x2e7d7d, 0x6a5a2e, 0x9a3f3f, 0x3f5f8f, 0x5f8f3f, 0x8f3f5f];
 // the places the teachers live (js/venues.js)
 const VEN = makeVenues({
-  THREE, add: o => scene.add(o), mesh, rawGround: (x, z) => groundBase(x, z), textSprite, glow: (c, sz) => FX.glow(c, sz),
+  THREE, add: o => scene.add(o), mesh, lantern: () => FX.lantern(), rawGround: (x, z) => groundBase(x, z), textSprite, glow: (c, sz) => FX.glow(c, sz),
   col: (x, z, r) => { const c = { x, z, r }; colliders.push(c); return c; }, keep: (x, z, r) => keepOut.push({ x, z, r }),
   free: (x, z, r, tol) => openGround(x, z, r, tol), SPK, water: () => waterMat,
   signBoard: (t, w, h) => FX.signBoard(t, w, h),

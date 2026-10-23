@@ -473,7 +473,7 @@ export function makeVenues(ctx) {
     for (const s of [-1, 1]) {
       const x = to.x + px * s * 1.2, z = to.z + pz * s * 1.2, y = raw(x, z);
       const p = ctx.mesh(new THREE.CylinderGeometry(0.06, 0.08, 1.5, 6), 0x3a3a3a); p.position.set(x, y + 0.75, z); g.add(p);
-      const l = ctx.mesh(new THREE.SphereGeometry(0.16, 8, 6), 0xffe9a8, { emissive: 0xffc04a, emissiveIntensity: 1.2 }); l.position.set(x, y + 1.6, z); g.add(l);
+      const l = ctx.lantern ? ctx.lantern() : ctx.mesh(new THREE.SphereGeometry(0.16, 8, 6), 0xffe9a8, { emissive: 0xffc04a, emissiveIntensity: 1.2 }); if (ctx.lantern) l.scale.setScalar(0.75); l.position.set(x, y + 1.6, z); g.add(l);
       const h = ctx.glow(0xffc870, 1.4); h.position.copy(l.position); g.add(h);
     }
     const sx = from.x - px * 1.3, sz = from.z - pz * 1.3, sy = raw(sx, sz);
