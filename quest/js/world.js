@@ -1384,16 +1384,24 @@ function buildChests() {
     for (let k = 1; k < stops; k += 3) {
       const id = `${i}_${k}`, z0 = stopZ(i, k) + SP / 2, { x, z } = clearSpot(pathX(z0) + (k % 2 ? 6.5 : -6.5), z0);
       const g = new THREE.Group();
-      const box = mesh(new THREE.BoxGeometry(1.2, 0.7, 0.8), 0x8a5a2a); box.position.y = 0.35; g.add(box);
+      // a hollow box: floor and four walls, dark inside, with a heap of coins that shows once it's open
+      const wood = 0x8a5a2a, inner = 0x3a2412;
+      for (const [w, h, d, x, y, zz, c] of [[1.2, 0.1, 0.8, 0, 0.05, 0, wood], [1.2, 0.7, 0.08, 0, 0.35, 0.36, wood], [1.2, 0.7, 0.08, 0, 0.35, -0.36, wood], [0.08, 0.7, 0.64, 0.56, 0.35, 0, wood], [0.08, 0.7, 0.64, -0.56, 0.35, 0, wood], [1.04, 0.02, 0.64, 0, 0.42, 0, inner]]) { const m = mesh(new THREE.BoxGeometry(w, h, d), c); m.position.set(x, y, zz); g.add(m); }
       for (const sx of [-0.45, 0.45]) { const band = mesh(new THREE.BoxGeometry(0.1, 0.72, 0.82), 0xe0b030); band.position.set(sx, 0.35, 0); g.add(band); }
-      const lid = new THREE.Group(); lid.position.set(0, 0.7, -0.4); g.add(lid);
+      const coins = new THREE.Group(); coins.position.y = 0.44; g.add(coins);
+      for (let n = 0; n < 9; n++) { const cn = mesh(new THREE.CylinderGeometry(0.1, 0.1, 0.03, 10), 0xffd040, { emissive: 0x7a5000, metalness: 0.6, roughness: 0.3 }); cn.position.set(-0.32 + (n % 3) * 0.32 + (n * 0.37 % 0.1), 0.02 + Math.floor(n / 3) * 0.035, -0.18 + Math.floor(n / 3) * 0.17); cn.rotation.set((n % 4) * 0.2, n, (n % 3) * 0.15); coins.add(cn); }
+      const cglow = FX.glow(0xffd060, 1.3, 0.5); cglow.position.y = 0.2; coins.add(cglow); coins.visible = false;
+      // the lid: a rounded top with a wooden underside and gold bands over it
+      const lid = new THREE.Group(); lid.position.set(0, 0.7, -0.4); g.add(lid); lid.userData.coins = coins;
       const top = mesh(new THREE.CylinderGeometry(0.4, 0.4, 1.2, 12, 1, false, 0, Math.PI), 0x9a6a3a); top.rotation.z = Math.PI / 2; top.position.z = 0.4; lid.add(top);
+      const under = mesh(new THREE.BoxGeometry(1.2, 0.04, 0.8), 0x5a3a1c); under.position.set(0, 0.02, 0.4); lid.add(under);
+      for (const sx of [-0.45, 0.45]) { const lb = mesh(new THREE.CylinderGeometry(0.42, 0.42, 0.1, 12, 1, false, 0, Math.PI), 0xe0b030); lb.rotation.z = Math.PI / 2; lb.position.set(sx, 0, 0.4); lid.add(lb); }
       const lock = mesh(new THREE.BoxGeometry(0.2, 0.24, 0.08), 0xe0b030, { emissive: 0x6a4a00 }); lock.position.set(0, 0.45, 0.42); g.add(lock);
       const glow = glyphSprite('❓'); glow.position.y = 1.9; glow.scale.set(1.4, 1.4, 1); g.add(glow);
       put(g, x, z); g.rotation.y = k % 2 ? -Math.PI / 2 : Math.PI / 2;
       const e = addEnt({ kind: 'chest', zone: i, obj: g, x, z, label: 'Riddle chest', tagY: 1.6, id, lid, glow });
       chests.push(e);
-      if (C.open.includes(id)) { lid.rotation.x = -1.9; glow.visible = false; }
+      if (C.open.includes(id)) { lid.rotation.x = -1.9; glow.visible = false; coins.visible = true; }
     }
   });
 }
@@ -1513,7 +1521,7 @@ function answerBattle(i, el) {
 }
 let S_SHAKE = 0;
 const anims = [];
-function tweenLid(lid) { let t = 0; const f = () => { t = Math.min(1, t + 0.06); lid.rotation.x = -1.9 * t; if (t < 1) requestAnimationFrame(f); }; f(); }
+function tweenLid(lid) { if (lid.userData.coins) lid.userData.coins.visible = true; let t = 0; const f = () => { t = Math.min(1, t + 0.06); lid.rotation.x = -1.9 * t; if (t < 1) requestAnimationFrame(f); }; f(); }
 function endBattle() {
   $('wbattle').classList.remove('on'); $('wbattle').innerHTML = '';
   battle = null; ARENA.hide();
