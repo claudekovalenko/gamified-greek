@@ -34,6 +34,12 @@ export function makeFX(THREE, { LOW = false } = {}) {
             float tw = .6 + .4 * sin(uTime * 3. + st * 40.);
             col += step(.9975, st) * uStars * tw * smoothstep(.02, .3, y) * vec3(1., .95, .85);
           }
+          // at night the sun is the moon: a pale disc with soft grey seas and a halo
+          if (uStars > .5) {
+            float md = smoothstep(.99955, .99972, s), sea = smoothstep(.45, .75, vn(d.xz * 2600. + d.y * 900.));
+            col = mix(col, vec3(.93, .95, 1.) * (1. - sea * .22), md * (uStars - .5) * 2.);
+            col += vec3(.55, .65, 1.) * pow(s, 220.) * .22 * uStars;
+          }
           if (y > .0 && uCloud > 0.) {
             vec2 uv = d.xz / (y + .18) * .9 + uTime * vec2(.012, .005);
             float n = fbm(uv * 1.3), c = smoothstep(1.05 - uCloud * .7, 1.2 - uCloud * .6, n) * smoothstep(.04, .32, y);
