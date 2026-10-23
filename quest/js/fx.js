@@ -627,8 +627,20 @@ export function makeFX(THREE, { LOW = false } = {}) {
       x.fillStyle = g; x.fillRect(0, 0, 64, 64); haloTex = new THREE.CanvasTexture(c);
     }
     const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: haloTex, color, transparent: true, opacity, depthWrite: false, blending: THREE.AdditiveBlending }));
-    s.scale.setScalar(size);
+    s.scale.setScalar(size * (1 + nightK * 0.6)); s.material.opacity = Math.min(1, opacity * (1 + nightK * 0.7));
+    s.userData.glow = { size, opacity }; glows.push(s);
     return s;
+  }
+  // lamps and lanterns burn bigger and brighter after dark: k = 0 by day, 1 at night
+  const glows = []; let nightK = 0;
+  function setNight(k) {
+    if (Math.abs(k - nightK) < 0.01) return;
+    nightK = k;
+    for (let i = glows.length - 1; i >= 0; i--) {
+      const s = glows[i];
+      if (!s.parent) { glows.splice(i, 1); continue; }
+      const g = s.userData.glow; s.scale.setScalar(g.size * (1 + k * 0.6)); s.material.opacity = Math.min(1, g.opacity * (1 + k * 0.7));
+    }
   }
 
   // ── a soft round shadow under things that float or fly ──
@@ -733,5 +745,5 @@ export function makeFX(THREE, { LOW = false } = {}) {
     return { update, group: G };
   }
 
-  return { time, hero, skyEnv, bloom, sunShafts, rim, rimCol, rimAmt, setLight, cloudShade, farHills, shootingStars, critters, arena, bursts, pondLife, groundDetail, sky, water, windify, portalMaterial, sparks, glow, blobShadow, heroPose, flyToHUD, tick: t => { time.value = t; } };
+  return { time, hero, setNight, skyEnv, bloom, sunShafts, rim, rimCol, rimAmt, setLight, cloudShade, farHills, shootingStars, critters, arena, bursts, pondLife, groundDetail, sky, water, windify, portalMaterial, sparks, glow, blobShadow, heroPose, flyToHUD, tick: t => { time.value = t; } };
 }

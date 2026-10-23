@@ -158,6 +158,7 @@ function paintSky() {
   FX.cloudShade.value = Math.min(1, 0.3 + atm.clouds * 1.2) * (atm.stars > 0.5 ? 0.3 : 1);
   HILLS.setColors(atm.mid, atm.top, atm.stars);
   if (!blendAtmosphere.envT || performance.now() - blendAtmosphere.envT > 1500) { blendAtmosphere.envT = performance.now(); ENV.set(atm.top, atm.mid, atm.mid.clone().lerp(new THREE.Color(0x4a5a3a), 0.6)); }
+  FX.setNight(Math.min(1, atm.stars * 1.4));
   FX.setLight({ sun: atm.sun.getHex(), sunI: atm.sunI, hemi: atm.hemi, stars: atm.stars });
   try { VEN.setDaylight(atm.stars > 0.5 ? 0.35 : Math.min(1, atm.sunI / 2.2), atm.stars > 0.5 ? 0x8aa8ff : 0xffffff); } catch (e) { /* the venues aren't made yet */ }
   waterMat.userData.setColors(...(M.water || [0x1f6a9a, 0x5ac0e0]), atm.mid);
