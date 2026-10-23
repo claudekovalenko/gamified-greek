@@ -145,12 +145,13 @@ const ATMOS = [
 ];
 const atm = { top: new THREE.Color(ATMOS[0].top), mid: new THREE.Color(ATMOS[0].mid), bot: new THREE.Color(ATMOS[0].bot), sun: new THREE.Color(ATMOS[0].sun), sunI: 2.2, hemi: 1.1, near: 60, far: 230, clouds: 0.45, stars: 0 };
 // MOOD: how far the day has moved on (each cottage you step out of moves it on); INDOOR: inside a room
-let MOOD = 0, INDOOR = null, DOOR = null, EXPO = 1;
+let MOOD = 0, INDOOR = null, DOOR = null, EXPO = 1, FLASH = 0;
 function paintSky() {
   const M = MOODS[MOOD] || {};
   sky.userData.set(atm);
   FX.cloudShade.value = Math.min(1, 0.3 + atm.clouds * 1.2) * (atm.stars > 0.5 ? 0.3 : 1);
   FX.setLight({ sun: atm.sun.getHex(), sunI: atm.sunI, hemi: atm.hemi, stars: atm.stars });
+  try { VEN.setDaylight(atm.stars > 0.5 ? 0.35 : Math.min(1, atm.sunI / 2.2), atm.stars > 0.5 ? 0x8aa8ff : 0xffffff); } catch (e) { /* the venues aren't made yet */ }
   waterMat.userData.setColors(...(M.water || [0x1f6a9a, 0x5ac0e0]), atm.mid);
   scene.fog.color.copy(atm.mid); scene.fog.near = atm.near; scene.fog.far = atm.far;
   sun.color.copy(atm.sun); sun.intensity = atm.sunI; hemi.intensity = atm.hemi;
@@ -1583,6 +1584,11 @@ function step(dt) {
   SQ.update(dt, t, pos, P.onGround);
   VEN.update(dt, t, pos, P.onGround);
   if (!INDOOR) moodMotes(MOOD, SPK, pos, dt);
+  // lightning in the storm: the whole valley flickers bright for a moment
+  if (MOODS[MOOD] && MOODS[MOOD].name === 'storm' && !INDOOR && (P.boltT = (P.boltT ?? 4) - dt) <= 0) {
+    P.boltT = 5 + Math.random() * 9; FLASH = 1.3; setTimeout(() => { FLASH = 1.0; }, 160);
+  }
+  FLASH = Math.max(0, FLASH - dt * 3.5);
 
   if ((saveT += dt) > 5) { saveT = 0; savePos(); }
 }
@@ -1599,7 +1605,7 @@ function loop() {
   const dt = Math.min(0.05, clock.getDelta());
   FX.tick(clock.elapsedTime);
   if (mode === 'stage') { renderer.toneMappingExposure = 1; stage.update(dt, clock.elapsedTime); stage.render(renderer); }
-  else { step(dt); renderer.toneMappingExposure = EXPO; renderer.render(scene, camera); }
+  else { step(dt); renderer.toneMappingExposure = EXPO + FLASH; renderer.render(scene, camera); }
 }
 function startLoop() { if (!active) { active = true; clock.getDelta(); loop(); } }
 function resize() {

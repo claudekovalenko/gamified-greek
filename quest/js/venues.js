@@ -86,6 +86,8 @@ export function makeVenues(ctx) {
       l: (x, z) => { const dx = x - cx, dz = z - cz; return { x: dx * c - dz * s, z: dx * s + dz * c }; },
     };
   }
+  // window light; the host dims it at night with setDaylight
+  const beamMat = new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, fog: false });
   const tween = (dur, fn) => { let t = 0; anims.push(dt => { t = Math.min(1, t + dt / dur); fn(t); return t < 1; }); };
   const V3 = (x, y, z) => new THREE.Vector3(x, y, z);
 
@@ -206,6 +208,18 @@ export function makeVenues(ctx) {
     B.add(new THREE.BoxGeometry(0.3, 0.38, 0.3), 0xffe09a, lx, H - 0.9, lz, { emissive: 0xffb84a, emissiveIntensity: 1.3 }, inn);
     B.add(new THREE.ConeGeometry(0.26, 0.2, 4), 0x3a2a1a, lx, H - 0.62, lz, undefined, inn).rotation.y = Math.PI / 4;
     B.glowAt(0xffc870, 2.6, lx, H - 0.9, lz, inn);
+    // sunbeams slant in through the windows onto the floor
+    for (const sd of [-1, 1]) {
+      const wx = sd * (W / 2 - 0.2), fx = sd * (W / 2 - 2.3), V = [
+        [wx, 2.15, -0.6], [wx, 2.15, 0.6], [wx, 1.25, 0.6], [wx, 1.25, -0.6],
+        [fx, 0.03, -0.1], [fx, 0.03, 1.3], [fx + sd * 0.9, 0.03, 1.3], [fx + sd * 0.9, 0.03, -0.1]];
+      const pos = [], col = [];
+      const quad = (a, b, c, d) => { for (const i of [a, b, c, a, c, d]) { pos.push(...V[i]); col.push(1, 0.9, 0.7, i < 4 ? 0.22 : 0.0); } };
+      quad(0, 1, 5, 4); quad(1, 2, 6, 5); quad(2, 3, 7, 6); quad(3, 0, 4, 7);
+      const g = new THREE.BufferGeometry();
+      g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('color', new THREE.Float32BufferAttribute(col, 4));
+      const beam = new THREE.Mesh(g, beamMat); beam.renderOrder = 4; inn.add(beam);
+    }
     // a window seat and a map on the wall
     B.add(new THREE.BoxGeometry(0.6, 0.45, 1.6), 0x8a5a2a, -W / 2 + 0.5, 0.22, 0, undefined, inn);
     B.add(new THREE.BoxGeometry(0.5, 0.14, 1.5), 0x3f6d8a, -W / 2 + 0.5, 0.5, 0, undefined, inn);
@@ -438,6 +452,8 @@ export function makeVenues(ctx) {
   return {
     place, ground, list,
     inside: pos => list.some(v => v.inside && Math.abs(pos.x - v.x) < 6 && Math.abs(pos.z - v.z) < 6 && v.inside(pos)),
+    // 1 by day, less at dusk and night: how bright the light through the windows is
+    setDaylight: (k, color = 0xffffff) => { beamMat.opacity = k; beamMat.color.set(color); },
     // the room you're standing in (a cottage), or null
     room: pos => list.find(v => v.room && Math.abs(pos.x - v.x) < 6 && Math.abs(pos.z - v.z) < 6 && v.inside(pos)) || null,
     update(dt, t, pos, onGround) {
