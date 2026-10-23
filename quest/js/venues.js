@@ -508,7 +508,8 @@ export function makeVenues(ctx) {
   // o = { rx, rz (the road), nx, nz (unit vector away from the road), title, name, id }
   // The first type is wanted; the others are tried in turn if it doesn't fit, then the other side of the road.
   function place(types, o) {
-    for (const sd of [1, -1]) for (const type of types) for (const k of [1, 1.2, 0.85]) {
+    // well back from the road first, so reaching a teacher is a short walk down a trail of its own; nearer only if there's no room
+    for (const sd of [1, -1]) for (const type of types) for (const k of [1.9, 1.6, 1.3, 1, 0.85]) {
       const nx = o.nx * sd, nz = o.nz * sd, off = OFF[type] * k, cx = o.rx + nx * off, cz = o.rz + nz * off, r = RADIUS[type];
       if (!ctx.free(cx, cz, r, SLOPE[type])) continue;
       const face = Math.atan2(-nx, -nz), v = BUILD[type](cx, cz, face, o);

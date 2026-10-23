@@ -15,7 +15,7 @@ const esc = U.esc;
 
 // ── world layout ──────────────────────────────────────────────
 // One stop per lesson along the road, SP apart; a region is as long as its busiest one needs
-const SP = 11;
+const SP = 18; // a proper walk between lessons
 const L = Math.max(90, Math.max(...KG.units.map(u => u.nodes.filter(n => n.type !== 'boss').length)) * SP + 40);
 const stopZ = (i, k) => -i * L - 20 - k * SP;
 const NZ = KG.units.length;           // one region per concept set, then the quiz hall
