@@ -627,11 +627,15 @@ function updateCritters(dt, t, pos) {
     if (!c.target || (Math.hypot(c.target.x - o.x, c.target.z - o.z) < 0.4 && (c.wait = (c.wait || 0) - dt) <= 0)) {
       c.target = { x: c.home.x + (Math.random() - 0.5) * (c.swimY !== undefined ? 6 : 10), z: c.home.z + (Math.random() - 0.5) * (c.swimY !== undefined ? 2.5 : 10) }; c.wait = 1 + Math.random() * 4;
     }
-    const dp = Math.hypot(pos.x - o.x, pos.z - o.z), flee = dp < 3.5 && c.swimY === undefined;
+    // shy creatures run from the hero inside 3.5 m and settle only beyond 6 m, then head somewhere away from you, so they never flip back and forth
+    const dp = Math.hypot(pos.x - o.x, pos.z - o.z);
+    if (c.swimY === undefined && !c.flee && dp < 3.5) c.flee = true;
+    else if (c.flee && dp > 6) { c.flee = false; c.target = { x: o.x + (o.x - pos.x) * 0.5, z: o.z + (o.z - pos.z) * 0.5 }; c.wait = 1 + Math.random() * 3; }
+    const flee = !!c.flee;
     const tx = flee ? o.x + (o.x - pos.x) : c.target.x, tz = flee ? o.z + (o.z - pos.z) : c.target.z;
     const dx = tx - o.x, dz = tz - o.z, dl = Math.hypot(dx, dz) || 1, moving = flee || Math.hypot(c.target.x - o.x, c.target.z - o.z) >= 0.4;
     const sp = (u.dart ? 3 : flee ? 2.4 : 0.8) * (moving ? 1 : 0);
-    if (moving) { o.x += dx / dl * sp * dt; o.z += dz / dl * sp * dt; c.obj.rotation.y = Math.atan2(dx, dz); }
+    if (moving) { o.x += dx / dl * sp * dt; o.z += dz / dl * sp * dt; let dr = Math.atan2(dx, dz) - c.obj.rotation.y; dr = Math.atan2(Math.sin(dr), Math.cos(dr)); c.obj.rotation.y += dr * Math.min(1, dt * 6); } // turns smoothly
     o.y = c.swimY !== undefined ? c.swimY + Math.sin(c.t * 2) * 0.03 : height(o.x, o.z);
     u.body.position.y = moving && c.swimY === undefined ? Math.abs(Math.sin(c.t * 10)) * 0.06 : 0;
   }
