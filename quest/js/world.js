@@ -291,6 +291,17 @@ function buildTerrain() {
   river.rotation.x = -Math.PI / 2; river.position.set(pathX(RIVER_Z), height(pathX(RIVER_Z), RIVER_Z) + 0.9, RIVER_Z);
   scene.add(river);
   W.water = [river];
+  // the banks: pebbles, boulders and clumps of reeds along both sides of the river
+  {
+    const rr = (k => () => (k = (k * 16807) % 2147483647) / 2147483647)(7), bx0 = pathX(RIVER_Z);
+    for (let i = 0; i < 70; i++) {
+      const x = bx0 - 56 + rr() * 112, sd = rr() < 0.5 ? -1 : 1, z = RIVER_Z + sd * (4.2 + rr() * 1.6);
+      if (Math.abs(x - bx0) < BRIDGE.w + 1.5) continue;
+      const y = height(x, z);
+      if (rr() < 0.45) { const s0 = 0.2 + rr() * 0.45, r = mesh(new THREE.DodecahedronGeometry(s0, 0), rr() < 0.5 ? 0x8a8a80 : 0x9a9488); r.position.set(x, y + s0 * 0.3, z); r.rotation.set(rr() * 3, rr() * 3, 0); scene.add(r); }
+      else for (let k = 0; k < 4; k++) { const h = 0.7 + rr() * 0.7, c = mesh(new THREE.ConeGeometry(0.04, h, 4), 0x6a8a3a); c.position.set(x + (rr() - 0.5) * 0.5, y + h / 2, z + (rr() - 0.5) * 0.5); c.rotation.z = (rr() - 0.5) * 0.3; scene.add(c); if (k === 0 && rr() < 0.4) { const t = mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.22, 6), 0x6a3a1a); t.position.set(c.position.x, y + h + 0.1, c.position.z); scene.add(t); } }
+    }
+  }
   const lake = new THREE.Mesh(new THREE.CircleGeometry(LAKE.r * 1.05, 48, 0, Math.PI * 2), water);
   lake.rotation.x = -Math.PI / 2; lake.position.set(LAKE.x, height(LAKE.x, LAKE.z) + 2.6, LAKE.z);
   scene.add(lake); W.water.push(lake);

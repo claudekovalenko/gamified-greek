@@ -95,7 +95,10 @@ export function makeFX(THREE, { LOW = false } = {}) {
           vec3 v = normalize(cameraPosition - vW);
           float fr = pow(1. - max(dot(n, v), 0.), 3.);
           vec3 col = mix(uShallow, uDeep, smoothstep(.2, .9, h0));
-          col = mix(col, uSkyCol, clamp(fr * .9 + .1, 0., 1.));
+          col = mix(col, uSkyCol, clamp(fr * .7 + .05, 0., .85));
+          // soft caustic light dancing in the shallows
+          float ca = smoothstep(.55, .8, vn(p * 2.2 + vec2(uTime * .3, -uTime * .2)) * vn(p * 1.7 - vec2(uTime * .25, uTime * .15)) * 2.);
+          col += uShallow * ca * .18;
           float sp = pow(max(dot(reflect(-uSunDir, n), v), 0.), 90.);
           col += vec3(1., .96, .85) * sp * 1.6;
           float gl = step(.985, vn(p * 6. + uTime * 1.5)) * .9;
