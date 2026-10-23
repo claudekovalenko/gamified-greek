@@ -389,11 +389,11 @@ function scatterTrees() {
     rocks.setMatrixAt(i, m);
   }
   rocks.castShadow = rocks.receiveShadow = true; scene.add(rocks);
-  const fl = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(0.12, 0), new THREE.MeshStandardMaterial({ roughness: 1 }), 700);
+  const NF = LOW ? 600 : 1500, fl = new THREE.InstancedMesh(FX.flowerGeo(), FX.windify(new THREE.MeshStandardMaterial({ roughness: 1, vertexColors: true }), { amp: 0.35, freq: 2 }), NF);
   const fcols = [0xffe066, 0xff8fab, 0xffffff, 0xb197fc, 0xff6b6b];
-  for (let i = 0; i < 700; i++) {
-    const z = -Math.random() * (L * 3), x = pathX(z) + (Math.random() < 0.5 ? -1 : 1) * (3 + Math.random() * 14);
-    m.compose(pos.set(x, height(x, z) + 0.18, z), q.identity(), sc.set(1, 1, 1));
+  for (let i = 0; i < NF; i++) {
+    const z = -Math.random() * -END_Z, x = pathX(z) + (Math.random() < 0.5 ? -1 : 1) * (3 + Math.random() * 14), fs = 1.2 + Math.random() * 1.2;
+    m.compose(pos.set(x, height(x, z) - 0.02, z), q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.random() * 6.3), sc.set(fs, fs, fs));
     if (keepOut.some(c => Math.hypot(c.x - x, c.z - z) < c.r)) m.makeScale(0, 0, 0);
     fl.setMatrixAt(i, m); fl.setColorAt(i, col.setHex(U.pick(fcols)));
   }

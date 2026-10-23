@@ -725,6 +725,20 @@ export function makeFX(THREE, { LOW = false } = {}) {
     }
   }
 
+  // ── a little flower: five petals round a centre on a short stem, as one geometry for instancing ──
+  // the stem is kept green by vertex colour; instance colour tints the petals
+  function flowerGeo() {
+    const parts = [], col = (g, c) => { const n = g.attributes.position.count, a = new Float32Array(n * 3); for (let i = 0; i < n; i++) a.set(c, i * 3); g.setAttribute('color', new THREE.BufferAttribute(a, 3)); return g; };
+    const stem = new THREE.CylinderGeometry(0.012, 0.015, 0.26, 4); stem.translate(0, 0.13, 0); parts.push(col(stem.toNonIndexed(), [0.35, 0.55, 0.25]));
+    for (let k = 0; k < 5; k++) { const p = new THREE.SphereGeometry(0.055, 5, 3); p.scale(1, 0.35, 0.6); p.translate(0.06, 0.27, 0); p.rotateY(k / 5 * Math.PI * 2); parts.push(col(p.toNonIndexed(), [1, 1, 1])); }
+    const c = new THREE.SphereGeometry(0.035, 5, 3); c.translate(0, 0.285, 0); parts.push(col(c.toNonIndexed(), [1.6, 1.3, 0.4]));
+    const pos = [], nor = [], cl = [];
+    for (const g of parts) { pos.push(...g.attributes.position.array); nor.push(...g.attributes.normal.array); cl.push(...g.attributes.color.array); }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3)); g.setAttribute('color', new THREE.Float32BufferAttribute(cl, 3));
+    return g;
+  }
+
   // ── a soft round shadow under things that float or fly ──
   let blobTex = null;
   function blobShadow(r = 0.6) {
@@ -852,5 +866,5 @@ export function makeFX(THREE, { LOW = false } = {}) {
         <span class="wm2-dot">${it.state === 'locked' ? '🔒' : it.icon || '•'}</span><span class="wm2-label ${pts[i][0] > W / 2 ? 'left' : ''}"><b>${i + 1}. ${esc(it.name)}</b><small>${esc(it.sub)}</small></span>${it.state === 'here' ? '<span class="wm2-you">🧙</span>' : ''}</button>`).join('')}</div></div>`;
   }
 
-  return { time, hero, footprints, mapHTML, vortex, lightPool, setNight, skyEnv, bloom, sunShafts, rim, rimCol, rimAmt, setLight, cloudShade, farHills, shootingStars, critters, arena, bursts, pondLife, groundDetail, sky, water, windify, portalMaterial, sparks, glow, blobShadow, heroPose, flyToHUD, tick: t => { time.value = t; } };
+  return { time, hero, flowerGeo, footprints, mapHTML, vortex, lightPool, setNight, skyEnv, bloom, sunShafts, rim, rimCol, rimAmt, setLight, cloudShade, farHills, shootingStars, critters, arena, bursts, pondLife, groundDetail, sky, water, windify, portalMaterial, sparks, glow, blobShadow, heroPose, flyToHUD, tick: t => { time.value = t; } };
 }
