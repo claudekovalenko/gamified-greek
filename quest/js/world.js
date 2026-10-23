@@ -1131,6 +1131,7 @@ hud.innerHTML = `
   <div class="wquest" id="wquest"><div class="wq-arrow" id="wqarrow">▲</div><div><div class="wq-k">Quest</div><div id="wqtext"></div></div></div>
   <div class="wbanner" id="wbanner"></div>
   <div class="wprompt" id="wprompt"></div>
+  <div class="wjoy-rest" id="wjoyrest"></div>
   <div class="wjoy" id="wjoy"><div class="wjoy-knob" id="wknob"></div></div>
   <div class="wact"><button class="wbig" id="wtalk">💬</button><button class="wbig wjump" id="wjump">⤒</button></div>
   <div class="whelp" id="whelp">WASD / arrows to move · Shift to run · Space to jump · E to talk · drag to look</div>
@@ -1943,6 +1944,7 @@ W.debug = { walkers, critters, BOW, BLOOM, BURSTS, ARENA, get moodNow() { return
   if (typeof w.hearts === 'number') P.hearts = Math.max(1, Math.min(P.maxHearts, w.hearts));
   player.position.set(w.x, groundAt(w.x, w.z), w.z);
   if (typeof w.yaw === 'number') cam.yaw = w.yaw;
+  else { const z2 = w.z - 12, dx = pathX(z2) - w.x; cam.yaw = Math.atan2(-dx, 12); player.rotation.y = cam.yaw + Math.PI; } // first time: look down the road
   camera.position.set(w.x, groundAt(w.x, w.z) + 5, w.z + 8);
   setPet();
   stage = createStage({ FX, bloom: BLOOM, mood: () => MOODS[MOOD], look: LOOK, renderer, person, golem, creep, wispMesh, ZONES, KG, animatePerson, applyLook, buildPet, animatePet });
