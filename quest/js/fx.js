@@ -227,6 +227,70 @@ export function makeFX(THREE, { LOW = false } = {}) {
     };
   }
 
+  // ── life on the water: rings where drops and insects touch it, and the odd fish leaping ──
+  // waters() returns the water meshes to look for near the hero; ripple() can also be called directly.
+  function pondLife(scene, waters) {
+    const ringGeo = new THREE.RingGeometry(0.82, 1, 36); ringGeo.rotateX(-Math.PI / 2);
+    const R = [];
+    for (let i = 0; i < (LOW ? 8 : 16); i++) {
+      const m = new THREE.Mesh(ringGeo, new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, depthWrite: false, opacity: 0 }));
+      m.visible = false; m.renderOrder = 3; scene.add(m); R.push({ m, t: 1, s: 1, d: 1.6 });
+    }
+    let ri = 0;
+    function ripple(x, y, z, size = 1, dur = 1.6) {
+      const r = R[ri = (ri + 1) % R.length]; r.t = 0; r.s = size; r.d = dur;
+      r.m.position.set(x, y + 0.03, z); r.m.visible = true;
+    }
+    const fish = new THREE.Group(), fm = new THREE.MeshStandardMaterial({ color: 0xe8a040, metalness: 0.3, roughness: 0.4, flatShading: true });
+    const body = new THREE.Mesh(new THREE.SphereGeometry(0.16, 7, 5), fm); body.scale.set(0.7, 0.9, 2); fish.add(body);
+    const tail = new THREE.Mesh(new THREE.ConeGeometry(0.14, 0.25, 4), fm); tail.rotation.x = -Math.PI / 2; tail.position.z = -0.38; fish.add(tail);
+    fish.visible = false; scene.add(fish);
+    const jump = { t: 1, p: new THREE.Vector3(), dx: 0, dz: 0, y: 0 };
+    const ray = new THREE.Raycaster(), down = new THREE.Vector3(0, -1, 0), o = new THREE.Vector3();
+    let probe = 0, nextFish = 3 + Math.random() * 4, list = [], listT = 0;
+    function waterAt(x, z, y0) {
+      o.set(x, y0 + 40, z); ray.set(o, down); ray.far = 90;
+      const h = ray.intersectObjects(list, false)[0];
+      return h ? h.point.y : null;
+    }
+    function update(dt, c) {
+      if ((listT -= dt) <= 0) { listT = 2; list = waters().filter(m => m.visible !== false); }
+      for (const r of R) {
+        if (r.t >= 1) continue;
+        r.t = Math.min(1, r.t + dt / r.d);
+        const e = 1 - Math.pow(1 - r.t, 2);
+        r.m.scale.setScalar(0.1 + e * r.s); r.m.material.opacity = (1 - r.t) * 0.5;
+        if (r.t >= 1) r.m.visible = false;
+      }
+      if (jump.t < 1) {
+        jump.t = Math.min(1, jump.t + dt / 0.9);
+        const t = jump.t, x = jump.p.x + jump.dx * t, z = jump.p.z + jump.dz * t, y = jump.y + Math.sin(t * Math.PI) * 1.1 - 0.15;
+        fish.position.set(x, y, z); fish.rotation.set(-Math.cos(t * Math.PI) * 1.1, Math.atan2(jump.dx, jump.dz), 0);
+        if (t >= 1) { fish.visible = false; ripple(x, jump.y, z, 1.4); }
+      }
+      if (!list.length || (probe -= dt) > 0) return;
+      probe = 0.22;
+      // pick a spot on a water surface near the hero
+      const near = list.filter(m => { if (!m.geometry.boundingSphere) m.geometry.computeBoundingSphere(); m.updateWorldMatrix(true, false); m.userData.ws = m.userData.ws || new THREE.Sphere(); m.userData.ws.copy(m.geometry.boundingSphere).applyMatrix4(m.matrixWorld); return m.userData.ws.distanceToPoint(c) < 25; });
+      if (!near.length) return;
+      const S = near[Math.floor(Math.random() * near.length)].userData.ws, a = Math.random() * 6.283, d = Math.sqrt(Math.random()) * Math.min(S.radius, 22);
+      const x = S.center.x + Math.cos(a) * d, z = S.center.z + Math.sin(a) * d;
+      if (Math.hypot(x - c.x, z - c.z) > 26) return;
+      const wy = waterAt(x, z, c.y);
+      if (wy === null) return;
+      ripple(x, wy, z, 0.5 + Math.random() * 0.6, 1.3);
+      if ((nextFish -= 0.22) <= 0 && jump.t >= 1) {
+        nextFish = 4 + Math.random() * 6;
+        const b = Math.random() * 6.283, ex = x + Math.sin(b) * 1.6, ez = z + Math.cos(b) * 1.6;
+        if (waterAt(ex, ez, c.y) === null) return;
+        Object.assign(jump, { t: 0, dx: ex - x, dz: ez - z, y: wy }); jump.p.set(x, wy, z);
+        fm.color.setHex([0xe8a040, 0xc8d0d8, 0xd86a3a][Math.floor(Math.random() * 3)]);
+        fish.visible = true; ripple(x, wy, z, 1.2);
+      }
+    }
+    return { ripple, update };
+  }
+
   // ── swirling portal disc ──
   function portalMaterial(c1 = 0x9ad0ff, c2 = 0x7a3aff) {
     return new THREE.ShaderMaterial({
@@ -435,5 +499,5 @@ export function makeFX(THREE, { LOW = false } = {}) {
     return { update, group: G };
   }
 
-  return { time, hero, cloudShade, critters, arena, bursts, groundDetail, sky, water, windify, portalMaterial, sparks, glow, blobShadow, heroPose, flyToHUD, tick: t => { time.value = t; } };
+  return { time, hero, cloudShade, critters, arena, bursts, pondLife, groundDetail, sky, water, windify, portalMaterial, sparks, glow, blobShadow, heroPose, flyToHUD, tick: t => { time.value = t; } };
 }
