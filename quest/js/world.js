@@ -1074,6 +1074,12 @@ function applyLook(g) {
   for (const c of [...m.children]) g.add(c);
   g.userData = m.userData;
   addHat(g.userData.body, L.hat); addStaff(g.userData.body, L.staff);
+  // a scribe's satchel on a strap across the chest
+  const b = g.userData.body, strap = tmesh(new THREE.TorusGeometry(0.47, 0.03, 5, 28), 0x6a4422, {}, 0);
+  strap.position.y = 1.16; strap.rotation.set(Math.PI / 2, 0.62, 0); strap.scale.set(0.95, 0.82, 1); b.add(strap);
+  const bag = tmesh(new THREE.BoxGeometry(0.3, 0.26, 0.13), 0x7a4e26); bag.position.set(-0.47, 0.84, 0.06); bag.rotation.set(0, -0.35, 0.12); b.add(bag);
+  const flap = tmesh(new THREE.BoxGeometry(0.31, 0.13, 0.14), 0x5e3a1a, {}, 0); flap.position.set(-0.47, 0.92, 0.065); flap.rotation.copy(bag.rotation); b.add(flap);
+  const clasp = tmesh(new THREE.BoxGeometry(0.05, 0.05, 0.02), 0xe0b030, {}, 0); clasp.position.set(-0.495, 0.87, 0.128); clasp.rotation.copy(bag.rotation); b.add(clasp);
   return g;
 }
 function buildPet(type) {
