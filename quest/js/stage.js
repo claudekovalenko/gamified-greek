@@ -76,11 +76,19 @@ export function createStage(ctx) {
   const FOES = ['guardian', 'shade', 'dummy', 'imp', 'rival', 'creep', 'beast'];
   let opp = null, hpBar = null;
   const oppPos = new THREE.Vector3(0, 1.1, -8);
+  // one bar: a gold frame, the empty part a dim red track, the health a bright fill with a shine and a heart at the start
   function hpSprite(frac) {
-    const c = document.createElement('canvas'); c.width = 256; c.height = 36; const x = c.getContext('2d');
-    x.fillStyle = 'rgba(20,20,30,.8)'; x.beginPath(); x.roundRect(0, 0, 256, 36, 18); x.fill();
-    x.fillStyle = frac > 0.5 ? '#e0453a' : frac > 0.25 ? '#e2801d' : '#ffd166';
-    x.beginPath(); x.roundRect(5, 5, Math.max(0, 246 * frac), 26, 13); x.fill();
+    const c = document.createElement('canvas'); c.width = 320; c.height = 48; const x = c.getContext('2d');
+    x.fillStyle = '#e0b040'; x.beginPath(); x.roundRect(0, 4, 320, 40, 20); x.fill();
+    x.fillStyle = '#2a0e10'; x.beginPath(); x.roundRect(4, 8, 312, 32, 16); x.fill();
+    x.fillStyle = 'rgba(224,69,58,.22)'; x.beginPath(); x.roundRect(40, 12, 272, 24, 12); x.fill();
+    if (frac > 0) {
+      const w = Math.max(24, 272 * frac), col = frac > 0.5 ? ['#ff6a5a', '#c9302b'] : frac > 0.25 ? ['#ffa040', '#d8701a'] : ['#ffd166', '#d8a020'];
+      const g = x.createLinearGradient(0, 12, 0, 36); g.addColorStop(0, col[0]); g.addColorStop(1, col[1]);
+      x.fillStyle = g; x.beginPath(); x.roundRect(40, 12, w, 24, 12); x.fill();
+      x.fillStyle = 'rgba(255,255,255,.35)'; x.beginPath(); x.roundRect(44, 14, w - 8, 7, 4); x.fill();
+    }
+    x.font = '26px sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText('❤️', 22, 25);
     const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
     return t;
   }
@@ -133,8 +141,8 @@ export function createStage(ctx) {
     scene.add(opp);
     hpBar = null;
     if (FOES.includes(kind)) {
-      hpBar = new THREE.Sprite(new THREE.SpriteMaterial({ map: hpSprite(1), depthWrite: false }));
-      hpBar.scale.set(4, 0.56, 1); hpBar.position.set(0, kind === 'guardian' ? 6 : kind === 'shade' ? 5.4 : opp.userData.hpY || 4.4, 0); hpBar.position.add(oppPos);
+      hpBar = new THREE.Sprite(new THREE.SpriteMaterial({ map: hpSprite(1), depthWrite: false, depthTest: false })); hpBar.renderOrder = 15; // drawn over everything, so no part of the foe cuts through it
+      hpBar.scale.set(4, 0.6, 1); hpBar.position.set(0, kind === 'guardian' ? 6.9 : kind === 'shade' ? 5.8 : opp.userData.hpY || 4.4, 0); hpBar.position.add(oppPos);
       scene.add(hpBar); S.hpObj = hpBar;
     } else if (S.hpObj) { scene.remove(S.hpObj); S.hpObj = null; }
   }
