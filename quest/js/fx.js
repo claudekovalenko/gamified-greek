@@ -826,6 +826,26 @@ export function makeFX(THREE, { LOW = false } = {}) {
     s.userData.glow = { size, opacity }; glows.push(s);
     return s;
   }
+  // ── a grass tuft: three curved, tapering blades fanned out, dark at the root and sun-bright at the tip ──
+  // (vertex colours carry the shading, so it works with the unlit, wind-swayed grass material)
+  function grassTuft(h = 0.42) {
+    const P = [], C = [], N = [];
+    const root = [0.5, 0.56, 0.42], mid = [0.86, 0.92, 0.74], tip = [1.18, 1.16, 0.9];
+    for (let b = 0; b < 3; b++) {
+      const a = b / 3 * Math.PI + 0.3, ca = Math.cos(a), sa = Math.sin(a), lean = (b - 1) * 0.06 + 0.04, w = 0.045, hb = h * (b === 1 ? 1.1 : 0.85);
+      // two segments, the upper one bent further over, narrowing to a point
+      const pt = (u, v, k) => [ca * u + sa * lean * k * k * 2.2, v, sa * -u + ca * lean * k * k * 2.2];
+      const l0 = pt(-w, 0, 0), r0 = pt(w, 0, 0), l1 = pt(-w * 0.6, hb * 0.55, 0.55), r1 = pt(w * 0.6, hb * 0.55, 0.55), t = pt(0, hb, 1);
+      P.push(...l0, ...r0, ...l1, ...r0, ...r1, ...l1, ...l1, ...r1, ...t);
+      C.push(...root, ...root, ...mid, ...root, ...mid, ...mid, ...mid, ...mid, ...tip);
+      for (let k = 0; k < 9; k++) N.push(sa, 0.3, ca);
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(P, 3));
+    g.setAttribute('normal', new THREE.Float32BufferAttribute(N, 3));
+    g.setAttribute('color', new THREE.Float32BufferAttribute(C, 3));
+    return g;
+  }
   // ── moss on whatever faces the sky (rocks, stones): pass a standard material; amount 0..1 ──
   function mossy(mat, color = 0x5f8a3a, amount = 0.8) {
     const c = new THREE.Color(color), v = `vec3(${c.r.toFixed(4)}, ${c.g.toFixed(4)}, ${c.b.toFixed(4)})`, k = amount.toFixed(3);
@@ -1034,5 +1054,5 @@ export function makeFX(THREE, { LOW = false } = {}) {
         <span class="wm2-dot">${it.state === 'locked' ? '🔒' : it.icon || '•'}</span><span class="wm2-label ${pts[i][0] > W / 2 ? 'left' : ''}"><b>${i + 1}. ${esc(it.name)}</b><small>${esc(it.sub)}</small></span>${it.state === 'here' ? '<span class="wm2-you">🧙</span>' : ''}</button>`).join('')}</div></div>`;
   }
 
-  return { time, mossy, lantern, wetness, signBoard, hero, aurora, gusts, rainbow, flowerGeo, footprints, mapHTML, vortex, lightPool, setNight, skyEnv, bloom, sunShafts, rim, rimCol, rimAmt, setLight, cloudShade, farHills, shootingStars, critters, arena, bursts, pondLife, groundDetail, sky, water, windify, portalMaterial, sparks, glow, blobShadow, heroPose, flyToHUD, tick: t => { time.value = t; } };
+  return { time, grassTuft, mossy, lantern, wetness, signBoard, hero, aurora, gusts, rainbow, flowerGeo, footprints, mapHTML, vortex, lightPool, setNight, skyEnv, bloom, sunShafts, rim, rimCol, rimAmt, setLight, cloudShade, farHills, shootingStars, critters, arena, bursts, pondLife, groundDetail, sky, water, windify, portalMaterial, sparks, glow, blobShadow, heroPose, flyToHUD, tick: t => { time.value = t; } };
 }

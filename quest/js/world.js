@@ -469,11 +469,8 @@ function signPost(x, z, text) {
 // wind-blown grass along the road, drawn in one call with a swaying shader
 function grass() {
   if (LOW) return;
-  const N = Math.round((mobile ? 9000 : 18000) * GROW);
-  const blade = new THREE.BufferGeometry();
-  blade.setAttribute('position', new THREE.Float32BufferAttribute([-0.05, 0, 0, 0.05, 0, 0, 0, 0.42, 0], 3));
-  blade.setAttribute('normal', new THREE.Float32BufferAttribute([0, 0, 1, 0, 0, 1, 0, 0, 1], 3));
-  blade.setAttribute('color', new THREE.Float32BufferAttribute([0.62, 0.62, 0.62, 0.62, 0.62, 0.62, 1.1, 1.1, 1.0], 3));
+  const N = Math.round((mobile ? 6000 : 12000) * GROW);
+  const blade = FX.grassTuft(0.42); // curved tufts of three blades
   const mat = new THREE.MeshBasicMaterial({ side: THREE.DoubleSide, vertexColors: true });
   FX.windify(mat, { amp: 0.24, freq: 1.8, push: true, nearFade: true });
   const im = new THREE.InstancedMesh(blade, mat, N);
@@ -499,7 +496,7 @@ function grass() {
 // so these are re-planted a few hundred at a time around wherever you walk
 const nearGrass = { im: null, cx: 1e9, cz: 1e9, next: 0, N: 0 };
 function buildNearGrass(mat, blade) {
-  nearGrass.N = mobile ? 2500 : 5000;
+  nearGrass.N = mobile ? 1500 : 3000;
   nearGrass.im = new THREE.InstancedMesh(blade, mat, nearGrass.N);
   nearGrass.im.frustumCulled = false; nearGrass.im.receiveShadow = true;
   const m = new THREE.Matrix4().makeScale(0, 0, 0);
