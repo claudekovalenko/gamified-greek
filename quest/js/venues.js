@@ -337,6 +337,8 @@ export function makeVenues(ctx) {
     const path = [[4.5, 0.25], [4.1, 0.85], [3.5, 1.5]], tops = [];
     for (const [r, a] of path) {
       const [x, z] = P(r, a), m = B.add(new THREE.CylinderGeometry(0.62, 0.72, wy + 0.42 - lo + 0.3, 8), 0x9a948a, x, (wy + 0.42 + lo - 0.3) / 2, z);
+      B.add(new THREE.CylinderGeometry(0.5, 0.58, 0.05, 8), 0x6a9a4a, x, wy + 0.44, z); // a mossy cap
+      for (let k = 0; k < 2; k++) B.add(new THREE.SphereGeometry(0.1, 5, 3), 0x5a8a3a, x + (k - 0.5) * 0.5, wy + 0.44, z + 0.35);
       tops.push(m); const p = F.w(x, z);
       plat(p.x, p.z, 0.75, (px, pz) => (Math.hypot(px - p.x, pz - p.z) < 0.7 ? wy + 0.42 : null));
     }
