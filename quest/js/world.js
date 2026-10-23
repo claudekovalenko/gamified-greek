@@ -125,6 +125,7 @@ const SPK = FX.sparks(scene), DUST = FX.sparks(scene, LOW ? 80 : 200, { additive
 const CRIT = FX.critters(scene); // birds overhead, butterflies by the path
 const ARENA = FX.arena(scene); // the rune circle of a shade battle
 const BURSTS = FX.bursts(scene); // light pillars when a foe is banished
+const STARS = FX.shootingStars(scene); // a shooting star now and then at night
 const POND = FX.pondLife(scene, () => { const L = []; scene.traverse(o => { if (o.isMesh && o.material === waterMat) L.push(o); }); return L; }); // ripples and leaping fish
 const hemi = new THREE.HemisphereLight(0xdff0ff, 0x5a6a3a, 1.1);
 scene.add(hemi);
@@ -147,6 +148,7 @@ function paintSky() {
   const M = MOODS[MOOD] || {};
   sky.userData.set(atm);
   FX.cloudShade.value = Math.min(1, 0.3 + atm.clouds * 1.2) * (atm.stars > 0.5 ? 0.3 : 1);
+  FX.setLight({ sun: atm.sun.getHex(), sunI: atm.sunI, hemi: atm.hemi, stars: atm.stars });
   waterMat.userData.setColors(...(M.water || [0x1f6a9a, 0x5ac0e0]), atm.mid);
   scene.fog.color.copy(atm.mid); scene.fog.near = atm.near; scene.fog.far = atm.far;
   sun.color.copy(atm.sun); sun.intensity = atm.sunI; hemi.intensity = atm.hemi;
@@ -677,6 +679,7 @@ const VEN = makeVenues({
   THREE, add: o => scene.add(o), mesh, rawGround: (x, z) => groundBase(x, z), textSprite, glow: (c, sz) => FX.glow(c, sz),
   col: (x, z, r) => { const c = { x, z, r }; colliders.push(c); return c; }, keep: (x, z, r) => keepOut.push({ x, z, r }),
   free: (x, z, r, tol) => openGround(x, z, r, tol), SPK, water: () => waterMat,
+  smoke: p => DUST.emit(p, { color: 0xd8d4d0, n: 1, speed: 0.25, up: 1.2, gravity: 0.6, drag: 0.6, size: 0.6, size1: 2.2, life: 3.2, spread: 0.2 }),
   splash: (x, z, face) => {
     player.position.set(x, groundAt(x, z), z); P.vel.set(0, 0, 0); player.rotation.y = face; cam.yaw = face + Math.PI;
     KG.app.sfx('splash');
@@ -1569,7 +1572,7 @@ function step(dt) {
     dialog('🏛 The Hall of Victory', `<p>The doors swing open. Every word and every use of Chapter ${KG.CHAPTERS.join(', ')} glows on the walls. <b>You are ready for the quiz.</b></p><p><span class="gk">Τετέλεσται.</span> <i>It is finished</i>, for now. Keep it fresh in Review and the Arcade, and new worlds will open as new chapters arrive.</p>`, [{ label: 'Ἀμήν', cls: 'primary' }]);
   }
 
-  SPK.update(dt); DUST.update(dt); ARENA.update(dt); BURSTS.update(dt); if (!INDOOR) POND.update(dt, pos);
+  SPK.update(dt); DUST.update(dt); ARENA.update(dt); BURSTS.update(dt); if (!INDOOR) POND.update(dt, pos); STARS.update(dt, camera.position, INDOOR ? 0 : atm.stars);
   FX.hero.value.copy(pos);
   CRIT.update(dt, t, pos, groundAt, INDOOR ? 0 : atm.stars < 0.5 ? 1 : 0);
   for (let k = anims.length - 1; k >= 0; k--) if (anims[k](dt, t) === false) anims.splice(k, 1);

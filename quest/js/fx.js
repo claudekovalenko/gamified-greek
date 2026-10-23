@@ -107,10 +107,20 @@ export function makeFX(THREE, { LOW = false } = {}) {
   // ── wind: sways foliage and grass; taller parts move more ──
   // push: (instanced grass) blades bend away from the hero's feet (the host keeps FX.hero up to date)
   const hero = { value: new THREE.Vector3(0, -999, 0) };
+  // unlit grass takes the light of the hour from here (the host sets it with setLight)
+  const grassTint = { value: new THREE.Color(1, 1, 1) };
+  function setLight({ sun = 0xffffff, sunI = 2, hemi = 1, stars = 0 }) {
+    const b = Math.max(0.3, Math.min(1, 0.25 + sunI * 0.33 + hemi * 0.1));
+    grassTint.value.set(1, 1, 1).lerp(new THREE.Color(sun), 0.35).multiplyScalar(b).lerp(new THREE.Color(0.55, 0.66, 1).multiplyScalar(b), stars > 0.5 ? 0.5 : 0);
+  }
   // shade: [lo, hi] model heights; foliage is darker underneath and sunlit on top
   function windify(material, { amp = 0.08, base = 0, freq = 1.3, gust = true, push = false, shade = null } = {}) {
     material.onBeforeCompile = sh => {
       sh.uniforms.uTime = time; sh.uniforms.uHero = hero;
+      if (push) {
+        sh.uniforms.uTint = grassTint;
+        sh.fragmentShader = 'uniform vec3 uTint;\n' + sh.fragmentShader.replace('#include <color_fragment>', '#include <color_fragment>\n diffuseColor.rgb *= uTint;');
+      }
       if (shade) {
         sh.vertexShader = 'varying float vShadeH;\n' + sh.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>
           vShadeH = clamp((position.y - (${shade[0].toFixed(2)})) / ${(shade[1] - shade[0]).toFixed(2)}, 0., 1.);`);
@@ -289,6 +299,38 @@ export function makeFX(THREE, { LOW = false } = {}) {
       }
     }
     return { ripple, update };
+  }
+
+  // ── shooting stars streak across the night sky now and then ──
+  function shootingStars(scene) {
+    const pos = new Float32Array(6), geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    geo.setAttribute('color', new THREE.BufferAttribute(new Float32Array([1, 0.97, 0.88, 0.2, 0.25, 0.4]), 3));
+    const mat = new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, fog: false });
+    const line = new THREE.Line(geo, mat); line.frustumCulled = false; line.visible = false; scene.add(line);
+    const s = { t: 1, wait: 4, p: new THREE.Vector3(), v: new THREE.Vector3() }, h = new THREE.Vector3();
+    return {
+      update(dt, cam, night) {
+        if (s.t < 1) {
+          s.t = Math.min(1, s.t + dt / 0.8);
+          h.copy(s.p).addScaledVector(s.v, s.t);
+          const len = 6 + Math.sin(s.t * Math.PI) * 22, n = s.v.length();
+          pos[0] = h.x; pos[1] = h.y; pos[2] = h.z;
+          pos[3] = h.x - s.v.x / n * len; pos[4] = h.y - s.v.y / n * len; pos[5] = h.z - s.v.z / n * len;
+          geo.attributes.position.needsUpdate = true;
+          mat.opacity = Math.sin(s.t * Math.PI);
+          if (s.t >= 1) line.visible = false;
+          return;
+        }
+        if (night < 0.5 || (s.wait -= dt) > 0) return;
+        s.wait = 3 + Math.random() * 8;
+        const a = Math.random() * 6.283, el = 0.3 + Math.random() * 0.45, R = 170;
+        s.p.set(cam.x + Math.cos(a) * Math.cos(el) * R, cam.y + Math.sin(el) * R, cam.z + Math.sin(a) * Math.cos(el) * R);
+        const b = a + (Math.random() < 0.5 ? 1.5 : -1.5);
+        s.v.set(Math.cos(b) * 70, -20 - Math.random() * 20, Math.sin(b) * 70);
+        s.t = 0; line.visible = true;
+      },
+    };
   }
 
   // ── swirling portal disc ──
@@ -499,5 +541,5 @@ export function makeFX(THREE, { LOW = false } = {}) {
     return { update, group: G };
   }
 
-  return { time, hero, cloudShade, critters, arena, bursts, pondLife, groundDetail, sky, water, windify, portalMaterial, sparks, glow, blobShadow, heroPose, flyToHUD, tick: t => { time.value = t; } };
+  return { time, hero, setLight, cloudShade, shootingStars, critters, arena, bursts, pondLife, groundDetail, sky, water, windify, portalMaterial, sparks, glow, blobShadow, heroPose, flyToHUD, tick: t => { time.value = t; } };
 }

@@ -8,7 +8,7 @@
 // ctx = { THREE, add(obj), mesh(geo, color, opts), rawGround(x, z) (ground without
 //   the venues), col(x, z, r) → collider object, keep(x, z, r) (keep trees and
 //   side quests away), free(x, z, r) → open ground?, textSprite, glow(color, size),
-//   SPK (fx sparks), water() → water material, splash(x, z, face) }
+//   SPK (fx sparks), water() → water material, splash(x, z, face), smoke(pos) (optional) }
 // and asks ground(x, z, base) for the height of floors, decks and stones.
 
 export const WHERE = { campfire: 'by the campfire', house: 'in the cottage', stones: 'on the island in the pond', stall: 'at the market stall', garden: 'behind the word gate', lookout: 'up on the lookout' };
@@ -178,6 +178,7 @@ export function makeVenues(ctx) {
     const cone = B.add(new THREE.ConeGeometry((W + 1.4) / Math.SQRT2, 2.6, 4, 1), 0xb5523a, 0, 1.3, 0, undefined, roof);
     cone.rotation.y = Math.PI / 4; cone.scale.z = (D + 1.4) / (W + 1.4);
     B.add(new THREE.BoxGeometry(0.7, 2, 0.7), 0x8a7a6a, W / 2 - 1.4, 1.5, -D / 2 + 1.3, undefined, roof);
+    let smokeT = 0; const chim = B.F.w(W / 2 - 1.4, -D / 2 + 1.3);
     // inside: a rug, a table, books, a fire and a board with the lesson
     const inn = new THREE.Group(); inn.position.y = fy; B.G.add(inn);
     const rug = B.add(new THREE.CircleGeometry(1.7, 24), 0x8a2a3a, 0, 0.02, 0.6, undefined, inn); rug.rotation.x = -Math.PI / 2;
@@ -236,7 +237,11 @@ export function makeVenues(ctx) {
         const l = F.l(c.x, c.z), m = 0.45, p = F.w(Math.max(-W / 2 + m, Math.min(W / 2 - m, l.x)), Math.max(-D / 2 + m, Math.min(D / 2 - m, l.z)));
         c.x = p.x; c.z = p.z; c.y = Math.max(fy + 0.9, Math.min(fy + H - 0.4, c.y));
       },
-      update(dt, t) { flame(dt, t, F); },
+      update(dt, t) {
+        flame(dt, t, F);
+        // smoke curls from the chimney
+        if (ctx.smoke && (smokeT -= dt) <= 0) { smokeT = 0.35; ctx.smoke(V3(chim.x, fy + H + 2.7, chim.z)); }
+      },
     };
   }
 
