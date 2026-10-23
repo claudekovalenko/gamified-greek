@@ -841,15 +841,15 @@ export function makeFX(THREE, { LOW = false } = {}) {
   let LANT = null;
   function lantern() {
     if (!LANT) {
-      const iron = new THREE.MeshStandardMaterial({ color: 0x2a2622, roughness: 0.55, metalness: 0.5, flatShading: true });
-      LANT = { iron, glass: new THREE.MeshStandardMaterial({ color: 0xffe9a8, emissive: 0xffc04a, emissiveIntensity: 1.2, flatShading: true }),
-        pane: new THREE.CylinderGeometry(0.19, 0.14, 0.38, 6), cap: new THREE.ConeGeometry(0.3, 0.24, 6), collar: new THREE.CylinderGeometry(0.16, 0.1, 0.08, 6), knob: new THREE.SphereGeometry(0.05, 6, 4) };
-      LANT.cap.translate(0, 0.31, 0); LANT.collar.translate(0, -0.23, 0); LANT.knob.translate(0, 0.46, 0);
+      // one mesh, two materials: the glass panes, then the iron (cap, collar and knob), so each lamp costs two draw calls
+      const parts = [new THREE.CylinderGeometry(0.19, 0.14, 0.38, 6), new THREE.ConeGeometry(0.3, 0.24, 6).translate(0, 0.31, 0), new THREE.CylinderGeometry(0.16, 0.1, 0.08, 6).translate(0, -0.23, 0), new THREE.SphereGeometry(0.05, 6, 4).translate(0, 0.46, 0)].map(g => g.toNonIndexed());
+      const geo = new THREE.BufferGeometry();
+      for (const a of ['position', 'normal', 'uv']) { const L = parts.reduce((n, g) => n + g.attributes[a].array.length, 0), arr = new Float32Array(L); let o = 0; for (const g of parts) { arr.set(g.attributes[a].array, o); o += g.attributes[a].array.length; } geo.setAttribute(a, new THREE.BufferAttribute(arr, parts[0].attributes[a].itemSize)); }
+      const n0 = parts[0].attributes.position.count; geo.addGroup(0, n0, 0); geo.addGroup(n0, geo.attributes.position.count - n0, 1);
+      LANT = { geo, mats: [new THREE.MeshStandardMaterial({ color: 0xffe9a8, emissive: 0xffc04a, emissiveIntensity: 1.2, flatShading: true }), new THREE.MeshStandardMaterial({ color: 0x2a2622, roughness: 0.55, metalness: 0.5, flatShading: true })] };
     }
-    const g = new THREE.Group();
-    g.add(new THREE.Mesh(LANT.pane, LANT.glass), new THREE.Mesh(LANT.cap, LANT.iron), new THREE.Mesh(LANT.collar, LANT.iron), new THREE.Mesh(LANT.knob, LANT.iron));
-    g.children[1].castShadow = true;
-    return g;
+    const m = new THREE.Mesh(LANT.geo, LANT.mats); m.castShadow = true;
+    return m;
   }
   // a warm pool of light on the ground under a lamp: unseen by day, glowing at night (lay it flat at the lamp's foot)
   function lightPool(color = 0xffc870, size = 5) {
