@@ -638,3 +638,10 @@ body.irisfx::after { content: ''; position: fixed; inset: 0; z-index: 60; pointe
 .wb-k::after { transform: scaleX(-1); }
 .wbanner.on .wb-t { animation: wbrise .9s ease-out; }
 @keyframes wbrise { from { letter-spacing: .2em; opacity: 0; } to { letter-spacing: normal; opacity: 1; } }
+
+/* conversation cards: parchment edges, an inner gold rule, a quill line under the speaker */
+.wd-box { background: radial-gradient(120% 90% at 50% 40%, transparent 55%, rgba(138,106,58,.16)), linear-gradient(180deg, rgba(255,236,190,.10), rgba(138,106,58,.06)), var(--card);
+  box-shadow: 0 10px 40px rgba(0,0,0,.4), inset 0 0 0 3px var(--card), inset 0 0 0 4px rgba(200,150,60,.55), inset 0 0 24px rgba(138,106,58,.18); position: relative; }
+.wd-name { display: flex; align-items: center; gap: 8px; }
+.wd-name::after { content: ''; flex: 1; height: 2px; min-width: 24px; background: linear-gradient(90deg, rgba(200,150,60,.7), rgba(200,150,60,0)); border-radius: 2px; }
+.wd-btns .btn.primary { box-shadow: inset 0 0 0 2px rgba(255,220,140,.35), 0 3px 0 rgba(0,0,0,.25); }
