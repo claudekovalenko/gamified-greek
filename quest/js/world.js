@@ -1781,6 +1781,8 @@ function step(dt) {
     P.boltT = 5 + Math.random() * 9; FLASH = 1.3; setTimeout(() => { FLASH = 1.0; }, 160);
   }
   FLASH = Math.max(0, FLASH - dt * 3.5);
+  // the ground soaks up the storm and slowly dries after it
+  { const raining = MOODS[MOOD] && MOODS[MOOD].name === 'storm'; FX.wetness.value += ((raining ? 1 : 0) - FX.wetness.value) * Math.min(1, dt * (raining ? 0.25 : 0.04)); }
   // rain splashes on the ground and rings on the water while the storm lasts
   if (MOODS[MOOD] && MOODS[MOOD].name === 'storm' && !INDOOR) {
     POND.rain(dt, pos, 1);

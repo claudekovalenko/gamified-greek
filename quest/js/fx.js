@@ -187,6 +187,7 @@ export function makeFX(THREE, { LOW = false } = {}) {
   }
 
   const cloudShade = { value: 1 }; // how strongly cloud shadows show (the host sets it from the sky)
+  const wetness = { value: 0 }; // 0 dry … 1 soaked: darker, glossier ground with puddles (the host eases it in the rain)
   // ── bloom: bright lights (lamps, magic, the sun on water) bleed a soft glow ──
   // render(scene, camera) draws the frame with the glow; the renderer's tone mapping
   // and exposure are applied in the final pass. Falls back to a plain render if unsupported.
@@ -284,9 +285,9 @@ export function makeFX(THREE, { LOW = false } = {}) {
   // the geometry may carry a 'shore' attribute: 1000 + the water level near that point (0, the default, means no water), for wet sand and foam
   function groundDetail(material, { amt = 1.25 } = {}) {
     material.onBeforeCompile = sh => {
-      sh.uniforms.uTime = time; sh.uniforms.uCloudShade = cloudShade;
+      sh.uniforms.uTime = time; sh.uniforms.uCloudShade = cloudShade; sh.uniforms.uWet = wetness;
       sh.vertexShader = 'attribute float shore; varying float vShoreY; varying vec3 vGW;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n vGW = (modelMatrix * vec4(transformed, 1.)).xyz; vShoreY = shore - 1000.;');
-      sh.fragmentShader = 'uniform float uTime, uCloudShade;\nvarying vec3 vGW; varying float vShoreY;\n' + NOISE.replace(/OCT/g, '3') + '\n' + sh.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>
+      sh.fragmentShader = 'uniform float uTime, uCloudShade, uWet;\nvarying vec3 vGW; varying float vShoreY;\n' + NOISE.replace(/OCT/g, '3') + '\n' + sh.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>
         {
           float n1 = vn(vGW.xz * .07), n2 = vn(vGW.xz * .45 + 3.1), n3 = vn(vGW.xz * 2.3 + 7.7);
           float k = ${amt.toFixed(2)};
@@ -313,6 +314,12 @@ export function makeFX(THREE, { LOW = false } = {}) {
           // the shadows of clouds drifting over the land
           float cs = smoothstep(.5, .72, vn(vGW.xz * .018 + uTime * vec2(.018, .011)) * .7 + vn(vGW.xz * .05 + uTime * vec2(.03, .02)) * .3);
           diffuseColor.rgb *= 1. - cs * .26 * uCloudShade;
+          // rain: the ground darkens and puddles gather in the hollows, shimmering
+          if (uWet > 0.) {
+            diffuseColor.rgb *= 1. - .28 * uWet;
+            float pd = smoothstep(.7, .76, vn(vGW.xz * .5) * .7 + vn(vGW.xz * 1.6) * .3) * uWet;
+            diffuseColor.rgb = mix(diffuseColor.rgb, vec3(.2, .25, .32) * (1. + .3 * vn(vGW.xz * 4. + uTime * 2.)), pd * .75);
+          }
           // the shore: wet, darker sand just above the water, and a line of foam lapping at the edge
           {
             float h = vGW.y - vShoreY;
@@ -956,5 +963,5 @@ export function makeFX(THREE, { LOW = false } = {}) {
         <span class="wm2-dot">${it.state === 'locked' ? '🔒' : it.icon || '•'}</span><span class="wm2-label ${pts[i][0] > W / 2 ? 'left' : ''}"><b>${i + 1}. ${esc(it.name)}</b><small>${esc(it.sub)}</small></span>${it.state === 'here' ? '<span class="wm2-you">🧙</span>' : ''}</button>`).join('')}</div></div>`;
   }
 
-  return { time, hero, aurora, gusts, rainbow, flowerGeo, footprints, mapHTML, vortex, lightPool, setNight, skyEnv, bloom, sunShafts, rim, rimCol, rimAmt, setLight, cloudShade, farHills, shootingStars, critters, arena, bursts, pondLife, groundDetail, sky, water, windify, portalMaterial, sparks, glow, blobShadow, heroPose, flyToHUD, tick: t => { time.value = t; } };
+  return { time, wetness, hero, aurora, gusts, rainbow, flowerGeo, footprints, mapHTML, vortex, lightPool, setNight, skyEnv, bloom, sunShafts, rim, rimCol, rimAmt, setLight, cloudShade, farHills, shootingStars, critters, arena, bursts, pondLife, groundDetail, sky, water, windify, portalMaterial, sparks, glow, blobShadow, heroPose, flyToHUD, tick: t => { time.value = t; } };
 }
