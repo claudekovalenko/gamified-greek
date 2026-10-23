@@ -235,10 +235,15 @@ export function makeVenues(ctx) {
     const flame = fire({ basic: (g, c, x, y, z) => B.basic(g, c, x, y, z, inn), glowAt: (c, s, x, y, z) => B.glowAt(c, s, x, y, z, inn) }, 2.4, 0.14, -D / 2 + 1.02, 0.8);
     B.add(new THREE.BoxGeometry(0.8, 0.12, 0.12), 0x4a2a14, 2.25, 0.17, -D / 2 + 1.04, undefined, inn).rotation.y = 0.4; // logs in the grate
     B.add(new THREE.BoxGeometry(0.8, 0.12, 0.12), 0x4a2a14, 2.55, 0.21, -D / 2 + 1.0, undefined, inn).rotation.y = -0.5;
-    for (let r = 0; r < 5; r++) for (let i = 0; i < 6; i++) {
-      const sx = 1.62 + i * 0.31 + (r % 2) * 0.15, sy = 0.15 + r * 0.33;
-      if (sx > 3.2 || (Math.abs(sx - 2.4) < 0.62 && sy < 1.05)) continue;
-      B.add(new THREE.BoxGeometry(0.28, 0.29, 0.05), [0x8f877c, 0x7f786e, 0x9a9184][(i + r) % 3], sx, sy, -D / 2 + 0.87, undefined, inn);
+    {
+      const spots = [];
+      for (let r = 0; r < 5; r++) for (let i = 0; i < 6; i++) {
+        const sx = 1.62 + i * 0.31 + (r % 2) * 0.15, sy = 0.15 + r * 0.33;
+        if (sx <= 3.2 && !(Math.abs(sx - 2.4) < 0.62 && sy < 1.05)) spots.push([sx, sy, (i + r) % 3]);
+      }
+      const geo = new THREE.BoxGeometry(0.28, 0.29, 0.05), st = new THREE.InstancedMesh(geo, ctx.mesh(geo, 0xffffff).material, spots.length), M4 = new THREE.Matrix4(), C = new THREE.Color();
+      spots.forEach(([sx, sy, k], n) => { st.setMatrixAt(n, M4.makeTranslation(sx, sy, -D / 2 + 0.87)); st.setColorAt(n, C.setHex([0x8f877c, 0x7f786e, 0x9a9184][k])); });
+      st.receiveShadow = true; inn.add(st); // one draw for the whole hearth face
     }
     B.add(new THREE.BoxGeometry(2.3, 1.2, 0.08), 0x2a3a2a, 0, 1.9, -D / 2 + 0.2, undefined, inn);
     B.add(new THREE.BoxGeometry(2.5, 1.4, 0.06), timber, 0, 1.9, -D / 2 + 0.16, undefined, inn); // its wooden frame
