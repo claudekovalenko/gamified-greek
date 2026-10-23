@@ -498,7 +498,7 @@ export function makeVenues(ctx) {
       const h = ctx.glow(0xffc870, 1.4); h.position.copy(l.position); g.add(h);
     }
     const sx = from.x - px * 1.3, sz = from.z - pz * 1.3, sy = raw(sx, sz);
-    const post = ctx.mesh(new THREE.CylinderGeometry(0.08, 0.08, 1.9, 6), 0x6a4a2a); post.position.set(sx, sy + 0.95, sz); g.add(post);
+    const post = ctx.mesh(new THREE.CylinderGeometry(0.08, 0.08, ctx.signBoard ? 1.52 : 1.9, 6), 0x6a4a2a); post.position.set(sx, sy + (ctx.signBoard ? 0.76 : 0.95), sz); g.add(post); // the board sits on the post, so the post doesn't cut through the name
     if (ctx.signBoard) { const b = ctx.signBoard(sign, 2.1, 0.5); b.position.set(sx, sy + 1.75, sz); b.rotation.y = Math.atan2(px, pz); g.add(b); } // the name painted on a board, facing the road
     else { const t = ctx.textSprite(sign, { size: 28, bg: 'rgba(120,80,40,.92)', color: '#fff2c8', scale: 0.009 }); t.position.set(sx, sy + 2.05, sz); g.add(t); }
     return g;
