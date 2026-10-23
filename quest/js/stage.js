@@ -804,6 +804,16 @@ export function createStage(ctx) {
       if (opp && FOES.includes(S.oppKind)) tween(1.2, t => { opp.rotation.x = -t * 0.5; opp.position.y = oppPos.y - t * 2; opp.scale.setScalar((S.oppKind === 'shade' ? 2.6 : S.oppKind === 'guardian' ? 1.25 : S.oppKind === 'creep' ? 1.7 : 1) * (1 - t * 0.5)); });
       else if (opp && opp.userData.body) nod();
       tween(0.8, t => { hero.position.y = Math.sin(t * Math.PI) * 1.2; hero.rotation.y = HERO_R + t * Math.PI * 2; });
+      // fireworks: rockets climb from behind the island and burst into rings of sparks
+      for (let i = 0; i < 5; i++) setTimeout(() => {
+        const x = (Math.random() - 0.5) * 16, z = -8 - Math.random() * 6, c = U.pick([0xffd166, 0x7fd0ff, 0xff8fab, 0xb388ff, 0x7ed58f]);
+        const top = new THREE.Vector3(x, 9 + Math.random() * 4, z), from = new THREE.Vector3(x, 0, z);
+        tween(0.6, t => SPK.emit(from.clone().lerp(top, t), { color: 0xfff0c0, n: 1, speed: 0.2, up: 0, gravity: -2, size: 0.3, life: 0.4 }), () => {
+          SPK.emit(top, { color: c, n: 70, speed: 7, up: 0.3, gravity: -3, drag: 1.4, size: 0.42, life: 1.4 });
+          SPK.emit(top, { color: 0xffffff, n: 20, speed: 2.5, up: 0.2, gravity: -1, size: 0.6, life: 0.5 });
+          KG.app.sfx && KG.app.sfx('coin');
+        });
+      }, 300 + i * 380);
     } else {
       tween(0.8, t => { hero.rotation.x = t * 0.25; });
     }
