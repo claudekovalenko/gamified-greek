@@ -343,6 +343,8 @@ const waterMat = FX.water(), portalMat = FX.portalMaterial();
 // ── scenery ───────────────────────────────────────────────────
 const colliders = []; // {x, z, r}
 const keepOut = [];   // open ground saved for side quests: no trees there
+// a few broadleaf trees in each region wear their own season: blossom, gold or autumn red
+const ACCENT = [[0xf2a8c4, 0xf8c8d8], null, [0xe8c040], [0xf0b0d0], [0xd8803a, 0xc8502a], [0xd8702a, 0xb84a2a, 0xe8a030], [0xe0e8f0], null, [0xf0c860, 0xd8803a]];
 function scatterTrees() {
   const trunkG = new THREE.CylinderGeometry(0.18, 0.28, 1.6, 6);
   const leafG = new THREE.IcosahedronGeometry(1.3, 0);
@@ -369,6 +371,7 @@ function scatterTrees() {
     q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.random() * 6.28);
     m.compose(pos.set(x, y + 0.8 * s, z), q, sc.set(s, s, s)); trunks.setMatrixAt(nt++, m);
     const leafCol = col.setHex(U.pick(ZONES[zi].leaf)).offsetHSL(0, 0, (Math.random() - 0.5) * 0.08);
+    if (!pine && ACCENT[LOOK(zi)] && Math.random() < 0.14) leafCol.setHex(U.pick(ACCENT[LOOK(zi)])).offsetHSL(0, 0, (Math.random() - 0.5) * 0.06);
     if (pine) { m.compose(pos.set(x, y + 2.6 * s, z), q, sc.set(s, s * 1.1, s)); pines.setMatrixAt(np, m); pines.setColorAt(np++, leafCol); }
     else {
       m.compose(pos.set(x, y + 2.3 * s, z), q, sc.set(s * 1.1, s, s * 1.1)); leaves.setMatrixAt(nl, m); leaves.setColorAt(nl++, leafCol);
