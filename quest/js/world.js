@@ -450,6 +450,7 @@ function grass() {
   const mat = new THREE.MeshBasicMaterial({ side: THREE.DoubleSide, vertexColors: true });
   FX.windify(mat, { amp: 0.24, freq: 1.8, push: true });
   const im = new THREE.InstancedMesh(blade, mat, N);
+  buildNearGrass(mat, blade);
   const m = new THREE.Matrix4(), q = new THREE.Quaternion(), sc = new THREE.Vector3(), p = new THREE.Vector3(), c = new THREE.Color();
   let n = 0;
   for (let i = 0; i < N * 2 && n < N; i++) {
@@ -466,6 +467,35 @@ function grass() {
   im.count = n;
   im.receiveShadow = true;
   scene.add(im);
+}
+// a thick patch of grass that travels with you: the long road can't carry blades everywhere,
+// so these are re-planted a few hundred at a time around wherever you walk
+const nearGrass = { im: null, cx: 1e9, cz: 1e9, next: 0, N: 0 };
+function buildNearGrass(mat, blade) {
+  nearGrass.N = mobile ? 2500 : 5000;
+  nearGrass.im = new THREE.InstancedMesh(blade, mat, nearGrass.N);
+  nearGrass.im.frustumCulled = false; nearGrass.im.receiveShadow = true;
+  const m = new THREE.Matrix4().makeScale(0, 0, 0);
+  for (let i = 0; i < nearGrass.N; i++) { nearGrass.im.setMatrixAt(i, m); nearGrass.im.setColorAt(i, new THREE.Color(0x6fae4f)); }
+  scene.add(nearGrass.im);
+}
+function updateNearGrass(pos) {
+  const G = nearGrass; if (!G.im) return;
+  if (G.next >= G.N && Math.hypot(pos.x - G.cx, pos.z - G.cz) < 5) return;
+  if (G.next >= G.N) { G.cx = pos.x; G.cz = pos.z; G.next = 0; }
+  const m = new THREE.Matrix4(), q = new THREE.Quaternion(), sc = new THREE.Vector3(), p = new THREE.Vector3(), c = new THREE.Color(), up = new THREE.Vector3(0, 1, 0);
+  const end = Math.min(G.N, G.next + 350);
+  for (let i = G.next; i < end; i++) {
+    const a = Math.random() * 6.283, r = 1 + Math.sqrt(Math.random()) * 20, x = G.cx + Math.cos(a) * r, z = G.cz + Math.sin(a) * r, y = height(x, z);
+    const off = Math.abs(x - pathX(z)) < 2.2 || y < -0.9 || Math.abs(z - RIVER_Z) < 5 || keepOut.some(k => Math.hypot(k.x - x, k.z - z) < k.r - 0.5);
+    const s0 = off ? 0 : 0.55 + Math.random() * 0.8;
+    q.setFromAxisAngle(up, Math.random() * 6.28);
+    m.compose(p.set(x, y - 0.02, z), q, sc.set(s0, s0 * (0.7 + Math.random() * 0.8), s0));
+    G.im.setMatrixAt(i, m);
+    G.im.setColorAt(i, c.setHex(ZONES[zoneOf(z)].grass).offsetHSL(0, 0.05, (Math.random() - 0.3) * 0.12));
+  }
+  G.next = end;
+  G.im.instanceMatrix.needsUpdate = true; G.im.instanceColor.needsUpdate = true;
 }
 // per-world ambience: pollen, leaves, embers, fireflies, snow…
 const AMB = [
@@ -1606,6 +1636,7 @@ function step(dt) {
   SPK.update(dt); DUST.update(dt); ARENA.update(dt); BURSTS.update(dt); if (!INDOOR) POND.update(dt, pos); STARS.update(dt, camera.position, INDOOR ? 0 : atm.stars);
   { const want = !LOW && !INDOOR && atm.stars > 0.5 ? 7 : 0; heroLight.intensity += (want - heroLight.intensity) * Math.min(1, dt * 2); heroLight.position.set(pos.x, pos.y + 2.2, pos.z); }
   FX.hero.value.copy(pos);
+  updateNearGrass(pos);
   CRIT.update(dt, t, pos, groundAt, INDOOR ? 0 : atm.stars < 0.5 ? 1 : 0);
   for (let k = anims.length - 1; k >= 0; k--) if (anims[k](dt, t) === false) anims.splice(k, 1);
   updateAmbience(dt, t, pos);
