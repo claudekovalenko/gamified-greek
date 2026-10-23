@@ -1215,6 +1215,16 @@ function buildSideQuests() {
   for (let zi = 0; zi < NZ; zi++) {
     const rc = find(zi, [0.5, 0.35, 0.65, 0.2, 0.8], [14, 17, 12, 20], 5.8);
     if (rc) add(SQ.runes(rc));
+    // word arches across the road between the stops: answer by walking through
+    const stops = KG.units[zi].nodes.filter(n => n.type !== 'boss').length;
+    for (const k of [2, 5, 8]) {
+      if (k >= stops - 1) continue;
+      const z = stopZ(zi, k) + SP / 2, x = pathX(z);
+      if (Math.abs(z - RIVER_Z) < 14 || Math.hypot(x - LAKE.x, z - LAKE.z) < LAKE.r + 8) continue;
+      const e = SQ.arches({ x, z, a: Math.atan2(pathX(z - 1) - x, -1) });
+      for (const c of e.pillars) colliders.push(c);
+      keepOut.push({ x, z, r: 5 });
+    }
     const cp = find(zi, [0.25, 0.75, 0.4, 0.6], [9, 11, 8, 13], 1.6);
     if (cp) add(SQ.courier(Object.assign(cp, { name: COURIERS[zi % COURIERS.length], look: { robe: [0x8a6a4a, 0x4a6a3a, 0xa08a4a, 0x3a5a7a, 0x6a5a4a, 0x8a5a3a, 0x3a6a6a, 0x6a6a5a, 0x7a3a3a][zi % 9], hair: 0x5a4030, beard: zi % 2 === 0 } })));
   }

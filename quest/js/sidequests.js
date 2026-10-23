@@ -5,6 +5,7 @@
 //   🎣 Word Fishing   cast from a jetty; when a fish bites, name its word before it slips away
 //   🔤 Rune Circle    walk (and hop) across lettered stones to spell the Greek word
 //   📦 Courier        a villager needs a word; find the right glowing word nearby and carry it back
+//   🏛 Word Arches    three arches stand across the road; walk through the one whose word the sign asks for
 //
 // Koine Quest and Going Deeper Quest share this file unchanged. The host passes
 // in everything that touches its own content (see makeSideQuests' ctx).
@@ -390,9 +391,83 @@ export function makeSideQuests(ctx) {
     else if (a === 'qz') quizAnswer(+b.dataset.k);
     else if (a === 'qagain' && run && run.kind === 'quiz') quiz(run.title, run.done);
   });
+  // ── 🏛 Word Arches ─────────────────────────────────────────
+  // Three arches across the road, each carrying a Greek word; a sign asks for one meaning.
+  // You answer just by walking on: through the right arch and it bursts into light.
+  // x, z: the middle of the road; a: the way the road runs (the angle you face walking on).
+  // Returns the entity; e.pillars are the posts the host should treat as solid.
+  const archList = [];
+  function arches({ x, z, a }) {
+    const T = THREE, g = new T.Group(), y0 = ctx.groundAt(x, z), W = 2.6, stone = 0xcfc6b4;
+    g.position.set(x, y0, z); g.rotation.y = a; ctx.add(g);
+    const fx = Math.cos(a), fz = -Math.sin(a); // the road's sideways direction in the world
+    const pillars = [];
+    for (let i = 0; i < 4; i++) {
+      const lx = (i - 1.5) * W, p = ctx.mesh(new T.CylinderGeometry(0.26, 0.32, 3, 8), stone); p.position.set(lx, 1.5, 0); g.add(p);
+      const cap = ctx.mesh(new T.BoxGeometry(0.75, 0.22, 0.75), 0xbfb6a4); cap.position.set(lx, 3.1, 0); g.add(cap);
+      pillars.push({ x: x + fx * lx, z: z + fz * lx, r: 0.38 });
+    }
+    const tags = [], glows = [];
+    for (let i = 0; i < 3; i++) {
+      const lx = (i - 1) * W, beam = ctx.mesh(new T.BoxGeometry(W - 0.2, 0.32, 0.5), 0xd8cfbc); beam.position.set(lx, 3.05, 0); g.add(beam);
+      const glow = new T.Mesh(new T.PlaneGeometry(W - 0.6, 2.6), new T.MeshBasicMaterial({ color: 0xffd166, transparent: true, opacity: 0, depthWrite: false, side: T.DoubleSide, blending: T.AdditiveBlending }));
+      glow.position.set(lx, 1.45, 0); g.add(glow); glows.push(glow);
+      tags.push(null);
+    }
+    const e = { kind: 'arches', x, z, a, g, tags, glows, pillars, state: 'idle', fx, fz, dx: Math.sin(a), dz: Math.cos(a), sign: null, cool: 0 };
+    archList.push(e);
+    return e;
+  }
+  function archArm(e) {
+    const w = words(1)[0]; if (!w) return false;
+    const pool = ctx.pool(14).filter(x => x && x.g && x.g !== w.g && clean(x.en) !== clean(w.en));
+    if (pool.length < 2) return false;
+    const opts = shuffle([w, ...shuffle(pool).slice(0, 2)]);
+    e.w = w; e.ans = opts.findIndex(o => o.g === w.g); e.opts = opts;
+    opts.forEach((o, i) => {
+      if (e.tags[i]) e.g.remove(e.tags[i]);
+      const s = glowWord(o.g); if (s.scale.x > 2.35) s.scale.multiplyScalar(2.35 / s.scale.x); // a long word shrinks to fit its arch
+      s.position.set((i - 1) * 2.6, 3.75, 0); e.g.add(s); e.tags[i] = s;
+    });
+    if (e.sign) e.g.remove(e.sign);
+    e.sign = ctx.textSprite(`🏛 Through the arch for “${w.en}”`, { size: 34, bg: 'rgba(60,40,20,.88)', color: '#fff2c8', scale: 0.0125 });
+    e.sign.position.set(0, 5, 0); e.g.add(e.sign);
+    e.state = 'armed'; e.prev = null;
+    return true;
+  }
+  function archUpdate(dt, t, pos) {
+    for (const e of archList) {
+      const rx = pos.x - e.x, rz = pos.z - e.z, along = rx * e.dx + rz * e.dz, side = rx * e.fx + rz * e.fz, far = Math.hypot(rx, rz);
+      if (e.state === 'idle' && far < 22 && !run) archArm(e);
+      if (e.state === 'done' && far > 30) { e.state = 'idle'; for (const gl of e.glows) gl.material.opacity = 0; }
+      for (let i = 0; i < 3; i++) if (e.tags[i]) e.tags[i].position.y = 3.75 + Math.sin(t * 2 + i) * 0.08;
+      if (e.state === 'armed') {
+        for (const gl of e.glows) gl.material.opacity = 0.06 + Math.sin(t * 2.5) * 0.03;
+        if (e.prev !== null && Math.sign(along) !== Math.sign(e.prev) && Math.abs(side) < 3.9 && Math.abs(along) < 2) {
+          const i = Math.max(0, Math.min(2, Math.round(side / 2.6) + 1)), ok = i === e.ans, w = e.w;
+          ctx.record(w, ok);
+          e.glows.forEach((gl, k) => { gl.material.color.setHex(k === e.ans ? 0x7dffa0 : 0xff6a5a); gl.material.opacity = k === e.ans || k === i ? 0.45 : 0; });
+          const at = V(e.x + e.fx * (i - 1) * 2.6, ctx.groundAt(e.x, e.z) + 2, e.z + e.fz * (i - 1) * 2.6);
+          if (ok) {
+            ctx.SPK.emit(at, { color: 0xffd166, n: 40, speed: 3.5, up: 1.6, gravity: 3, size: 0.4, life: 1.1 });
+            ctx.sfx('combo'); ctx.speak(w.g); ctx.reward(4, 2, 'arches');
+            ctx.toast(`🏛 <b>${esc(w.g)}</b> = ${esc(w.en)} · +2 🪙`, 'gold');
+          } else {
+            ctx.SPK.emit(at, { color: 0xb8b0a0, n: 24, speed: 2, up: 0.6, gravity: -6, size: 0.35, life: 0.8 });
+            ctx.sfx('bad');
+            ctx.toast(`That arch was <b>${esc(e.opts[i].g)}</b> (${esc(clean(e.opts[i].en))}). “${esc(w.en)}” is <b>${esc(w.g)}</b>.`);
+          }
+          if (e.sign) { e.g.remove(e.sign); e.sign = null; }
+          e.state = 'done';
+        }
+      }
+      e.prev = Math.abs(side) < 6 && far < 8 ? along : null;
+    }
+  }
+
   return {
     spots,
-    fishing, runes, courier, start, stop, quiz,
+    fishing, runes, courier, arches, start, stop, quiz,
     // fishing holds the hero still; the walking games don't
     busy: () => !!run && (run.kind === 'fish' || run.kind === 'quiz'),
     focus: () => (run && run.kind === 'fish' && run.e.bob.visible ? run.e.bob.position : run && run.kind === 'fish' ? run.e.water : null),
@@ -405,7 +480,7 @@ export function makeSideQuests(ctx) {
       if (ev.key === 'Escape') { stop(); return true; }
       return false;
     },
-    clear() { stop(); spots.length = 0; anims.length = 0; },
+    clear() { stop(); spots.length = 0; anims.length = 0; archList.length = 0; },
     update(dt, t, pos, onGround) {
       for (let i = anims.length - 1; i >= 0; i--) if (anims[i](dt) === false) anims.splice(i, 1);
       for (const e of spots) if (e.cap) { e.cap.rotation.y += dt; e.cap.position.y = 2.95 + Math.sin(t * 2) * 0.12; }
@@ -416,6 +491,7 @@ export function makeSideQuests(ctx) {
         if (Math.random() < dt * 6) ctx.SPK.emit(e.wisp.position, { color: 0x9ad0ff, n: 1, speed: 0.2, up: 0.3, gravity: 0.2, size: 0.22, life: 0.8 });
       }
       for (const e of spots) if (e.person && ctx.animatePerson) ctx.animatePerson(e.obj, 0, dt);
+      archUpdate(dt, t, pos);
       if (!run) return;
       const r = run;
       if (r.kind === 'fish') {
