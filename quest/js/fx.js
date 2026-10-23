@@ -307,6 +307,49 @@ export function makeFX(THREE, { LOW = false } = {}) {
     return { ripple, update };
   }
 
+  // ── far mountains: two hazy ranges on the horizon that travel with the camera ──
+  function farHills(scene) {
+    const G = new THREE.Group(); scene.add(G);
+    const layers = [];
+    for (const [R, n, hMin, hMax, k] of [[420, 26, 60, 150, 0], [330, 22, 35, 90, 1]]) {
+      const pos = [], col = [];
+      for (let i = 0; i < n; i++) {
+        const a0 = i / n * Math.PI * 2, a1 = (i + 1) / n * Math.PI * 2, am = (a0 + a1) / 2 + (Math.sin(i * 7.3 + k) * 0.08);
+        const h = hMin + (hMax - hMin) * (0.5 + 0.5 * Math.sin(i * 2.7 + k * 3.1) * Math.cos(i * 1.3));
+        const P = a => [Math.cos(a) * R, 0, Math.sin(a) * R];
+        const top = [Math.cos(am) * R * 0.97, h, Math.sin(am) * R * 0.97];
+        // a peak: one triangle out to each neighbour, with a snowy tip on the tall ones
+        for (const tri of [[P(a0), top, P(a1)]]) for (const v of tri) { pos.push(v[0], v[1] - 25, v[2]); col.push(v[1] > 0 ? (h > hMin + (hMax - hMin) * 0.7 ? 1 : 0.5) : 0); }
+      }
+      const g = new THREE.BufferGeometry();
+      g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('snow', new THREE.Float32BufferAttribute(col, 1));
+      const u = { uCol: { value: new THREE.Color() }, uSky: { value: new THREE.Color() }, uSnow: { value: new THREE.Color(1, 1, 1) } };
+      const m = new THREE.Mesh(g, new THREE.ShaderMaterial({
+        uniforms: u, side: THREE.DoubleSide, fog: false, depthWrite: false,
+        vertexShader: 'attribute float snow; varying float vS; varying float vY; void main() { vS = snow; vY = position.y; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.); gl_Position.z = gl_Position.w * .9998; }',
+        fragmentShader: `uniform vec3 uCol, uSky, uSnow; varying float vS; varying float vY;
+          void main() { vec3 c = mix(uSky, uCol, smoothstep(-25., 40., vY)); c = mix(c, uSnow, smoothstep(.55, .95, vS) * .55); gl_FragColor = vec4(c, 1.);
+          #include <tonemapping_fragment>
+          #include <colorspace_fragment>
+          }`,
+      }));
+      m.frustumCulled = false; m.renderOrder = -9 + k; G.add(m); layers.push(u);
+    }
+    return {
+      group: G,
+      // mid: the horizon colour; top: the sky overhead
+      setColors(mid, top, stars = 0) {
+        const M = new THREE.Color(mid), T = new THREE.Color(top);
+        layers.forEach((u, k) => {
+          u.uSky.value.copy(M);
+          u.uCol.value.copy(M).lerp(T, 0.35 + k * 0.15).multiplyScalar(k ? 0.78 : 0.88);
+          u.uSnow.value.copy(M).lerp(new THREE.Color(1, 1, 1), stars > 0.5 ? 0.3 : 0.85);
+        });
+      },
+      update(cam) { G.position.set(cam.x, 0, cam.z); },
+    };
+  }
+
   // ── shooting stars streak across the night sky now and then ──
   function shootingStars(scene) {
     const pos = new Float32Array(6), geo = new THREE.BufferGeometry();
@@ -547,5 +590,5 @@ export function makeFX(THREE, { LOW = false } = {}) {
     return { update, group: G };
   }
 
-  return { time, hero, setLight, cloudShade, shootingStars, critters, arena, bursts, pondLife, groundDetail, sky, water, windify, portalMaterial, sparks, glow, blobShadow, heroPose, flyToHUD, tick: t => { time.value = t; } };
+  return { time, hero, setLight, cloudShade, farHills, shootingStars, critters, arena, bursts, pondLife, groundDetail, sky, water, windify, portalMaterial, sparks, glow, blobShadow, heroPose, flyToHUD, tick: t => { time.value = t; } };
 }
