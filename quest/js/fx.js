@@ -318,6 +318,10 @@ export function makeFX(THREE, { LOW = false } = {}) {
               diffuseColor.rgb *= 1. - steep * .18 * smoothstep(.85, .97, band);
             }
           }
+          // snow glitters: where the ground is near-white, tiny glints catch the light as the view moves
+          { float wh = smoothstep(.78, .92, min(diffuseColor.r, min(diffuseColor.g, diffuseColor.b)));
+            if (wh > 0.) { vec2 g = floor(vGW.xz * 9.); float sp = step(.985, fract(sin(dot(g, vec2(12.9898, 78.233))) * 43758.5)); float tw = .5 + .5 * sin(uTime * 3. + dot(cameraPosition.xz, vec2(.7, .4)) + g.x * 1.7);
+              diffuseColor.rgb += sp * tw * wh * .9 * smoothstep(40., 8., distance(vGW, cameraPosition)); } }
           // the shadows of clouds drifting over the land
           float cs = smoothstep(.5, .72, vn(vGW.xz * .018 + uTime * vec2(.018, .011)) * .7 + vn(vGW.xz * .05 + uTime * vec2(.03, .02)) * .3);
           diffuseColor.rgb *= 1. - cs * .26 * uCloudShade;
