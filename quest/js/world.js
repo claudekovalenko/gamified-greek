@@ -1623,7 +1623,7 @@ function step(dt) {
   const mag = Math.min(1, Math.hypot(f, r));
   const run = input.keys.ShiftLeft || input.keys.ShiftRight;
   // on a stick, speed follows how far you push: a gentle walk, then a run at the edge
-  const speed = input.joy ? (mag < 0.8 ? mag * 6.5 : 5.2 + (mag - 0.8) * 22) : mag * (run ? 9.5 : 5.5);
+  const speed = input.joy ? (mag < 0.8 ? mag * 8.5 : 6.8 + (mag - 0.8) * 26) : mag * (run ? 12 : 7.2);
   const fx = -Math.sin(cam.yaw), fz = -Math.cos(cam.yaw), rx = Math.cos(cam.yaw), rz = -Math.sin(cam.yaw);
   let mx = fx * f + rx * r, mz = fz * f + rz * r; const ml = Math.hypot(mx, mz) || 1; mx /= ml; mz /= ml;
   if (mag > 0.05) {
@@ -1663,7 +1663,7 @@ function step(dt) {
   // footprints in the dirt of the road
   if (P.onGround && hs > 1.5 && !INDOOR && (P.stepT = (P.stepT || 0) - dt * hs) <= 0) { P.stepT = 2.4; if (Math.abs(pos.x - pathX(pos.z)) < 2.4) PRINTS.step(pos, player.rotation.y, groundAt(pos.x, pos.z)); }
   PRINTS.update(dt);
-  if (P.onGround && hs > 6.5 && (P.dustT = (P.dustT || 0) - dt) <= 0) { P.dustT = 0.11; DUST.emit(pos, { color: 0xcdbb98, n: 2, speed: 0.8, up: 0.3, gravity: 0.3, drag: 2, size: 0.35, size1: 0.9, life: 0.55 }); }
+  if (P.onGround && hs > 8.5 && (P.dustT = (P.dustT || 0) - dt) <= 0) { P.dustT = 0.11; DUST.emit(pos, { color: 0xcdbb98, n: 2, speed: 0.8, up: 0.3, gravity: 0.3, drag: 2, size: 0.35, size1: 0.9, life: 0.55 }); }
   if (!LOW && hs > 2 && (P.wandT = (P.wandT || 0) - dt) <= 0) { P.wandT = 0.06; SPK.emit(player.userData.arms[1].localToWorld(tmp2.set(0, -0.8, 0.3)), { color: 0xffe08a, n: 1, speed: 0.3, up: 0.3, gravity: 0.4, size: 0.18, life: 0.6 }); }
   animatePerson(player, P.onGround ? hs : 0, dt);
   P.idle = hs < 0.2 && P.onGround && !busy ? (P.idle || 0) + dt : 0;
@@ -1736,7 +1736,7 @@ function step(dt) {
   camera.lookAt(camLook);
   if (S_SHAKE > 0) { S_SHAKE = Math.max(0, S_SHAKE - dt); camera.position.x += (Math.random() - 0.5) * S_SHAKE; camera.position.y += (Math.random() - 0.5) * S_SHAKE; }
   // running widens the view a touch, for a sense of speed; indoors the view is wider, so a small room feels roomy
-  { const hsp = Math.hypot(P.vel.x, P.vel.z), want = (cam.baseFov || 60) + (INDOOR ? 14 : 0) + (P.onGround && hsp > 6.5 && !busy ? 5 : 0); if (Math.abs(camera.fov - want) > 0.05) { camera.fov += (want - camera.fov) * Math.min(1, dt * 3); camera.updateProjectionMatrix(); } }
+  { const hsp = Math.hypot(P.vel.x, P.vel.z), want = (cam.baseFov || 60) + (INDOOR ? 14 : 0) + (P.onGround && hsp > 8.5 && !busy ? 5 : 0); if (Math.abs(camera.fov - want) > 0.05) { camera.fov += (want - camera.fov) * Math.min(1, dt * 3); camera.updateProjectionMatrix(); } }
   sun.position.set(pos.x + 30, pos.y + 60, pos.z + 20); sun.target.position.set(pos.x, pos.y, pos.z);
   sky.position.copy(camera.position); HILLS.update(camera.position); BOW.update(dt, camera.position); AUR.update(camera.position);
 
