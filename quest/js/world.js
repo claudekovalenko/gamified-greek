@@ -566,7 +566,7 @@ function person({ skin = 0xf0c8a0, robe = 0x3f7d3a, hair = 0x6a3e1e, hood = fals
   }
   if (staff) { const st = tmesh(new THREE.CylinderGeometry(0.05, 0.05, 2.4, 8), 0x6a4a2a, {}, 0); st.position.set(0.55, 1.2, 0.15); body.add(st); const gem = mesh(new THREE.OctahedronGeometry(0.15), 0x7fd0ff, { emissive: 0x3fa0ff }); gem.position.set(0.55, 2.45, 0.15); body.add(gem); }
   g.scale.setScalar(scale);
-  g.userData = { body, legs, arms, eyes, phase: 0 };
+  g.userData = { body, legs, arms, eyes, cloak, phase: 0 };
   return g;
 }
 function animatePerson(p, speed, dt) {
@@ -576,6 +576,8 @@ function animatePerson(p, speed, dt) {
   u.legs[0].rotation.x = sw; u.legs[1].rotation.x = -sw;
   u.arms[0].rotation.x = -sw * 0.8; u.arms[1].rotation.x = sw * 0.8;
   u.body.position.y = Math.abs(Math.cos(u.phase)) * 0.08 * amt + Math.sin(u.phase * 0.35) * 0.015;
+  // the cloak streams back as you run and sways as you walk
+  if (u.cloak) { u.cloak.rotation.x += ((amt * 0.35 + Math.sin(u.phase * 2) * 0.05 * amt) - u.cloak.rotation.x) * Math.min(1, dt * 8); u.cloak.position.z = -0.13 - amt * 0.12; }
   // a blink every few seconds
   if (u.eyes) {
     u.blink = (u.blink ?? Math.random() * 4) - dt;
