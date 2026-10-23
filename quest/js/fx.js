@@ -537,6 +537,31 @@ export function makeFX(THREE, { LOW = false } = {}) {
     };
   }
 
+  // ── a rainbow arching over the valley: show(dir) after a storm (it appears opposite dir), then fades over a minute ──
+  function rainbow(scene) {
+    const u = { uA: { value: 0 } };
+    const m = new THREE.Mesh(new THREE.RingGeometry(120, 132, 96, 1, 0, Math.PI), new THREE.ShaderMaterial({
+      uniforms: u, transparent: true, depthWrite: false, fog: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending,
+      vertexShader: 'varying vec2 vP; void main() { vP = position.xy; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.); gl_Position.z = gl_Position.w * .9997; }',
+      fragmentShader: `uniform float uA; varying vec2 vP;
+        void main() { float r = (length(vP) - 120.) / 12.; vec3 c = clamp(abs(fract(r * .85 + vec3(0., .66, .33)) * 6. - 3.) - 1., 0., 1.);
+          float edge = smoothstep(0., .15, r) * smoothstep(1., .85, r) * smoothstep(-10., 25., vP.y);
+          gl_FragColor = vec4(c * edge * uA * .45, 1.); }`,
+    }));
+    m.visible = false; m.renderOrder = -7; m.frustumCulled = false; scene.add(m);
+    let t = 0;
+    return {
+      show(sunDir = [0.35, 0.42, -0.84]) { t = 60; m.visible = true; m.userData.dir = new THREE.Vector3(-sunDir[0], 0, -sunDir[2]).normalize(); },
+      update(dt, cam) {
+        if (!m.visible) return;
+        t -= dt; u.uA.value = Math.min(1, (60 - t) / 4, t / 10);
+        if (t <= 0) { m.visible = false; return; }
+        const d = m.userData.dir; m.position.set(cam.x + d.x * 170, cam.y - 30, cam.z + d.z * 170); m.lookAt(cam.x, cam.y - 30, cam.z);
+      },
+      get on() { return m.visible; },
+    };
+  }
+
   // ── shooting stars streak across the night sky now and then ──
   function shootingStars(scene) {
     const pos = new Float32Array(6), geo = new THREE.BufferGeometry();
@@ -875,5 +900,5 @@ export function makeFX(THREE, { LOW = false } = {}) {
         <span class="wm2-dot">${it.state === 'locked' ? '🔒' : it.icon || '•'}</span><span class="wm2-label ${pts[i][0] > W / 2 ? 'left' : ''}"><b>${i + 1}. ${esc(it.name)}</b><small>${esc(it.sub)}</small></span>${it.state === 'here' ? '<span class="wm2-you">🧙</span>' : ''}</button>`).join('')}</div></div>`;
   }
 
-  return { time, hero, flowerGeo, footprints, mapHTML, vortex, lightPool, setNight, skyEnv, bloom, sunShafts, rim, rimCol, rimAmt, setLight, cloudShade, farHills, shootingStars, critters, arena, bursts, pondLife, groundDetail, sky, water, windify, portalMaterial, sparks, glow, blobShadow, heroPose, flyToHUD, tick: t => { time.value = t; } };
+  return { time, hero, rainbow, flowerGeo, footprints, mapHTML, vortex, lightPool, setNight, skyEnv, bloom, sunShafts, rim, rimCol, rimAmt, setLight, cloudShade, farHills, shootingStars, critters, arena, bursts, pondLife, groundDetail, sky, water, windify, portalMaterial, sparks, glow, blobShadow, heroPose, flyToHUD, tick: t => { time.value = t; } };
 }

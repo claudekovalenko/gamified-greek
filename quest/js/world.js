@@ -132,6 +132,7 @@ const ARENA = FX.arena(scene); // the rune circle of a shade battle
 const BURSTS = FX.bursts(scene); // light pillars when a foe is banished
 const PRINTS = FX.footprints(scene); // footprints fading behind you on the road
 const HILLS = FX.farHills(scene); // far mountain ranges on the horizon
+const BOW = FX.rainbow(scene); // a rainbow after the storm
 const STARS = FX.shootingStars(scene); // a shooting star now and then at night
 const SHAFTS = FX.sunShafts(scene); // sunbeams slanting down among the trees
 // at night the hero's wand gives a soft warm glow (always in the scene, so switching it on costs nothing)
@@ -186,7 +187,9 @@ function doorway(v) {
   DOOR = v;
   setTimeout(() => {
     INDOOR = v;
+    const wasStorm = MOODS[MOOD] && MOODS[MOOD].name === 'storm';
     if (moveOn) MOOD = (MOOD + 1) % MOODS.length;
+    if (moveOn && wasStorm) setTimeout(() => { BOW.show([Math.sin(cam.yaw), 0, Math.cos(cam.yaw)]); KG.app.toast('🌈 The storm has passed. Look, a rainbow!'); }, 1200);
     blendAtmosphere(Math.max(0, P.zone), 1);
     cam.snap = true;
     if (moveOn && MOODS[MOOD]) KG.app.toast(MOODS[MOOD].say);
@@ -1635,7 +1638,7 @@ function step(dt) {
   camera.lookAt(camLook);
   if (S_SHAKE > 0) { S_SHAKE = Math.max(0, S_SHAKE - dt); camera.position.x += (Math.random() - 0.5) * S_SHAKE; camera.position.y += (Math.random() - 0.5) * S_SHAKE; }
   sun.position.set(pos.x + 30, pos.y + 60, pos.z + 20); sun.target.position.set(pos.x, pos.y, pos.z);
-  sky.position.copy(camera.position); HILLS.update(camera.position);
+  sky.position.copy(camera.position); HILLS.update(camera.position); BOW.update(dt, camera.position);
 
   // regions
   const zi = zoneOf(pos.z);
@@ -1855,7 +1858,7 @@ W.onLessonDone = (node, r) => {
     if (e) burst(new THREE.Vector3(e.x, groundAt(e.x, e.z) + 2, e.z), 0xffffff);
   });
 };
-W.debug = { critters, BLOOM, BURSTS, ARENA, get moodNow() { return MOOD; }, get indoor() { return !!INDOOR; }, mood: m => { MOOD = m; blendAtmosphere(P.zone < 0 ? 0 : P.zone, 1); }, sim: (n, dt = 1 / 60) => { for (let i = 0; i < n; i++) step(dt); }, colliders, VEN, og: (x, z, r, t) => openGround(x, z, r, t), SQ, scene, startBattle: w => startBattle(w), player, camera, cam, P, ents, wisps, questTarget, teleport: (x, z) => { player.position.set(x, groundAt(x, z), z); snapCamera(); } };
+W.debug = { critters, BOW, BLOOM, BURSTS, ARENA, get moodNow() { return MOOD; }, get indoor() { return !!INDOOR; }, mood: m => { MOOD = m; blendAtmosphere(P.zone < 0 ? 0 : P.zone, 1); }, sim: (n, dt = 1 / 60) => { for (let i = 0; i < n; i++) step(dt); }, colliders, VEN, og: (x, z, r, t) => openGround(x, z, r, t), SQ, scene, startBattle: w => startBattle(w), player, camera, cam, P, ents, wisps, questTarget, teleport: (x, z) => { player.position.set(x, groundAt(x, z), z); snapCamera(); } };
 
 // ── build ─────────────────────────────────────────────────────
 (async () => {
