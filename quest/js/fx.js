@@ -126,9 +126,21 @@ export function makeFX(THREE, { LOW = false } = {}) {
     rimAmt.value = LOW ? 0 : stars > 0.5 ? 0.5 : 0.35;
   }
   // shade: [lo, hi] model heights; foliage is darker underneath and sunlit on top
-  function windify(material, { amp = 0.08, base = 0, freq = 1.3, gust = true, push = false, shade = null } = {}) {
+  // nearFade: dissolve (dithered) where the camera comes close, so it never sits inside a canopy
+  function windify(material, { amp = 0.08, base = 0, freq = 1.3, gust = true, push = false, shade = null, nearFade = false } = {}) {
     material.onBeforeCompile = sh => {
       sh.uniforms.uTime = time; sh.uniforms.uHero = hero;
+      if (nearFade) {
+        sh.vertexShader = 'varying vec3 vNF;\n' + sh.vertexShader.replace('#include <worldpos_vertex>', `#include <worldpos_vertex>
+          #ifdef USE_INSTANCING
+            vNF = (modelMatrix * instanceMatrix * vec4(transformed, 1.)).xyz;
+          #else
+            vNF = (modelMatrix * vec4(transformed, 1.)).xyz;
+          #endif`);
+        sh.fragmentShader = 'varying vec3 vNF;\n' + sh.fragmentShader.replace('#include <clipping_planes_fragment>', `#include <clipping_planes_fragment>
+          { float nd = distance(vNF, cameraPosition); vec2 q = floor(gl_FragCoord.xy); float th = fract(dot(q, vec2(.5, .25)) + fract(q.y * .5) * .5);
+            if (nd < 4.5 && th > (nd - 1.5) / 3.) discard; }`);
+      }
       if (push) {
         sh.uniforms.uTint = grassTint;
         sh.fragmentShader = 'uniform vec3 uTint;\n' + sh.fragmentShader.replace('#include <color_fragment>', '#include <color_fragment>\n diffuseColor.rgb *= uTint;');
@@ -164,7 +176,7 @@ export function makeFX(THREE, { LOW = false } = {}) {
           #endif` : ''}
         }`);
     };
-    material.customProgramCacheKey = () => 'wind' + amp + base + freq + gust + push + shade;
+    material.customProgramCacheKey = () => 'wind' + amp + base + freq + gust + push + shade + nearFade;
     return material;
   }
 
