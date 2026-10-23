@@ -55,6 +55,7 @@ export function createStage(ctx) {
     const M = !SET.indoor && ctx.mood && ctx.mood();
     let stars = tint === 'shade' ? 0.6 : 0;
     if (M) { const c = (a, b) => new THREE.Color(a).lerp(new THREE.Color(b), 0.7).getHex(); top = c(top, M.top); mid = c(mid, M.mid); bot = c(bot, M.bot); stars = Math.max(stars, M.stars || 0); }
+    if (ctx.FX && ctx.FX.setNight) ctx.FX.setNight(SET.indoor ? 0.4 : stars > 0.5 ? 1 : stars > 0.15 ? 0.4 : 0); // lamps burn brighter after dark
     paintSky(top, mid, bot, stars); scene.fog.color.setHex(mid); scene.fog.near = SET.fog[0]; scene.fog.far = SET.fog[1];
     sky.visible = !SET.indoor;
     hemi.intensity = (SET.hemi || 1.15) * (tint === 'shade' ? 0.7 : 1) * (M ? Math.max(0.65, M.hemi) : 1);

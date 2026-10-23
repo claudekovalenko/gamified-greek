@@ -1877,6 +1877,7 @@ let pending = [];
 W.show = () => {
   if (stage) stage.exit();
   mode = 'world'; worldShown = true;
+  paintSky(); // the world's own light again (the stage may have changed the lamps)
   root.classList.remove('staging');
   root.classList.add('on');
   resize();
