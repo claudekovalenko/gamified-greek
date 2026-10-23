@@ -666,3 +666,4 @@ body.irisfx::after { content: ''; position: fixed; inset: 0; z-index: 60; pointe
   .wxp { width: 36px; }
   .wquest { top: calc(84px + env(safe-area-inset-top)); }
 }
+@media (max-width: 480px) { .whelp { white-space: normal; text-align: center; width: max-content; max-width: calc(100vw - 24px); } }
