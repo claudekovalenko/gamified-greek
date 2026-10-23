@@ -137,6 +137,7 @@ export function makeFX(THREE, { LOW = false } = {}) {
   // shade: [lo, hi] model heights; foliage is darker underneath and sunlit on top
   // nearFade: dissolve (dithered) where the camera comes close, so it never sits inside a canopy
   function windify(material, { amp = 0.08, base = 0, freq = 1.3, gust = true, push = false, shade = null, nearFade = false } = {}) {
+    const nearR = typeof nearFade === 'number' ? nearFade : 3.6; // how close to the lens things start to dissolve
     material.onBeforeCompile = sh => {
       sh.uniforms.uTime = time; sh.uniforms.uHero = hero;
       if (nearFade) {
@@ -148,7 +149,7 @@ export function makeFX(THREE, { LOW = false } = {}) {
           #endif`);
         sh.fragmentShader = 'uniform vec3 uHero;\nvarying vec3 vNF;\n' + sh.fragmentShader.replace('#include <clipping_planes_fragment>', `#include <clipping_planes_fragment>
           { float nd = distance(vNF, cameraPosition); vec2 q = floor(gl_FragCoord.xy); float th = fract(52.9829189 * fract(dot(q, vec2(.06711056, .00583715)))); // interleaved gradient noise: a fine, even dissolve
-            if (nd < 3.6 && th > (nd - 1.2) / 2.4) discard;
+            if (nd < ${nearR.toFixed(2)} && th > (nd - ${(nearR / 3).toFixed(2)}) / ${(nearR * 2 / 3).toFixed(2)}) discard;
             // anything standing between the camera and the hero thins out so the hero stays in view
             vec3 ab = uHero + vec3(0., 1.2, 0.) - cameraPosition; float k = clamp(dot(vNF - cameraPosition, ab) / dot(ab, ab), 0., 1.);
             float off = distance(vNF, cameraPosition + ab * k);
@@ -179,11 +180,11 @@ export function makeFX(THREE, { LOW = false } = {}) {
           ${push ? `#ifdef USE_INSTANCING
           {
             vec2 d = ip.xz - uHero.xz; float dd = length(d);
-            float k = smoothstep(1.5, .25, dd) * step(abs(ip.y - uHero.y), 2.) * hgt;
+            float k = smoothstep(1.1, .2, dd) * step(abs(ip.y - uHero.y), 2.) * hgt; // a gentle parting where you step, not a flattened ring
             if (k > 0.) {
               mat3 im = mat3(instanceMatrix); float sc = length(im[0]);
               vec3 lp = transpose(im) * vec3(d / max(dd, .001), 0.).xzy / (sc * sc);
-              transformed.xz += lp.xz * k * .7; transformed.y -= k * .35;
+              transformed.xz += lp.xz * k * .4; transformed.y -= k * .12;
             }
           }
           #endif` : ''}
@@ -830,7 +831,7 @@ export function makeFX(THREE, { LOW = false } = {}) {
   // (vertex colours carry the shading, so it works with the unlit, wind-swayed grass material)
   function grassTuft(h = 0.42) {
     const P = [], C = [], N = [];
-    const root = [0.5, 0.56, 0.42], mid = [0.86, 0.92, 0.74], tip = [1.18, 1.16, 0.9];
+    const root = [0.55, 0.6, 0.48], mid = [0.86, 0.92, 0.76], tip = [1.08, 1.1, 0.92];
     for (let b = 0; b < 3; b++) {
       const a = b / 3 * Math.PI + 0.3, ca = Math.cos(a), sa = Math.sin(a), lean = (b - 1) * 0.06 + 0.04, w = 0.045, hb = h * (b === 1 ? 1.1 : 0.85);
       // two segments, the upper one bent further over, narrowing to a point

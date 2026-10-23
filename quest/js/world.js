@@ -472,7 +472,7 @@ function grass() {
   const N = Math.round((mobile ? 6000 : 12000) * GROW);
   const blade = FX.grassTuft(0.42); // curved tufts of three blades
   const mat = new THREE.MeshBasicMaterial({ side: THREE.DoubleSide, vertexColors: true });
-  FX.windify(mat, { amp: 0.24, freq: 1.8, push: true, nearFade: true });
+  FX.windify(mat, { amp: 0.24, freq: 1.8, push: true, nearFade: 1.6 });
   const im = new THREE.InstancedMesh(blade, mat, N);
   buildNearGrass(mat, blade);
   const m = new THREE.Matrix4(), q = new THREE.Quaternion(), sc = new THREE.Vector3(), p = new THREE.Vector3(), c = new THREE.Color();
