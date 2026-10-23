@@ -319,7 +319,13 @@ export function makeFX(THREE, { LOW = false } = {}) {
             if (steep > 0.) {
               float band = sin(vGW.y * 1.9 + vn(vGW.xz * .08) * 5.), crack = vn(vec2(vGW.x + vGW.z, vGW.y) * vec2(.6, 3.));
               vec3 stone = diffuseColor.rgb * mix(vec3(.62, .6, .55), vec3(.82, .8, .72), smoothstep(-.3, .6, band)) * (.85 + .3 * crack) + vec3(.06, .05, .04);
-              diffuseColor.rgb = mix(diffuseColor.rgb, stone, steep * .55);
+              // big patches of warmer and cooler stone, rain streaks running down, and moss along the ledges
+              stone *= mix(vec3(1.06, 1., .9), vec3(.92, .97, 1.06), vn(vGW.xz * .02 + vGW.y * .01));
+              float streak = vn(vec2((vGW.x - vGW.z) * 1.4, vGW.y * .1));
+              stone *= 1. - .22 * smoothstep(.55, .85, streak);
+              float ledge = smoothstep(.7, .95, band) * smoothstep(.35, .7, vn(vGW.xz * .35 + vGW.y * .2));
+              stone = mix(stone, stone * vec3(.7, 1.05, .55), ledge * .7);
+              diffuseColor.rgb = mix(diffuseColor.rgb, stone, steep * .6);
               diffuseColor.rgb *= 1. - steep * .18 * smoothstep(.85, .97, band);
             }
           }
