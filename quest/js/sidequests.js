@@ -311,6 +311,30 @@ export function makeSideQuests(ctx) {
     if (Math.hypot(pos.x - e.x, pos.z - e.z) > 45) stop();
   }
 
+  // ── a single question: a word gate asks one before it opens ──
+  function quiz(title, done) {
+    stop();
+    const w = words(1)[0];
+    if (!w) { done(true); return; }
+    const opts = shuffle([w.en, ...ctx.others(w, 6).map(clean).filter((o, k, a) => o !== w.en && a.indexOf(o) === k).slice(0, 2)]);
+    run = { kind: 'quiz', w, opts, ans: opts.indexOf(w.en), done, title, answered: false };
+    ctx.speak(w.g);
+    show(`<div class="sq-h">${esc(title)}<button class="sq-x" data-sq="quit">✕</button></div><div class="sq-tip">The gate whispers a word. What does it mean?</div>
+      <div class="sq-word gk">${esc(w.g)}</div>
+      <div class="sq-opts">${opts.map((o, k) => `<button class="sq-opt" data-sq="qz" data-k="${k}"><span class="k">${k + 1}</span>${esc(o)}</button>`).join('')}</div>`);
+  }
+  function quizAnswer(k) {
+    const r = run; if (!r || r.kind !== 'quiz' || r.answered) return;
+    r.answered = true;
+    const ok = k === r.ans;
+    panel.querySelectorAll('.sq-opt').forEach((b, j) => { b.disabled = true; if (j === r.ans) b.classList.add('right'); else if (j === k) b.classList.add('wrong'); });
+    ctx.record(r.w, ok); ctx.sfx(ok ? 'win' : 'bad');
+    if (ok) {
+      panel.insertAdjacentHTML('beforeend', `<div class="sq-fb ok">✨ <b class="gk">${esc(r.w.g)}</b> = ${esc(r.w.en)}. The gate swings open!</div>`);
+      setTimeout(() => { if (run === r) { run = null; hide(); } r.done(true); }, 1100);
+    } else panel.insertAdjacentHTML('beforeend', `<div class="sq-fb no">The gate stays shut. <b class="gk">${esc(r.w.g)}</b> = <b>${esc(r.w.en)}</b></div><div class="sq-row"><button class="btn primary" data-sq="qagain">Try another word</button></div>`);
+  }
+
   // ── running them ────────────────────────────────────────────
   function stop() {
     if (!run) return;
@@ -333,17 +357,20 @@ export function makeSideQuests(ctx) {
     else if (a === 'cast' && run && run.phase === 'ready') cast();
     else if (a === 'fish') reel(+b.dataset.k);
     else if (a === 'hint') runeHint();
+    else if (a === 'qz') quizAnswer(+b.dataset.k);
+    else if (a === 'qagain' && run && run.kind === 'quiz') quiz(run.title, run.done);
   });
   return {
     spots,
-    fishing, runes, courier, start, stop,
+    fishing, runes, courier, start, stop, quiz,
     // fishing holds the hero still; the walking games don't
-    busy: () => !!run && run.kind === 'fish',
+    busy: () => !!run && (run.kind === 'fish' || run.kind === 'quiz'),
     focus: () => (run && run.kind === 'fish' && run.e.bob.visible ? run.e.bob.position : run && run.kind === 'fish' ? run.e.water : null),
     active: () => !!run,
     key(ev) {
       if (!run) return false;
       if (run.kind === 'fish' && /^[1-3]$/.test(ev.key)) { reel(+ev.key - 1); return true; }
+      if (run.kind === 'quiz' && /^[1-3]$/.test(ev.key)) { quizAnswer(+ev.key - 1); return true; }
       if (run.kind === 'fish' && (ev.key === 'Enter' || ev.code === 'Space') && run.phase === 'ready') { cast(); return true; }
       if (ev.key === 'Escape') { stop(); return true; }
       return false;

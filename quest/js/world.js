@@ -6,6 +6,7 @@ import * as THREE from './vendor/three.module.min.js';
 import { createStage } from './stage.js';
 import { makeFX } from './fx.js';
 import { makeSideQuests } from './sidequests.js';
+import { makeVenues, venueOrder } from './venues.js';
 
 const KG = window.KG, E = KG.engine, U = KG.util;
 const W = KG.world = { ok: false, show() {}, hide() {}, onLessonDone() {} };
@@ -68,11 +69,13 @@ function height(x, z) {
   return h;
 }
 const BRIDGE = { z: RIVER_Z, half: 7, w: 2.6 };
-function groundAt(x, z) {
+function groundBase(x, z) {
   const h = height(x, z);
   if (Math.abs(z - BRIDGE.z) < BRIDGE.half && Math.abs(x - pathX(z)) < BRIDGE.w) return Math.max(h, bridgeTop);
   return h;
 }
+// floors, decks and stepping stones of the teachers' places stand on the ground
+const groundAt = (x, z) => VEN.ground(x, z, groundBase(x, z));
 let bridgeTop = 0;
 
 // ── state ─────────────────────────────────────────────────────
@@ -317,14 +320,18 @@ function scatterTrees() {
     const z = -Math.random() * -END_Z, side = Math.random() < 0.5 ? -1 : 1, x = pathX(z) + side * (4 + Math.random() * 30);
     const s = 0.4 + Math.random() * 1.4;
     q.setFromEuler(new THREE.Euler(Math.random(), Math.random(), Math.random()));
-    m.compose(pos.set(x, height(x, z) + 0.2 * s, z), q, sc.set(s, s * 0.7, s)); rocks.setMatrixAt(i, m);
+    m.compose(pos.set(x, height(x, z) + 0.2 * s, z), q, sc.set(s, s * 0.7, s));
+    if (keepOut.some(c => Math.hypot(c.x - x, c.z - z) < c.r)) m.makeScale(0, 0, 0);
+    rocks.setMatrixAt(i, m);
   }
   rocks.castShadow = rocks.receiveShadow = true; scene.add(rocks);
   const fl = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(0.12, 0), new THREE.MeshStandardMaterial({ roughness: 1 }), 700);
   const fcols = [0xffe066, 0xff8fab, 0xffffff, 0xb197fc, 0xff6b6b];
   for (let i = 0; i < 700; i++) {
     const z = -Math.random() * (L * 3), x = pathX(z) + (Math.random() < 0.5 ? -1 : 1) * (3 + Math.random() * 14);
-    m.compose(pos.set(x, height(x, z) + 0.18, z), q.identity(), sc.set(1, 1, 1)); fl.setMatrixAt(i, m); fl.setColorAt(i, col.setHex(U.pick(fcols)));
+    m.compose(pos.set(x, height(x, z) + 0.18, z), q.identity(), sc.set(1, 1, 1));
+    if (keepOut.some(c => Math.hypot(c.x - x, c.z - z) < c.r)) m.makeScale(0, 0, 0);
+    fl.setMatrixAt(i, m); fl.setColorAt(i, col.setHex(U.pick(fcols)));
   }
   scene.add(fl);
 }
@@ -629,17 +636,48 @@ const PEOPLE = [
   ['Λουκᾶς', 'Luke', 'the doctor', ['Κράτιστε Θεόφιλε!', 'Most excellent Theophilus!']],
 ];
 const ROBES = [0x7a5230, 0x2f6a5a, 0x8a6a2a, 0x7a2f6a, 0x5a4a8a, 0xa0522d, 0x2e7d7d, 0x6a5a2e, 0x9a3f3f, 0x3f5f8f, 0x5f8f3f, 0x8f3f5f];
+// the places the teachers live (js/venues.js)
+const VEN = makeVenues({
+  THREE, add: o => scene.add(o), mesh, rawGround: (x, z) => groundBase(x, z), textSprite, glow: (c, sz) => FX.glow(c, sz),
+  col: (x, z, r) => { const c = { x, z, r }; colliders.push(c); return c; }, keep: (x, z, r) => keepOut.push({ x, z, r }),
+  free: (x, z, r, tol) => openGround(x, z, r, tol), SPK, water: () => waterMat,
+  splash: (x, z, face) => {
+    player.position.set(x, groundAt(x, z), z); P.vel.set(0, 0, 0); player.rotation.y = face; cam.yaw = face + Math.PI;
+    KG.app.sfx('splash');
+    if (!P.splashTip || clock.elapsedTime - P.splashTip > 20) { P.splashTip = clock.elapsedTime; KG.app.toast('💦 <b>Splash!</b> Hop from stone to stone: jump with Space or ⤒.'); }
+  },
+});
+// a spot clear of the teachers' places: things that would land inside one move out past its edge
+function clearSpot(x, z) {
+  for (const c of keepOut) { const d = Math.hypot(x - c.x, z - c.z); if (d < c.r + 0.6) { const k = (c.r + 0.8) / (d || 1); x = c.x + (x - c.x || 0.01) * k; z = c.z + (z - c.z) * k; } }
+  return { x, z };
+}
+function besideMentor(m) { return m.venue ? { x: m.venue.entryX, z: m.venue.entryZ } : { x: m.x - 2, z: m.z + 3 }; }
+function openGate(e, now) {
+  e.vgate.unlock(now);
+  const i = ents.indexOf(e); if (i >= 0) ents.splice(i, 1);
+  e.obj.visible = false;
+  if (!now) { const w = ws(); (w.gates = w.gates || []).push(e.vgate.id); E.gainXP(5); E.save(); refreshMarkers(); }
+}
 function buildEntities() {
   let who = 0;
   KG.units.forEach((u, i) => {
     u.nodes.filter(n => n.type !== 'boss').forEach((n, k) => {
       const z = stopZ(i, k), side = k % 2 ? -1 : 1;
       if (n.type !== 'reading') {
-        const P = PEOPLE[who % PEOPLE.length], x = pathX(z) + side * 4.2;
+        const P = PEOPLE[who % PEOPLE.length];
+        // each person teaches in their own place: a cottage, an island, a garden, a lookout…
+        const v = VEN.place(venueOrder(k + i * 2), { rx: pathX(z), rz: z, nx: side, nz: 0, title: n.title, name: P[1], id: who });
+        const x = v ? v.tx : pathX(z) + side * 4.2, zz = v ? v.tz : z;
         const m = person({ robe: ROBES[who % ROBES.length], hair: [0xdddddd, 0x6a3e1e, 0x2a1a10, 0xc8a050][who % 4], beard: who % 3 === 0, staff: who % 2 === 0, hood: who % 4 === 1, skin: [0xf0c8a0, 0xd8a878, 0xb07850, 0x8a5a3a][who % 4] });
-        m.rotation.y = side > 0 ? -Math.PI / 2 : Math.PI / 2;
-        put(m, x, z);
-        const e = addEnt({ kind: 'mentor', zone: i, obj: m, x, z, node: n, person: P, label: `${P[0]} · ${P[1]}` });
+        m.rotation.y = v ? v.tFace : side > 0 ? -Math.PI / 2 : Math.PI / 2;
+        put(m, x, zz);
+        const e = addEnt({ kind: 'mentor', zone: i, obj: m, x, z: zz, node: n, person: P, label: `${P[0]} · ${P[1]}`, venue: v });
+        if (v && v.gate) {
+          const g = addEnt({ kind: 'vgate', zone: i, obj: v.gate.obj, x: v.gate.x, z: v.gate.z, label: '🔒 Word Gate', tagY: 2.4, r: 0.01, vgate: v.gate });
+          e.gateEnt = g;
+          if ((ws().gates || []).includes(v.gate.id)) openGate(g, true);
+        }
         e.check = marker('✓', '#7be07b'); e.check.position.y = 3.3; e.check.visible = false; m.add(e.check);
         who++;
         return;
@@ -691,7 +729,7 @@ function buildCollectibles() {
   const w = ws();
   const span = NZ * L - 30, n = KG.sparks.length;
   KG.sparks.forEach((Lt, i) => {
-    const z = -8 - i * span / n, side = i % 2 ? 1 : -1, x = pathX(z) + side * (5 + (i * 7 % 6));
+    const z0 = -8 - i * span / n, side = i % 2 ? 1 : -1, { x, z } = clearSpot(pathX(z0) + side * (5 + (i * 7 % 6)), z0);
     const s = wordSprite(Lt.l);
     s.position.set(x, groundAt(x, z) + 1.3, z); scene.add(s);
     s.visible = !w.letters.includes(i);
@@ -702,7 +740,7 @@ function buildCollectibles() {
   const byUnit = {};
   KG.passages.forEach(p => {
     const k = (byUnit[p.unit] = (byUnit[p.unit] || 0) + 1);
-    const z = -p.unit * L - 30 - k * 11, side = k % 2 ? 1 : -1, x = pathX(z) + side * (9 + (k * 3) % 5);
+    const z0 = -p.unit * L - 30 - k * 11, side = k % 2 ? 1 : -1, { x, z } = clearSpot(pathX(z0) + side * (9 + (k * 3) % 5), z0);
     const g = new THREE.Group();
     const roll = mesh(new THREE.CylinderGeometry(0.22, 0.22, 1.1, 12), 0xf5e6c0, { emissive: 0xa07a20, emissiveIntensity: 0.6 }); roll.rotation.z = Math.PI / 2; g.add(roll);
     for (const sd of [-1, 1]) { const kn = mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.25, 8), 0x8a5a2a); kn.rotation.z = Math.PI / 2; kn.position.x = sd * 0.65; g.add(kn); }
@@ -716,7 +754,7 @@ function buildCollectibles() {
   const coinM = new THREE.MeshStandardMaterial({ color: 0xffd166, metalness: 0.9, roughness: 0.25, emissive: 0x6a4a00 });
   const PER = Math.round(L / 6.4);
   for (let i = 0; i < NZ * PER; i++) {
-    const zi = Math.floor(i / PER), z = -zi * L - 8 - (i % PER) * 5.6 - hash(i, 3) * 3, x = pathX(z) + (hash(i, 7) - 0.5) * 18;
+    const zi = Math.floor(i / PER), z0 = -zi * L - 8 - (i % PER) * 5.6 - hash(i, 3) * 3, { x, z } = clearSpot(pathX(z0) + (hash(i, 7) - 0.5) * 18, z0);
     const c = new THREE.Mesh(coinG, coinM); c.rotation.x = Math.PI / 2; c.castShadow = true;
     c.position.set(x, groundAt(x, z) + 0.8, z); scene.add(c);
     c.visible = !w.coins.got.includes(i);
@@ -869,14 +907,16 @@ function reviewPool(n) {
   return studied.sort((a, b) => score(a) - score(b)).slice(0, n).map(x => ({ g: x.w.g, en: x.w.short, box: x.r.box }));
 }
 // open, fairly flat ground of radius r that nothing stands on
-function openGround(x, z, r) {
+function openGround(x, z, r, tol = 1.6) {
   const px = pathX(z);
   if (Math.abs(x - px) > 26 || z > -4 || z < END_Z + 12) return false;
   if (colliders.some(c => Math.hypot(c.x - x, c.z - z) < c.r + r) || keepOut.some(c => Math.hypot(c.x - x, c.z - z) < c.r + r)) return false;
   if (ents.some(e => Math.hypot(e.x - x, e.z - z) < r + 3)) return false;
+  // keep clear of the river and the lake
+  const wet = (px2, pz2) => Math.abs(pz2 - RIVER_Z) < 7 || Math.hypot(px2 - LAKE.x, pz2 - LAKE.z) < LAKE.r + 2;
   const y = height(x, z);
-  if (y < -0.8) return false;
-  for (let k = 0; k < 8; k++) { const a = k / 8 * Math.PI * 2, h = height(x + Math.cos(a) * r, z + Math.sin(a) * r); if (Math.abs(h - y) > 1.6 || h < -0.8) return false; }
+  if (wet(x, z)) return false;
+  for (let k = 0; k < 8; k++) { const a = k / 8 * Math.PI * 2, sx = x + Math.cos(a) * r, sz = z + Math.sin(a) * r, h = height(sx, sz); if (Math.abs(h - y) > tol || wet(sx, sz)) return false; }
   return Math.abs(x - px) > r * 0.6 + 2.5;
 }
 const COURIERS = ['Old Demas', 'Woodcutter Jason', 'Farmer Clopas', 'Ferryman Alexander', 'Mason Erastus', 'Keeper Hermas', 'Boatwoman Chloe', 'Shepherd Carpus', 'Scribe Tertius'];
@@ -936,14 +976,17 @@ function refreshMarkers() {
     beacon = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 0.6, 60, 12, 1, true), new THREE.MeshBasicMaterial({ color: 0xffd166, transparent: true, opacity: 0.18, depthWrite: false, side: THREE.DoubleSide, fog: false }));
     scene.add(beacon);
   }
-  beacon.visible = !!t.ent;
-  if (t.ent) beacon.position.set(t.ent.x, groundAt(t.ent.x, t.ent.z) + 30, t.ent.z);
-  const who = t.ent ? (t.ent.kind === 'mentor' ? `Visit ${t.ent.person[1]}` : t.ent.kind === 'pedestal' ? 'Restore the lost scroll' : `Challenge ${t.ent.label}`) : '';
+  // a closed word gate stands between you and the next teacher: it is the target first
+  const gateE = t.ent && t.ent.gateEnt && ents.includes(t.ent.gateEnt) ? t.ent.gateEnt : null, tgt = gateE || t.ent;
+  for (const e of ents) if (e.kind === 'vgate') e.mark.visible = e === gateE;
+  beacon.visible = !!tgt;
+  if (tgt) beacon.position.set(tgt.x, groundAt(tgt.x, tgt.z) + 30, tgt.z);
+  const who = t.ent ? (t.ent.kind === 'mentor' ? `Visit ${t.ent.person[1]}${t.ent.venue ? ` ${t.ent.venue.where}` : ''}` : t.ent.kind === 'pedestal' ? 'Restore the lost scroll' : `Challenge ${t.ent.label}`) : '';
   syncVillains();
   const vs = Object.keys(E.state.villains || {}).map(Number);
   $('wqtext').innerHTML = (t.done ? 'All quests complete! Step into the Hall of Victory.' : `${who}: <b>${esc(t.node.title)}</b>`)
     + (vs.length ? `<div class="wq-side">😈 Side quest: beat Skulch in ${vs.map(z => esc(ZONES[z].name)).join(', ')}</div>` : '');
-  W.target = t.ent;
+  W.target = tgt;
   updateHUD();
 }
 
@@ -963,7 +1006,7 @@ function worldMap() {
     const i = +b.dataset.wm, m = ents.find(e => e.kind === 'mentor' && e.zone === i);
     closeDialog();
     root.classList.add('portalfx'); KG.app.sfx('level');
-    setTimeout(() => { player.position.set(m.x - 2, groundAt(m.x - 2, m.z + 3), m.z + 3); snapCamera(); }, 250);
+    setTimeout(() => { const p = besideMentor(m); player.position.set(p.x, groundAt(p.x, p.z), p.z); snapCamera(); }, 250);
     setTimeout(() => root.classList.remove('portalfx'), 900);
   });
 }
@@ -1006,6 +1049,7 @@ function talk(e) {
   const Z = ZONES[e.zone], app = KG.app;
   app.sfx('tap');
   if (e.kind === 'side') return SQ.start(e);
+  if (e.kind === 'vgate') return SQ.quiz('🔒 The Word Gate', ok => { if (ok) openGate(e); });
   if (e.kind === 'mentor') {
     const P = e.person, n = e.node, t = questTarget(), done = E.stars(n.id) > 0, U0 = KG.units[e.zone];
     let html = `<p><span class="gk">${esc(P[3][0])}</span> <i>(${esc(P[3][1])})</i></p>`, btns = [];
@@ -1014,10 +1058,11 @@ function talk(e) {
       html += `<p>I am ${esc(P[1])}, ${esc(P[2])}. I teach <b>${esc(n.title)}</b>, but not yet!${before ? ` First go to <b>${esc(before)}</b>. Follow the golden light.` : ''}</p>`;
     } else if (!done) {
       if (U0.hook && k0(e)) html += `<p class="wd-hook">🪝 Say it with me: <b>${esc(U0.hook)}</b></p>`;
+      if (e.venue) html += `<p>${esc(e.venue.hello)}</p>`;
       html += `<p>I am ${esc(P[1])}, ${esc(P[2])}. My lesson is short: <b>${esc(n.title)}</b>. Then walk on, someone else is waiting for you.</p>`;
       btns.push({ label: `Begin: ${esc(n.title)} ▶`, cls: 'primary', fn: () => launch(n.id) });
     } else {
-      const nxt = t.ent && t.ent !== e ? (t.ent.person ? t.ent.person[1] : t.ent.label) : '';
+      const nxt = t.ent && t.ent !== e ? (t.ent.person ? t.ent.person[1] + (t.ent.venue ? `</b> ${esc(t.ent.venue.where)}<b>` : '') : t.ent.label) : '';
       html += `<p>You learned <b>${esc(n.title)}</b> with me. ${nxt ? `Go on to <b>${esc(nxt)}</b>, follow the golden light!` : ''}</p>`;
       btns.push({ label: `↺ Practice ${esc(n.title)}`, fn: () => launch(n.id) });
     }
@@ -1062,7 +1107,7 @@ function buildChests() {
   KG.units.forEach((u, i) => {
     const stops = u.nodes.filter(n => n.type !== 'boss').length;
     for (let k = 1; k < stops; k += 3) {
-      const id = `${i}_${k}`, z = stopZ(i, k) + SP / 2, x = pathX(z) + (k % 2 ? 6.5 : -6.5);
+      const id = `${i}_${k}`, z0 = stopZ(i, k) + SP / 2, { x, z } = clearSpot(pathX(z0) + (k % 2 ? 6.5 : -6.5), z0);
       const g = new THREE.Group();
       const box = mesh(new THREE.BoxGeometry(1.2, 0.7, 0.8), 0x8a5a2a); box.position.y = 0.35; g.add(box);
       for (const sx of [-0.45, 0.45]) { const band = mesh(new THREE.BoxGeometry(0.1, 0.72, 0.82), 0xe0b030); band.position.set(sx, 0.35, 0); g.add(band); }
@@ -1191,7 +1236,7 @@ function endBattle() {
     const m = ents.find(e => e.kind === 'mentor' && e.zone === zoneOf(player.position.z));
     dialog('😵 You fainted…', `<p>The shades overwhelmed you. You wake beside ${esc(m.person[1])}, who gives you some bread and water.</p><p class="muted small">Tip: review your words in 🔁 Review to make the shades easier.</p>`, [{ label: 'Get up', cls: 'primary' }]);
     P.hearts = P.maxHearts;
-    player.position.set(m.x - 2, groundAt(m.x - 2, m.z + 2), m.z + 2);
+    { const p = besideMentor(m); player.position.set(p.x, groundAt(p.x, p.z), p.z); }
     updateHUD();
   }
 }
@@ -1285,6 +1330,7 @@ function step(dt) {
   if (input.jump && P.onGround && !busy) { P.vel.y = 7.5; P.onGround = false; DUST.emit(pos, { color: 0xd8c8a8, n: 6, speed: 1.5, up: 0.2, gravity: 0, size: 0.5, size1: 1.1, life: 0.5 }); }
   input.jump = false;
   P.vel.y -= 22 * dt;
+  const ox = pos.x, oz = pos.z, g0 = groundAt(ox, oz);
   pos.x += P.vel.x * dt; pos.z += P.vel.z * dt; pos.y += P.vel.y * dt;
   // world bounds: stay in the valley, behind closed gates
   const px = pathX(pos.z), lim = 30;
@@ -1296,6 +1342,8 @@ function step(dt) {
     const dx = pos.x - c.x, dz = pos.z - c.z, d = Math.hypot(dx, dz), r2 = c.r + 0.45;
     if (d < r2 && d > 0.001) { pos.x = c.x + dx / d * r2; pos.z = c.z + dz / d * r2; }
   }
+  // steps and stones higher than a stride need a jump
+  { const mv = Math.hypot(pos.x - ox, pos.z - oz), g1 = groundAt(pos.x, pos.z); if (mv > 0 && g1 - g0 > Math.max(0.4, mv * 1.3 + 0.02) && pos.y < g1 - 0.05) { pos.x = ox; pos.z = oz; } }
   const gy = groundAt(pos.x, pos.z), wasAir = !P.onGround, fall = P.vel.y;
   if (pos.y <= gy) { pos.y = gy; P.vel.y = 0; P.onGround = true; }
   const hs = Math.hypot(P.vel.x, P.vel.z);
@@ -1322,12 +1370,15 @@ function step(dt) {
     cam.yaw += d * dt * (input.joy ? 2.2 : 1.2) * Math.min(1, mag);
   }
   // pull the camera in when a hill stands between it and the hero
-  let cd = cam.dist;
+  // inside a cottage the camera comes in close and looks down over the cut-away walls
+  P.inT = (P.inT || 0) + ((VEN.inside(pos) ? 1 : 0) - (P.inT || 0)) * Math.min(1, dt * 4);
+  const cDist = cam.dist + (Math.min(cam.dist, 8.5) - cam.dist) * P.inT, cPitch = cam.pitch + (Math.max(cam.pitch, 1.1) - cam.pitch) * P.inT;
+  let cd = cDist;
   for (let k = 1; k <= 6; k++) {
-    const fk = k / 6, cx = pos.x + Math.sin(cam.yaw) * Math.cos(cam.pitch) * cam.dist * fk, cz = pos.z + Math.cos(cam.yaw) * Math.cos(cam.pitch) * cam.dist * fk;
-    if (groundAt(cx, cz) + 0.6 > pos.y + 1.4 + Math.sin(cam.pitch) * cam.dist * fk) { cd = Math.max(2.5, cam.dist * (fk - 1 / 6)); break; }
+    const fk = k / 6, cx = pos.x + Math.sin(cam.yaw) * Math.cos(cPitch) * cDist * fk, cz = pos.z + Math.cos(cam.yaw) * Math.cos(cPitch) * cDist * fk;
+    if (groundAt(cx, cz) + 0.6 > pos.y + 1.4 + Math.sin(cPitch) * cDist * fk) { cd = Math.max(2.5, cDist * (fk - 1 / 6)); break; }
   }
-  const cy = Math.sin(cam.pitch) * cd, ch = Math.cos(cam.pitch) * cd;
+  const cy = Math.sin(cPitch) * cd, ch = Math.cos(cPitch) * cd;
   tmp.set(pos.x + Math.sin(cam.yaw) * ch, pos.y + 1.4 + cy, pos.z + Math.cos(cam.yaw) * ch);
   tmp.y = Math.max(tmp.y, groundAt(tmp.x, tmp.z) + 0.8);
   // in a shade battle the camera looks over the hero's shoulder at the shade; while fishing, out towards the bobber
@@ -1364,7 +1415,7 @@ function step(dt) {
     const d = Math.hypot(pos.x - e.x, pos.z - e.z);
     if (e.kind === 'villain') { e.obj.userData.body.position.y = Math.abs(Math.sin(t * 5)) * 0.08; e.obj.userData.body.rotation.z = Math.sin(t * 2.3) * 0.12; }
     e.mark.position.y = (e.tagY || 2.7) + 0.9 + Math.sin(t * 3) * 0.12;
-    if (e.kind === 'side') { if (d < best) { best = d; nearEnt = e; } continue; }
+    if (e.kind === 'side' || e.kind === 'vgate') { if (d < best) { best = d; nearEnt = e; } continue; }
     if (e.kind === 'chest') { if (e.glow.visible) e.glow.position.y = 1.9 + Math.sin(t * 3) * 0.12; }
     else if (e.kind === 'pedestal') { e.spin.rotation.y += dt; e.spin.position.y = 1.7 + Math.sin(t * 2) * 0.1; }
     else if (d < 12) { const want = Math.atan2(pos.x - e.x, pos.z - e.z); let dr = want - e.obj.rotation.y; dr = Math.atan2(Math.sin(dr), Math.cos(dr)); e.obj.rotation.y += dr * Math.min(1, dt * 3); }
@@ -1372,7 +1423,7 @@ function step(dt) {
     if (d < best) { best = d; nearEnt = e; }
   }
   const pr = $('wprompt');
-  if (nearEnt && !busy && !(SQ.active() && nearEnt.kind === 'side')) { pr.innerHTML = `<b>E</b> / 💬 ${nearEnt.kind === 'pedestal' ? 'Examine' : nearEnt.kind === 'chest' ? 'Open' : nearEnt.kind === 'side' ? (nearEnt.sq === 'courier' ? 'Help' : 'Play at') : nearEnt.kind === 'guardian' || nearEnt.kind === 'villain' ? 'Confront' : 'Talk to'} ${esc(nearEnt.label)}`; pr.classList.add('on'); $('wtalk').classList.add('on'); }
+  if (nearEnt && !busy && !(SQ.active() && nearEnt.kind === 'side')) { pr.innerHTML = `<b>E</b> / 💬 ${nearEnt.kind === 'pedestal' ? 'Examine' : nearEnt.kind === 'chest' ? 'Open' : nearEnt.kind === 'side' ? (nearEnt.sq === 'courier' ? 'Help' : 'Play at') : nearEnt.kind === 'vgate' ? 'Open' : nearEnt.kind === 'guardian' || nearEnt.kind === 'villain' ? 'Confront' : 'Talk to'} ${esc(nearEnt.label)}`; pr.classList.add('on'); $('wtalk').classList.add('on'); }
   else { pr.classList.remove('on'); $('wtalk').classList.remove('on'); }
 
   // quest arrow
@@ -1448,6 +1499,7 @@ function step(dt) {
   for (let k = anims.length - 1; k >= 0; k--) if (anims[k](dt, t) === false) anims.splice(k, 1);
   updateAmbience(dt, t, pos);
   SQ.update(dt, t, pos, P.onGround);
+  VEN.update(dt, t, pos, P.onGround);
 
   if ((saveT += dt) > 5) { saveT = 0; savePos(); }
 }
@@ -1525,7 +1577,7 @@ W.onLessonDone = (node, r) => {
     if (e) burst(new THREE.Vector3(e.x, groundAt(e.x, e.z) + 2, e.z), 0xffffff);
   });
 };
-W.debug = { SQ, scene, startBattle: w => startBattle(w), player, camera, cam, P, ents, wisps, questTarget, teleport: (x, z) => { player.position.set(x, groundAt(x, z), z); snapCamera(); } };
+W.debug = { sim: (n, dt = 1 / 60) => { for (let i = 0; i < n; i++) step(dt); }, colliders, VEN, og: (x, z, r, t) => openGround(x, z, r, t), SQ, scene, startBattle: w => startBattle(w), player, camera, cam, P, ents, wisps, questTarget, teleport: (x, z) => { player.position.set(x, groundAt(x, z), z); snapCamera(); } };
 
 // ── build ─────────────────────────────────────────────────────
 (async () => {
