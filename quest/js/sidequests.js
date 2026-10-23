@@ -160,7 +160,11 @@ export function makeSideQuests(ctx) {
       setTileLetter(tl, ALPHA[((i * 5 + Math.round(x)) % 24 + 24) % 24]);
       tiles.push(tl);
     }
-    const e = { kind: 'side', sq: 'runes', obj: g, x, z, label: '🔤 Rune Circle', tagY: 3.6, r: 0.7, tiles, cap };
+    // a faint ring of light joins the stones, and a wisp of light circles them
+    const ring = new T.Mesh(new T.RingGeometry(4.3, 4.5, 64), new T.MeshBasicMaterial({ color: 0x9ad0ff, transparent: true, opacity: 0.35, depthWrite: false, blending: T.AdditiveBlending, side: T.DoubleSide }));
+    ring.rotation.x = -Math.PI / 2; ring.position.set(x, y0 + 0.09, z); ctx.add(ring);
+    const wisp = new T.Mesh(new T.SphereGeometry(0.16, 8, 6), new T.MeshBasicMaterial({ color: 0xcfe8ff })); ctx.add(wisp);
+    const e = { kind: 'side', sq: 'runes', obj: g, x, z, label: '🔤 Rune Circle', tagY: 3.6, r: 0.7, tiles, cap, ring, wisp, y0 };
     spots.push(e);
     return e;
   }
@@ -379,6 +383,12 @@ export function makeSideQuests(ctx) {
     update(dt, t, pos, onGround) {
       for (let i = anims.length - 1; i >= 0; i--) if (anims[i](dt) === false) anims.splice(i, 1);
       for (const e of spots) if (e.cap) { e.cap.rotation.y += dt; e.cap.position.y = 2.95 + Math.sin(t * 2) * 0.12; }
+      for (const e of spots) if (e.wisp) {
+        const a = t * 0.7, wx = e.x + Math.cos(a) * 4.4, wz = e.z + Math.sin(a) * 4.4;
+        e.wisp.position.set(wx, ctx.groundAt(wx, wz) + 0.7 + Math.sin(t * 3) * 0.2, wz);
+        e.ring.material.opacity = 0.25 + Math.sin(t * 1.5) * 0.1;
+        if (Math.random() < dt * 6) ctx.SPK.emit(e.wisp.position, { color: 0x9ad0ff, n: 1, speed: 0.2, up: 0.3, gravity: 0.2, size: 0.22, life: 0.8 });
+      }
       for (const e of spots) if (e.person && ctx.animatePerson) ctx.animatePerson(e.obj, 0, dt);
       if (!run) return;
       const r = run;
