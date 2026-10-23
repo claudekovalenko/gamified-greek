@@ -255,14 +255,15 @@ export function makeVenues(ctx) {
     B.add(new THREE.TorusGeometry(5.68, 0.2, 5, 40), 0xb0a898, 0, wy + 0.2, 0).rotation.x = Math.PI / 2;
     void rim;
     plat(cx, cz, 6.2, (x, z) => { const d = Math.hypot(x - cx, z - cz); return d > 5.45 && d < 6 ? wy + 0.3 : null; });
-    // a step up to the rim where the trail arrives
-    const ge = B.rawL(0, 6.5);
-    if (wy + 0.3 - ge > 0.35) {
-      const st = (wy + 0.3 + ge) / 2;
-      B.add(new THREE.BoxGeometry(1.4, st - ge + 0.3, 0.8), 0x9a948a, 0, (st + ge - 0.3) / 2, 6.4);
-      const sp = B.F.w(0, 6.4);
-      plat(sp.x, sp.z, 1, (x, z) => { const l = B.F.l(x, z); return Math.abs(l.x) < 0.7 && Math.abs(l.z - 6.4) < 0.4 ? st : null; });
+    // steps up to the rim where the trail arrives: a gentle ramp underfoot, as long as the pond is high
+    const top = wy + 0.3, z0 = 5.85, SL = Math.max(0.9, (top - B.rawL(0, z0 + 2)) / 0.6), ge = B.rawL(0, z0 + SL);
+    if (top - ge > 0.12) {
+      const n = Math.max(2, Math.round(SL / 0.45));
+      for (let j = 0; j < n; j++) { const h = top - (j + 0.5) * (top - ge) / n; B.add(new THREE.BoxGeometry(1.5, h - ge + 0.3, SL / n), 0x9a948a, 0, (h + ge - 0.3) / 2, z0 + (j + 0.5) * SL / n); }
+      plat(cx, cz, z0 + SL + 1, (x, z) => { const l = F.l(x, z); return Math.abs(l.x) < 0.75 && l.z >= z0 - 0.2 && l.z <= z0 + SL ? top - Math.max(0, l.z - z0) / SL * (top - ge) : null; });
     }
+    const out = z0 + (top - ge > 0.12 ? SL : 0.6);
+    for (let z = z0; z < out; z += 1.2) { const p = F.w(0, z); ctx.keep(p.x, p.z, 1.2); }
     for (let i = 0; i < 16; i++) { const a = i / 16 * Math.PI * 2 + 0.2; if (Math.abs(Math.atan2(Math.sin(a), Math.cos(a))) < 0.4) continue; const [x, z] = P(6.3, a); const s = 0.3 + (i * 7 % 5) * 0.08; B.add(new THREE.DodecahedronGeometry(s, 0), 0x8a8a80, x, B.rawL(x, z) + s * 0.4, z); }
     for (let i = 0; i < 9; i++) { const a = 0.6 + i * 0.6, [x, z] = P(5.1, a); for (let k = 0; k < 3; k++) B.add(new THREE.ConeGeometry(0.05, 1.1, 4), 0x6a8a3a, x + k * 0.12, wy + 0.4, z + (k - 1) * 0.1); }
     for (const [r, a] of [[3, 3.6], [4.2, 2.6], [2.8, 4.6], [4.4, 5.3], [2.6, 2.4]]) { const [x, z] = P(r, a); const pad = B.add(new THREE.CircleGeometry(0.38, 10), 0x4a8a3a, x, wy + 0.02, z); pad.rotation.x = -Math.PI / 2; }
@@ -281,12 +282,12 @@ export function makeVenues(ctx) {
       plat(p.x, p.z, 0.75, (px, pz) => (Math.hypot(px - p.x, pz - p.z) < 0.7 ? wy + 0.42 : null));
     }
     plat(cx, cz, 2, (x, z) => (Math.hypot(x - cx, z - cz) < 1.95 ? wy + 0.45 : null));
-    const sg = new THREE.Group(); sg.position.set(1.6, B.rawL(1.6, 7), 7); B.G.add(sg);
+    const sg = new THREE.Group(); sg.position.set(1.6, B.rawL(1.6, out + 0.4), out + 0.4); B.G.add(sg);
     B.add(new THREE.CylinderGeometry(0.07, 0.07, 1.3, 6), 0x6a4a2a, 0, 0.65, 0, undefined, sg);
     const lbl = ctx.textSprite('Hop across! ⤒', { size: 26, scale: 0.009 }); lbl.position.y = 1.55; sg.add(lbl);
     let cool = 0;
     return {
-      B, teacher: [0.3 * mir, -0.1], entry: [0, 7.4], y: wy, hops: [F.w(0, 6.4), F.w(0, 5.7)].concat(path.map(([r, a]) => F.w(...P(r, a))), [F.w(0, 0)]),
+      B, teacher: [0.3 * mir, -0.1], entry: [0, out + 0.9], y: wy, hops: [F.w(0, out - 0.3), F.w(0, 5.7)].concat(path.map(([r, a]) => F.w(...P(r, a))), [F.w(0, 0)]),
       update(dt, t, pos, onGround) {
         cool = Math.max(0, cool - dt);
         tops.forEach((m, i) => { m.position.y = (wy + 0.42 + lo - 0.3) / 2 + Math.sin(t * 1.3 + i) * 0.015; });
@@ -294,7 +295,7 @@ export function makeVenues(ctx) {
         if (!cool && onGround && Math.hypot(l.x, l.z) < 5.3 && pos.y < wy - 0.02) {
           cool = 1;
           ctx.SPK.emit(V3(pos.x, wy + 0.1, pos.z), { color: 0xd8f0ff, n: 30, speed: 3, up: 1.4, gravity: -9, size: 0.3, life: 0.7 });
-          const e = F.w(0, 7); ctx.splash(e.x, e.z, Math.atan2(cx - e.x, cz - e.z));
+          const e = F.w(0, 5.75); ctx.splash(e.x, e.z, Math.atan2(cx - e.x, cz - e.z)); // back up on the rim, to try again
         }
       },
     };

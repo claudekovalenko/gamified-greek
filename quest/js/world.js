@@ -1370,7 +1370,9 @@ function step(dt) {
   P.vel.x += (mx * speed - P.vel.x) * Math.min(1, dt * 10);
   P.vel.z += (mz * speed - P.vel.z) * Math.min(1, dt * 10);
   if (mag <= 0.05) { P.vel.x *= Math.max(0, 1 - dt * 10); P.vel.z *= Math.max(0, 1 - dt * 10); }
-  if (input.jump && P.onGround && !busy) { P.vel.y = 7.5; P.onGround = false; DUST.emit(pos, { color: 0xd8c8a8, n: 6, speed: 1.5, up: 0.2, gravity: 0, size: 0.5, size1: 1.1, life: 0.5 }); }
+  // forgiving jumps: a tap just before landing still counts, and so does one just after stepping off an edge
+  if (input.jump) P.jumpBuf = 0.15; P.jumpBuf = Math.max(0, (P.jumpBuf || 0) - dt); P.coyote = P.onGround ? 0.12 : Math.max(0, (P.coyote || 0) - dt);
+  if (P.jumpBuf > 0 && P.coyote > 0 && P.vel.y <= 0.5 && !busy) { P.jumpBuf = P.coyote = 0; P.vel.y = 7.5; P.onGround = false; DUST.emit(pos, { color: 0xd8c8a8, n: 6, speed: 1.5, up: 0.2, gravity: 0, size: 0.5, size1: 1.1, life: 0.5 }); }
   input.jump = false;
   P.vel.y -= 22 * dt;
   const ox = pos.x, oz = pos.z, g0 = groundAt(ox, oz);
