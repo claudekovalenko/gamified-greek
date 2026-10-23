@@ -201,6 +201,8 @@ export function makeSideQuests(ctx) {
       tl.m.material.emissive.setHex(0xffb020); tl.m.material.emissiveIntensity = 0.8;
       tween(0.5, t => { tl.m.material.emissiveIntensity = 0.8 * (1 - t) + 0.1; });
       ctx.SPK.emit(V(tl.x, tl.y + 0.6, tl.z), { color: 0xffd166, n: 16, speed: 2.5, size: 0.32 });
+      // a thread of light runs from the stone to the obelisk's crystal
+      { const from = V(tl.x, tl.y + 0.4, tl.z), to = e.cap.getWorldPosition(V(0, 0, 0)); for (let k = 0; k <= 10; k++) setTimeout(() => ctx.SPK.emit(from.clone().lerp(to, k / 10), { color: 0xfff0b0, n: 2, speed: 0.3, up: 0.2, gravity: 0, size: 0.35, life: 0.5 }), k * 25); }
       if (r.at >= r.b.length) return runeDone();
       runePanel();
     } else {
