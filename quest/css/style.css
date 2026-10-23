@@ -645,3 +645,9 @@ body.irisfx::after { content: ''; position: fixed; inset: 0; z-index: 60; pointe
 .wd-name { display: flex; align-items: center; gap: 8px; }
 .wd-name::after { content: ''; flex: 1; height: 2px; min-width: 24px; background: linear-gradient(90deg, rgba(200,150,60,.7), rgba(200,150,60,0)); border-radius: 2px; }
 .wd-btns .btn.primary { box-shadow: inset 0 0 0 2px rgba(255,220,140,.35), 0 3px 0 rgba(0,0,0,.25); }
+/* battle cards: a violet inner rule and a faint arcane glow to match the shade's colours */
+.wbt-box { background: radial-gradient(120% 80% at 50% 0%, rgba(122,58,255,.10), transparent 60%), var(--card);
+  box-shadow: 0 10px 40px rgba(40,0,80,.5), 0 0 30px rgba(122,58,255,.25), inset 0 0 0 3px var(--card), inset 0 0 0 4px rgba(122,58,255,.45); }
+.wbt-opt { transition: transform .12s, box-shadow .12s; }
+.wbt-opt:hover { transform: translateY(-1px); box-shadow: 0 3px 10px rgba(122,58,255,.18); }
+.wbt-box.elite { background: radial-gradient(120% 80% at 50% 0%, rgba(224,69,58,.10), transparent 60%), var(--card); box-shadow: 0 0 40px rgba(224,69,58,.45), inset 0 0 0 3px var(--card), inset 0 0 0 4px rgba(224,69,58,.4); }
