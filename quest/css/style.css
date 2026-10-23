@@ -566,3 +566,23 @@ body.in-stage .main > .s3 { pointer-events: none; }
 @media (max-width: 520px) { .wbt-opts { grid-template-columns: 1fr 1fr; } .wbt-opt { padding: 10px 8px; } .wbt-box { padding: 12px; } }
 .cloud-code { font-family: ui-monospace, Menlo, monospace; font-size: 1.05rem; letter-spacing: 1px; background: rgba(0,0,0,.06); padding: 2px 8px; border-radius: 8px; }
 .btn.small { padding: 4px 10px; font-size: .8rem; }
+
+/* phone turned sideways: keep clear of the notch, and fit every panel in the short screen */
+@media (orientation: landscape) and (max-height: 520px) {
+  .wtop { left: calc(10px + env(safe-area-inset-left)); right: calc(10px + env(safe-area-inset-right)); }
+  .wquest { left: calc(10px + env(safe-area-inset-left)); top: calc(58px + env(safe-area-inset-top)); padding: 6px 10px; font-size: .82rem; max-width: 46vw; }
+  .wpowers { right: calc(10px + env(safe-area-inset-right)); top: calc(58px + env(safe-area-inset-top)); }
+  .wact { margin: 0 env(safe-area-inset-right) 0 env(safe-area-inset-left); }
+  .wjoy-rest { left: calc(28px + env(safe-area-inset-left)); }
+  .wdlg, .wbattle { padding: 8px calc(12px + env(safe-area-inset-right)) calc(8px + env(safe-area-inset-bottom)) calc(12px + env(safe-area-inset-left)); }
+  .wd-box, .wbt-box { max-width: 680px; max-height: calc(100vh - 16px); padding: 10px 14px; }
+  .wbt-big { font-size: 1.8rem; margin: 2px 0; }
+  .wbt-opts { grid-template-columns: 1fr 1fr; gap: 6px; }
+  .wbt-opt { padding: 8px 10px; }
+  .wprompt { bottom: calc(70px + env(safe-area-inset-bottom)); }
+  .s3teach { max-height: calc(100vh - 80px); width: min(86vw, 700px); padding: 10px 12px 0; font-size: .92em; }
+  .s3teach > .btn.wide { position: sticky; bottom: 0; margin-bottom: 8px; box-shadow: 0 -6px 14px rgba(245,234,208,.9); }
+  .sq-panel, .wc-box, .rd-word { max-height: calc(100vh - 20px); overflow: auto; }
+  .learn.parchment { left: calc(10px + env(safe-area-inset-left)); right: calc(10px + env(safe-area-inset-right)); }
+  .main { padding-left: calc(16px + env(safe-area-inset-left)); padding-right: calc(16px + env(safe-area-inset-right)); }
+}
