@@ -147,6 +147,37 @@ export function makeFX(THREE, { LOW = false } = {}) {
     return material;
   }
 
+  // ── a glowing rune circle on the ground while you face a foe ──
+  // show(pos, radius, color) / hide(); update(dt) fades it and turns the runes.
+  function arena(scene) {
+    const u = { uTime: time, uCol: { value: new THREE.Color(0x9a6aff) }, uFade: { value: 0 } };
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), new THREE.ShaderMaterial({
+      uniforms: u, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
+      vertexShader: 'varying vec2 vUv; void main() { vUv = uv * 2. - 1.; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.); }',
+      fragmentShader: `uniform float uTime, uFade; uniform vec3 uCol; varying vec2 vUv;
+        float h(float n) { return fract(sin(n * 91.7) * 43758.5); }
+        void main() {
+          float r = length(vUv), a = atan(vUv.y, vUv.x) / 6.2832 + .5;
+          if (r > 1.) discard;
+          float line = smoothstep(.025, 0., abs(r - .96)) + smoothstep(.015, 0., abs(r - .84)) * .8 + smoothstep(.012, 0., abs(r - .5)) * .6;
+          float a1 = fract(a + uTime * .03), tick = step(.82, fract(a1 * 36.)) * step(.86, r) * step(r, .94);
+          float a2 = fract(a - uTime * .05), seg = floor(a2 * 18.), cell = fract(a2 * 18.);
+          float rune = step(.25, h(seg)) * step(.15, cell) * step(cell, .85) * step(.58, r) * step(r, .76) * step(.4, fract((r - .58) * 11. + h(seg + 3.) * .5));
+          float star = smoothstep(.02, 0., abs(sin(a * 6.2832 * 2.5 + uTime * .2) * r - 0.)) * step(r, .5) * .5;
+          float glow = exp(-abs(r - .9) * 9.) * .25 + (1. - r) * .06;
+          float k = (line + tick + rune * .9 + star + glow) * uFade * (.85 + .15 * sin(uTime * 4.));
+          gl_FragColor = vec4(uCol * k, 1.);
+        }`,
+    }));
+    m.rotation.x = -Math.PI / 2; m.visible = false; m.renderOrder = 2; scene.add(m);
+    let want = 0;
+    return {
+      show(p, r = 3.5, color = 0x9a6aff) { m.position.set(p.x, p.y + 0.08, p.z); m.scale.setScalar(r); u.uCol.value.set(color); want = 1; m.visible = true; },
+      hide() { want = 0; },
+      update(dt) { u.uFade.value += (want - u.uFade.value) * Math.min(1, dt * 4); if (!want && u.uFade.value < 0.01) m.visible = false; },
+    };
+  }
+
   // ── swirling portal disc ──
   function portalMaterial(c1 = 0x9ad0ff, c2 = 0x7a3aff) {
     return new THREE.ShaderMaterial({
@@ -355,5 +386,5 @@ export function makeFX(THREE, { LOW = false } = {}) {
     return { update, group: G };
   }
 
-  return { time, cloudShade, critters, groundDetail, sky, water, windify, portalMaterial, sparks, glow, blobShadow, heroPose, flyToHUD, tick: t => { time.value = t; } };
+  return { time, cloudShade, critters, arena, groundDetail, sky, water, windify, portalMaterial, sparks, glow, blobShadow, heroPose, flyToHUD, tick: t => { time.value = t; } };
 }

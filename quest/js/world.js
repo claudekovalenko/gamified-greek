@@ -123,6 +123,7 @@ scene.add(sky);
 // sparkles and dust
 const SPK = FX.sparks(scene), DUST = FX.sparks(scene, LOW ? 80 : 200, { additive: false });
 const CRIT = FX.critters(scene); // birds overhead, butterflies by the path
+const ARENA = FX.arena(scene); // the rune circle of a shade battle
 const hemi = new THREE.HemisphereLight(0xdff0ff, 0x5a6a3a, 1.1);
 scene.add(hemi);
 // Each world has its own sky, fog and light; they blend as you travel.
@@ -1199,6 +1200,9 @@ function startBattle(w) {
   battle = { w, items: shadeItems(w), i: 0, done: false };
   battle.hp = battle.items.length;
   KG.app.sfx('bad'); S_SHAKE = 0.25;
+  // a rune circle glows on the ground around you and the foe
+  const fp = w.obj.position, pp = player.position;
+  ARENA.show({ x: (fp.x + pp.x) / 2, y: Math.min(fp.y, pp.y), z: (fp.z + pp.z) / 2 }, Math.max(3, Math.hypot(fp.x - pp.x, fp.z - pp.z) / 2 + 1.6), w.raider ? 0xff6a3a : w.elite ? 0xff4a5a : 0x9a6aff);
   battleQ();
 }
 function battleQ() {
@@ -1276,7 +1280,7 @@ const anims = [];
 function tweenLid(lid) { let t = 0; const f = () => { t = Math.min(1, t + 0.06); lid.rotation.x = -1.9 * t; if (t < 1) requestAnimationFrame(f); }; f(); }
 function endBattle() {
   $('wbattle').classList.remove('on'); $('wbattle').innerHTML = '';
-  battle = null;
+  battle = null; ARENA.hide();
   if (P.hearts <= 0) {
     const m = ents.find(e => e.kind === 'mentor' && e.zone === zoneOf(player.position.z));
     dialog('😵 You fainted…', `<p>The shades overwhelmed you. You wake beside ${esc(m.person[1])}, who gives you some bread and water.</p><p class="muted small">Tip: review your words in 🔁 Review to make the shades easier.</p>`, [{ label: 'Get up', cls: 'primary' }]);
@@ -1556,7 +1560,7 @@ function step(dt) {
     dialog('🏛 The Hall of Victory', `<p>The doors swing open. Every word and every use of Chapter ${KG.CHAPTERS.join(', ')} glows on the walls. <b>You are ready for the quiz.</b></p><p><span class="gk">Τετέλεσται.</span> <i>It is finished</i>, for now. Keep it fresh in Review and the Arcade, and new worlds will open as new chapters arrive.</p>`, [{ label: 'Ἀμήν', cls: 'primary' }]);
   }
 
-  SPK.update(dt); DUST.update(dt);
+  SPK.update(dt); DUST.update(dt); ARENA.update(dt);
   CRIT.update(dt, t, pos, groundAt, INDOOR ? 0 : atm.stars < 0.5 ? 1 : 0);
   for (let k = anims.length - 1; k >= 0; k--) if (anims[k](dt, t) === false) anims.splice(k, 1);
   updateAmbience(dt, t, pos);
