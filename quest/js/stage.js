@@ -271,16 +271,19 @@ export function createStage(ctx) {
     const arm = hero.userData.arms[1];
     tween(0.35, t => { arm.rotation.x = -Math.sin(t * Math.PI) * 2.2; });
   }
+  // a tablet breaks where it stands: parchment-faced shards tumble down in front of the camera and fade away
+  const shardGeo = new THREE.BoxGeometry(1, 1, 0.12);
   function shatter(g) {
-    const pos = worldPos(g), w = g.userData.w, h = g.userData.h;
+    const w = g.userData.w, h = g.userData.h, at = g.position.clone();
     g.visible = false;
     for (let i = 0; i < 10; i++) {
-      const f = new THREE.Mesh(new THREE.BoxGeometry(w / 4, h / 3, 0.25), stoneMat);
-      f.position.copy(pos).add(new THREE.Vector3((Math.random() - 0.5) * w, (Math.random() - 0.5) * h, 0));
-      scene.add(f);
-      const v = new THREE.Vector3((Math.random() - 0.5) * 4, Math.random() * 3, Math.random() * 2), r = new THREE.Vector3(Math.random() * 6, Math.random() * 6, 0);
-      let life = 1.2;
-      anim(dt => { life -= dt; v.y -= 12 * dt; f.position.addScaledVector(v, dt); f.rotation.x += r.x * dt; f.rotation.y += r.y * dt; if (life <= 0) { scene.remove(f); f.geometry.dispose(); return false; } return true; });
+      const mat = new THREE.MeshStandardMaterial({ color: i % 3 ? 0xf3e7c8 : 0xd8ccb0, roughness: 0.9, transparent: true });
+      const f = new THREE.Mesh(shardGeo, mat); f.scale.set(w / 4 * (0.6 + Math.random() * 0.5), h / 3 * (0.6 + Math.random() * 0.5), 1);
+      f.position.copy(at).add(new THREE.Vector3((Math.random() - 0.5) * w, (Math.random() - 0.5) * h, 0.2));
+      ui.add(f);
+      const v = new THREE.Vector3((Math.random() - 0.5) * 3, 1 + Math.random() * 2, Math.random() * 1.5), r = new THREE.Vector3(Math.random() * 6, Math.random() * 6, Math.random() * 3);
+      let life = 0.9;
+      anim(dt => { life -= dt; v.y -= 14 * dt; f.position.addScaledVector(v, dt); f.rotation.x += r.x * dt; f.rotation.y += r.y * dt; f.rotation.z += r.z * dt; mat.opacity = Math.min(1, life / 0.4); if (life <= 0) { ui.remove(f); mat.dispose(); return false; } return true; });
     }
   }
   function glow(g, color = 0x3fdc7a) {
