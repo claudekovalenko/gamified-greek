@@ -107,9 +107,17 @@ export function makeFX(THREE, { LOW = false } = {}) {
   // ── wind: sways foliage and grass; taller parts move more ──
   // push: (instanced grass) blades bend away from the hero's feet (the host keeps FX.hero up to date)
   const hero = { value: new THREE.Vector3(0, -999, 0) };
-  function windify(material, { amp = 0.08, base = 0, freq = 1.3, gust = true, push = false } = {}) {
+  // shade: [lo, hi] model heights; foliage is darker underneath and sunlit on top
+  function windify(material, { amp = 0.08, base = 0, freq = 1.3, gust = true, push = false, shade = null } = {}) {
     material.onBeforeCompile = sh => {
       sh.uniforms.uTime = time; sh.uniforms.uHero = hero;
+      if (shade) {
+        sh.vertexShader = 'varying float vShadeH;\n' + sh.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>
+          vShadeH = clamp((position.y - (${shade[0].toFixed(2)})) / ${(shade[1] - shade[0]).toFixed(2)}, 0., 1.);`);
+        sh.fragmentShader = 'varying float vShadeH;\n' + sh.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>
+          diffuseColor.rgb *= mix(.62, 1.14, vShadeH * vShadeH * (3. - 2. * vShadeH));
+          diffuseColor.rgb += vec3(.05, .06, .0) * smoothstep(.75, 1., vShadeH);`);
+      }
       sh.vertexShader = 'uniform float uTime; uniform vec3 uHero;\n' + sh.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>
         {
           #ifdef USE_INSTANCING
@@ -134,7 +142,7 @@ export function makeFX(THREE, { LOW = false } = {}) {
           #endif` : ''}
         }`);
     };
-    material.customProgramCacheKey = () => 'wind' + amp + base + freq + gust + push;
+    material.customProgramCacheKey = () => 'wind' + amp + base + freq + gust + push + shade;
     return material;
   }
 

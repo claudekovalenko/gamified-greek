@@ -314,8 +314,8 @@ function scatterTrees() {
   const N = Math.round((LOW ? 400 : mobile ? 650 : 1100) * GROW);
   const trunks = new THREE.InstancedMesh(trunkG, mat(0x6a4a2a), N);
   // two clumps of leaves per broadleaf tree
-  const leaves = new THREE.InstancedMesh(leafG, FX.windify(new THREE.MeshStandardMaterial({ flatShading: true, roughness: 0.9 }), { amp: 0.06, base: -1.3 }), N * 2);
-  const pines = new THREE.InstancedMesh(pineG, FX.windify(new THREE.MeshStandardMaterial({ flatShading: true, roughness: 0.9 }), { amp: 0.035, base: -1.6, freq: 1.1 }), N);
+  const leaves = new THREE.InstancedMesh(leafG, FX.windify(new THREE.MeshStandardMaterial({ flatShading: true, roughness: 0.9 }), { amp: 0.06, base: -1.3, shade: [-1.3, 1.3] }), N * 2);
+  const pines = new THREE.InstancedMesh(pineG, FX.windify(new THREE.MeshStandardMaterial({ flatShading: true, roughness: 0.9 }), { amp: 0.035, base: -1.6, freq: 1.1, shade: [-1.6, 1.6] }), N);
   const m = new THREE.Matrix4(), q = new THREE.Quaternion(), sc = new THREE.Vector3(), pos = new THREE.Vector3(), col = new THREE.Color();
   let nl = 0, np = 0, nt = 0;
   for (let i = 0; i < N * 3 && nt < N; i++) {
