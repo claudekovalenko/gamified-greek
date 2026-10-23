@@ -455,7 +455,8 @@ body.in-stage .main > .s3 { pointer-events: none; }
 .spellcard.locked { background: var(--bg2); color: var(--muted); box-shadow: none; border: 2px dashed var(--line); }
 .minititle { font-weight: 900; font-size: 1.6rem; color: #fff; text-shadow: 0 2px 10px rgba(0,0,0,.6); animation: minititle 2s forwards; }
 @keyframes minititle { 0% { transform: scale(.5); opacity: 0; } 15% { transform: scale(1.15); opacity: 1; } 70% { opacity: 1; } 100% { opacity: 0; transform: translateY(-30px); } }
-.world.portalfx::before { content: ''; position: absolute; inset: 0; z-index: 3; pointer-events: none; background: radial-gradient(circle, rgba(255,255,255,.95), rgba(200,220,255,.6) 50%, rgba(120,80,255,.2)); animation: portalfx .9s forwards; }
+.world.portalfx::before { content: ''; position: absolute; inset: -50%; z-index: 3; pointer-events: none; background: radial-gradient(circle, rgba(255,255,255,.98) 0 8%, transparent 45%), repeating-conic-gradient(from 0deg, rgba(190,160,255,.75), rgba(130,200,255,.5) 30deg, rgba(255,235,180,.65) 60deg, rgba(190,160,255,.75) 90deg); animation: portalfx .9s forwards, portalspin .9s linear; }
+@keyframes portalspin { from { transform: rotate(0) scale(.2); } 40% { transform: rotate(200deg) scale(1.1); } to { transform: rotate(400deg) scale(1.6); } }
 @keyframes portalfx { 0% { opacity: 0; } 30% { opacity: 1; } 100% { opacity: 0; } }
 .world.doorfx::after { content: ''; position: absolute; inset: 0; z-index: 3; pointer-events: none; background: radial-gradient(circle, rgba(40,24,10,.75), #120a04 70%); animation: doorfx .8s forwards; }
 @keyframes doorfx { 0% { opacity: 0; } 28% { opacity: 1; } 45% { opacity: 1; } 100% { opacity: 0; } }
