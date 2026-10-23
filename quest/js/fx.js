@@ -178,6 +178,34 @@ export function makeFX(THREE, { LOW = false } = {}) {
     };
   }
 
+  // ── a pillar of light and a ring of shockwave when a foe is banished ──
+  function bursts(scene, max = 4) {
+    const cyl = new THREE.CylinderGeometry(0.6, 0.9, 14, 20, 1, true); cyl.translate(0, 7, 0);
+    const ring = new THREE.RingGeometry(0.85, 1, 48); ring.rotateX(-Math.PI / 2);
+    const pool = [];
+    for (let i = 0; i < max; i++) {
+      const mk = geo => new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, fog: false }));
+      const b = { beam: mk(cyl), wave: mk(ring), t: 1 };
+      b.beam.visible = b.wave.visible = false; scene.add(b.beam, b.wave); pool.push(b);
+    }
+    let k = 0;
+    return {
+      fire(p, color = 0xd8c8ff) {
+        const b = pool[k = (k + 1) % max]; b.t = 0;
+        for (const m of [b.beam, b.wave]) { m.position.set(p.x, p.y + 0.05, p.z); m.material.color.set(color); m.visible = true; }
+      },
+      update(dt) {
+        for (const b of pool) {
+          if (b.t >= 1) continue;
+          b.t = Math.min(1, b.t + dt / 1.3); const t = b.t, e = 1 - Math.pow(1 - t, 3);
+          b.beam.scale.set(1 - t * 0.8, 0.3 + e * 0.9, 1 - t * 0.8); b.beam.material.opacity = (1 - t) * 0.55;
+          b.wave.scale.setScalar(0.5 + e * 7); b.wave.material.opacity = (1 - t) * 0.7;
+          if (b.t >= 1) b.beam.visible = b.wave.visible = false;
+        }
+      },
+    };
+  }
+
   // ── swirling portal disc ──
   function portalMaterial(c1 = 0x9ad0ff, c2 = 0x7a3aff) {
     return new THREE.ShaderMaterial({
@@ -386,5 +414,5 @@ export function makeFX(THREE, { LOW = false } = {}) {
     return { update, group: G };
   }
 
-  return { time, cloudShade, critters, arena, groundDetail, sky, water, windify, portalMaterial, sparks, glow, blobShadow, heroPose, flyToHUD, tick: t => { time.value = t; } };
+  return { time, cloudShade, critters, arena, bursts, groundDetail, sky, water, windify, portalMaterial, sparks, glow, blobShadow, heroPose, flyToHUD, tick: t => { time.value = t; } };
 }

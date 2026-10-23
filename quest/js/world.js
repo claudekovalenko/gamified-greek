@@ -124,6 +124,7 @@ scene.add(sky);
 const SPK = FX.sparks(scene), DUST = FX.sparks(scene, LOW ? 80 : 200, { additive: false });
 const CRIT = FX.critters(scene); // birds overhead, butterflies by the path
 const ARENA = FX.arena(scene); // the rune circle of a shade battle
+const BURSTS = FX.bursts(scene); // light pillars when a foe is banished
 const hemi = new THREE.HemisphereLight(0xdff0ff, 0x5a6a3a, 1.1);
 scene.add(hemi);
 // Each world has its own sky, fog and light; they blend as you travel.
@@ -1255,7 +1256,7 @@ function answerBattle(i, el) {
       if (core) core.material.emissive.setHex(0xffffff);
       // a shade swells; a raider staggers back
       let f = 0; anims.push(dt => { f += dt / 0.3; const k = Math.sin(Math.min(1, f) * Math.PI); if (w.raider) w.obj.userData.body.rotation.x = -k * 0.5; else w.obj.scale.setScalar(base * (1 + k * 0.3)); if (f >= 1) { if (core) core.material.emissive.setHex(w.elite ? 0xff3a3a : 0x7a3aff); return false; } });
-      if (last) { w.dead = true; w.obj.visible = false; w.respawn = 90; burst(w.obj.position, w.raider ? 0xffd166 : 0xb388ff, 60); }
+      if (last) { w.dead = true; w.obj.visible = false; w.respawn = 90; burst(w.obj.position, w.raider ? 0xffd166 : 0xb388ff, 60); BURSTS.fire({ x: w.obj.position.x, y: groundAt(w.obj.position.x, w.obj.position.z), z: w.obj.position.z }, w.raider ? 0xffc870 : 0xc8b0ff); }
     });
     if (last) {
       const W0 = ws();
@@ -1560,7 +1561,7 @@ function step(dt) {
     dialog('🏛 The Hall of Victory', `<p>The doors swing open. Every word and every use of Chapter ${KG.CHAPTERS.join(', ')} glows on the walls. <b>You are ready for the quiz.</b></p><p><span class="gk">Τετέλεσται.</span> <i>It is finished</i>, for now. Keep it fresh in Review and the Arcade, and new worlds will open as new chapters arrive.</p>`, [{ label: 'Ἀμήν', cls: 'primary' }]);
   }
 
-  SPK.update(dt); DUST.update(dt); ARENA.update(dt);
+  SPK.update(dt); DUST.update(dt); ARENA.update(dt); BURSTS.update(dt);
   CRIT.update(dt, t, pos, groundAt, INDOOR ? 0 : atm.stars < 0.5 ? 1 : 0);
   for (let k = anims.length - 1; k >= 0; k--) if (anims[k](dt, t) === false) anims.splice(k, 1);
   updateAmbience(dt, t, pos);
@@ -1644,7 +1645,7 @@ W.onLessonDone = (node, r) => {
     if (e) burst(new THREE.Vector3(e.x, groundAt(e.x, e.z) + 2, e.z), 0xffffff);
   });
 };
-W.debug = { get moodNow() { return MOOD; }, get indoor() { return !!INDOOR; }, mood: m => { MOOD = m; blendAtmosphere(P.zone < 0 ? 0 : P.zone, 1); }, sim: (n, dt = 1 / 60) => { for (let i = 0; i < n; i++) step(dt); }, colliders, VEN, og: (x, z, r, t) => openGround(x, z, r, t), SQ, scene, startBattle: w => startBattle(w), player, camera, cam, P, ents, wisps, questTarget, teleport: (x, z) => { player.position.set(x, groundAt(x, z), z); snapCamera(); } };
+W.debug = { BURSTS, ARENA, get moodNow() { return MOOD; }, get indoor() { return !!INDOOR; }, mood: m => { MOOD = m; blendAtmosphere(P.zone < 0 ? 0 : P.zone, 1); }, sim: (n, dt = 1 / 60) => { for (let i = 0; i < n; i++) step(dt); }, colliders, VEN, og: (x, z, r, t) => openGround(x, z, r, t), SQ, scene, startBattle: w => startBattle(w), player, camera, cam, P, ents, wisps, questTarget, teleport: (x, z) => { player.position.set(x, groundAt(x, z), z); snapCamera(); } };
 
 // ── build ─────────────────────────────────────────────────────
 (async () => {
