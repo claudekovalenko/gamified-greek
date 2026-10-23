@@ -1780,6 +1780,12 @@ function step(dt) {
   CRIT.update(dt, t, pos, groundAt, INDOOR ? 0 : atm.stars < 0.5 ? 1 : 0);
   for (let k = anims.length - 1; k >= 0; k--) if (anims[k](dt, t) === false) anims.splice(k, 1);
   updateAmbience(dt, t, pos); updateCritters(dt, t, pos);
+  // unopened chests rattle now and then, and sparkle at the keyhole
+  for (const c of chests) {
+    if (!c.glow.visible || Math.abs(c.z - pos.z) > 40) continue;
+    const r = (t + c.x) % 5; c.lid.rotation.x = r < 0.4 ? -Math.abs(Math.sin(r * 25)) * 0.12 : 0;
+    if (!LOW && Math.random() < dt * 1.5) SPK.emit(tmp2.set(c.x, groundAt(c.x, c.z) + 0.7, c.z), { color: 0xffe08a, n: 1, speed: 0.4, up: 1, gravity: 0.5, size: 0.28, life: 0.8, spread: 0.5 });
+  }
   SQ.update(dt, t, pos, P.onGround);
   VEN.update(dt, t, pos, P.onGround);
   if (!INDOOR) moodMotes(MOOD, SPK, pos, dt);
