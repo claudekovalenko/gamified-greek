@@ -624,6 +624,7 @@ function animatePerson(p, speed, dt) {
   u.legs[0].rotation.x = sw; u.legs[1].rotation.x = -sw;
   u.arms[0].rotation.x = -sw * 0.8; u.arms[1].rotation.x = sw * 0.8;
   u.body.position.y = Math.abs(Math.cos(u.phase)) * 0.08 * amt + Math.sin(u.phase * 0.35) * 0.015;
+  if (u.orb) { u.orb.rotation.y += dt * 0.8; u.orb.children.forEach((c, k) => { c.rotation.y += dt * 2; c.position.y = Math.sin(u.phase * 0.5 + k * 2) * 0.25; }); u.rune.material.opacity = 0.7 + Math.sin(u.phase * 0.8) * 0.3; }
   // the cloak streams back as you run and sways as you walk
   if (u.cloak) { u.cloak.rotation.x += ((amt * 0.35 + Math.sin(u.phase * 2) * 0.05 * amt) - u.cloak.rotation.x) * Math.min(1, dt * 8); u.cloak.position.z = -0.13 - amt * 0.12; }
   // a blink every few seconds
@@ -667,7 +668,7 @@ function creep() {
   return g;
 }
 function golem(color = 0x8a8a8a) {
-  const g = new THREE.Group(), body = new THREE.Group(); g.add(body);
+  const g = new THREE.Group(), body = new THREE.Group(), eyeC = 0xffb000; g.add(body);
   const torso = mesh(new THREE.BoxGeometry(1.8, 1.8, 1.1), color); torso.position.y = 2.2; body.add(torso);
   const head = mesh(new THREE.BoxGeometry(0.9, 0.8, 0.8), color); head.position.y = 3.5; body.add(head);
   for (const s of [-1, 1]) { const e = mesh(new THREE.BoxGeometry(0.18, 0.1, 0.05), 0xffd166, { emissive: 0xffb000, emissiveIntensity: 2 }); e.position.set(s * 0.2, 3.55, 0.41); body.add(e); }
@@ -680,7 +681,10 @@ function golem(color = 0x8a8a8a) {
   }
   const rune = textSprite('Ω', { size: 60, bg: null, color: '#ffd166', font: `700 60px ${GREEK_FONT}`, scale: 0.012 });
   rune.position.set(0, 2.3, 0.6); body.add(rune);
-  g.userData = { body, legs, arms, phase: 0 };
+  // three runestones circle the guardian's head, and its chest rune pulses
+  const orb = new THREE.Group(); orb.position.y = 3.6; body.add(orb);
+  for (let k = 0; k < 3; k++) { const a = k / 3 * Math.PI * 2, st = mesh(new THREE.OctahedronGeometry(0.17, 0), color, { emissive: eyeC, emissiveIntensity: 0.6 }); st.position.set(Math.cos(a) * 1.5, Math.sin(a * 2) * 0.2, Math.sin(a) * 1.5); orb.add(st); }
+  g.userData = { body, legs, arms, phase: 0, orb, rune };
   return g;
 }
 
