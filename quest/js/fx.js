@@ -926,7 +926,7 @@ export function makeFX(THREE, { LOW = false } = {}) {
       F.push({ g, wl, wr, m, x: 0, z: 0, y: 0, tx: 0, tz: 0, ph: Math.random() * 6, set: false });
     }
     let fade = 1;
-    function update(dt, t, c, ground, day = 1) {
+    function update(dt, t, c, ground, day = 1, cam = null) {
       fade += ((day > 0.5 ? 1 : 0) - fade) * Math.min(1, dt * 0.8);
       G.visible = fade > 0.02; if (!G.visible) return;
       dark.opacity = fade;
@@ -950,6 +950,8 @@ export function makeFX(THREE, { LOW = false } = {}) {
         const gy = ground(f.x, f.z) + 0.8 + Math.sin(t * 2 + f.ph) * 0.35;
         f.y += (gy - f.y) * Math.min(1, dt * 3);
         f.g.position.set(f.x, f.y, f.z); f.g.rotation.y = Math.atan2(dx, dz);
+        // never flutter right up against the camera lens
+        if (cam && f.g.position.distanceTo(cam) < 3.5) { f.tx = f.x + (f.x - cam.x) * 2; f.tz = f.z + (f.z - cam.z) * 2; f.m.opacity *= Math.max(0, (f.g.position.distanceTo(cam) - 1.5) / 2); }
         const w = Math.sin(t * 16 + f.ph) * 1.1; f.wl.rotation.y = w; f.wr.rotation.y = -w;
       }
     }

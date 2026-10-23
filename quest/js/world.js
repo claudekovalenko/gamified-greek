@@ -1811,7 +1811,7 @@ function step(dt) {
   GUST.update(dt, pos, INDOOR ? null : ZONES[Math.max(0, P.zone)].leaf.concat(ACCENT[LOOK(Math.max(0, P.zone))] || []));
   SHAFTS.update(dt, pos, camera.position, groundAt, INDOOR || atm.stars > 0.5 || atm.clouds > 0.8 ? 0 : 1, (MOODS[MOOD] || {}).sunDir);
   updateNearGrass(pos);
-  CRIT.update(dt, t, pos, groundAt, INDOOR ? 0 : atm.stars < 0.5 ? 1 : 0);
+  CRIT.update(dt, t, pos, groundAt, INDOOR ? 0 : atm.stars < 0.5 ? 1 : 0, camera.position);
   for (let k = anims.length - 1; k >= 0; k--) if (anims[k](dt, t) === false) anims.splice(k, 1);
   updateAmbience(dt, t, pos); updateCritters(dt, t, pos); updateWalkers(dt, t, pos);
   // unopened chests rattle now and then, and sparkle at the keyhole
