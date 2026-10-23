@@ -54,8 +54,8 @@ const fbm = (x, z) => vnoise(x * 0.05, z * 0.05) + vnoise(x * 0.13, z * 0.13) * 
 const smooth = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
 
 const RIVER_Z = -3 * L - 45;                   // Verb River crosses region 4
-const LAKE = { x: 0, z: -6 * L - 45, r: 16 };  // Mirror Lake beside region 7's road
-LAKE.x = pathX(LAKE.z) + 27;
+const LAKE = { x: 0, z: -(NZ > 7 ? 6 : 1) * L - 45, r: 16 }; // Mirror Lake beside region 7's road (region 2 on a shorter road, so it is always in the world)
+LAKE.x = pathX(LAKE.z) + 25;
 function height(x, z) {
   const d = Math.abs(x - pathX(z));
   let h = (fbm(x, z) - 0.75) * 2;
@@ -66,6 +66,7 @@ function height(x, z) {
   if (z < END_Z) h += (END_Z - z) * (END_Z - z) * 0.3;
   h -= 2.2 * Math.max(0, 1 - Math.abs(z - RIVER_Z) / 6);
   const lr = Math.hypot(x - LAKE.x, z - LAKE.z);
+  h += (0.6 - h) * smooth(LAKE.r * 1.9, LAKE.r * 1.15, lr); // a level shelf for the lake, so no edge floats over a slope
   h -= 4 * smooth(LAKE.r, LAKE.r * 0.4, lr);
   return h;
 }

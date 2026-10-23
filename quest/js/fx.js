@@ -495,7 +495,8 @@ export function makeFX(THREE, { LOW = false } = {}) {
     return {
       update(dt, cen, cam, ground, k, sunDir) {
         fade += (k - fade) * Math.min(1, dt * 0.7);
-        mat.opacity = fade * 0.26;
+        // from high above the shafts read as streaks, so they fade as the camera climbs
+        mat.opacity = fade * 0.26 * Math.max(0, Math.min(1, (16 - (cam.y - cen.y)) / 8));
         for (const s of S) {
           s.m.visible = fade > 0.02; if (!s.m.visible) continue;
           s.t += dt * 0.05;
