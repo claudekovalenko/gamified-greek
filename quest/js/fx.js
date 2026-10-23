@@ -221,6 +221,8 @@ export function makeFX(THREE, { LOW = false } = {}) {
         void main() { vec3 c = texture2D(tSrc, vUv).rgb + texture2D(tBloom, vUv).rgb * uStr;
           // a gentle grade: a tint for the hour, and a touch more (or less) colour
           float l = dot(c, vec3(.2126, .7152, .0722)); c = mix(vec3(l), c, uSat) * uGrade;
+          // and the corners fall softly into shade, drawing the eye to the middle
+          vec2 q = vUv - .5; c *= 1. - .28 * smoothstep(.25, .75, dot(q, q) * 2.2);
           gl_FragColor = vec4(c, 1.);
           #include <tonemapping_fragment>
           #include <colorspace_fragment>
