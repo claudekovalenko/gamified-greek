@@ -383,6 +383,14 @@ body.in-stage .main > .s3 { pointer-events: none; }
 .s3free { background: var(--card); border-radius: 16px; padding: 12px; box-shadow: 0 -6px 24px rgba(0,0,0,.25); display: grid; gap: 8px; }
 .s3q { font-weight: 800; }
 .results.s3card { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(92vw, 480px); max-height: 90vh; overflow: auto; background: color-mix(in srgb, var(--card) 94%, transparent); border-radius: 22px; padding: 22px 18px; box-shadow: 0 20px 60px rgba(0,0,0,.35); border: 3px solid #b8935a; }
+/* a phone on its side: a compact card, and its buttons always in view at the bottom */
+@media (max-height: 520px) {
+  .results.s3card { padding: 12px 16px; max-height: 94vh; width: min(94vw, 640px); }
+  .results.s3card h1 { font-size: 1.3rem; margin: 0; }
+  .results.s3card .rstats { margin: 8px 0; }
+  .results.s3card .rstats div { padding: 4px; }
+  .results.s3card .col-btns { position: sticky; bottom: -12px; margin: 10px -16px -12px; padding: 8px 16px 12px; background: var(--card); grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 8px; }
+}
 .learn.parchment { position: absolute; inset: calc(10px + env(safe-area-inset-top)) 10px 0; max-width: 680px; margin: 0 auto; overflow: auto; background: color-mix(in srgb, #f5ead0 96%, transparent); color: #2a1d0c; border-radius: 20px 20px 0 0; padding: 16px 16px 0; box-shadow: 0 10px 50px rgba(0,0,0,.35); border: 3px solid #b8935a; border-bottom: 0; }
 .learn.parchment .learn-f { background: linear-gradient(transparent, #f5ead0 35%); }
 @media (prefers-color-scheme: dark) { .learn.parchment { background: color-mix(in srgb, #2a2418 96%, transparent); color: var(--ink); } .learn.parchment .learn-f { background: linear-gradient(transparent, #2a2418 35%); } }
