@@ -241,6 +241,8 @@ export function makeVenues(ctx) {
       B.add(new THREE.BoxGeometry(0.28, 0.29, 0.05), [0x8f877c, 0x7f786e, 0x9a9184][(i + r) % 3], sx, sy, -D / 2 + 0.87, undefined, inn);
     }
     B.add(new THREE.BoxGeometry(2.3, 1.2, 0.08), 0x2a3a2a, 0, 1.9, -D / 2 + 0.2, undefined, inn);
+    B.add(new THREE.BoxGeometry(2.5, 1.4, 0.06), timber, 0, 1.9, -D / 2 + 0.16, undefined, inn); // its wooden frame
+    B.add(new THREE.BoxGeometry(2.4, 0.06, 0.16), timber, 0, 1.27, -D / 2 + 0.26, undefined, inn);
     if (o.title) { const t = ctx.textSprite(o.title, { size: 34, bg: null, color: '#f5f0dc', scale: 0.0068 }); t.position.set(0, 1.9, -D / 2 + 0.35); inn.add(t); }
     B.add(new THREE.CylinderGeometry(0.3, 0.22, 0.45, 8), 0xb5523a, W / 2 - 0.7, 0.22, D / 2 - 0.8, undefined, inn);
     // a ceiling with beams and a hanging lantern: once you're in, you're in a room of your own
