@@ -118,6 +118,9 @@ export function makeFX(THREE, { LOW = false } = {}) {
   function setLight({ sun = 0xffffff, sunI = 2, hemi = 1, stars = 0 }) {
     const b = Math.max(0.3, Math.min(1, 0.25 + sunI * 0.33 + hemi * 0.1));
     grassTint.value.set(1, 1, 1).lerp(new THREE.Color(sun), 0.35).multiplyScalar(b).lerp(new THREE.Color(0.55, 0.66, 1).multiplyScalar(b), stars > 0.5 ? 0.5 : 0);
+    // the rim light takes the colour of the sky's light: warm by day, moonlit blue at night
+    rimCol.value.set(sun).lerp(new THREE.Color(1, 0.95, 0.85), 0.5); if (stars > 0.5) rimCol.value.set(0.55, 0.68, 1);
+    rimAmt.value = LOW ? 0 : stars > 0.5 ? 0.5 : 0.35;
   }
   // shade: [lo, hi] model heights; foliage is darker underneath and sunlit on top
   function windify(material, { amp = 0.08, base = 0, freq = 1.3, gust = true, push = false, shade = null } = {}) {
@@ -163,6 +166,20 @@ export function makeFX(THREE, { LOW = false } = {}) {
   }
 
   const cloudShade = { value: 1 }; // how strongly cloud shadows show (the host sets it from the sky)
+  // ── rim light: a soft glow along a character's edges so they stand out from the scenery ──
+  const rimCol = { value: new THREE.Color(0xfff2d8) }, rimAmt = { value: LOW ? 0 : 0.35 };
+  function rim(material) {
+    const prev = material.onBeforeCompile;
+    material.onBeforeCompile = (sh, r) => {
+      if (prev) prev(sh, r);
+      sh.uniforms.uRimCol = rimCol; sh.uniforms.uRimAmt = rimAmt;
+      sh.fragmentShader = 'uniform vec3 uRimCol; uniform float uRimAmt;\n' + sh.fragmentShader.replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
+        { float fr = 1. - max(dot(normalize(vNormal), normalize(vViewPosition)), 0.); totalEmissiveRadiance += uRimCol * pow(fr, 3.) * uRimAmt; }`);
+    };
+    material.customProgramCacheKey = () => 'rim';
+    return material;
+  }
+
   // ── ground: painterly patches of light and shade, warmer and cooler, on any vertex-coloured ground ──
   function groundDetail(material, { amt = 1.25 } = {}) {
     material.onBeforeCompile = sh => {
@@ -590,5 +607,5 @@ export function makeFX(THREE, { LOW = false } = {}) {
     return { update, group: G };
   }
 
-  return { time, hero, setLight, cloudShade, farHills, shootingStars, critters, arena, bursts, pondLife, groundDetail, sky, water, windify, portalMaterial, sparks, glow, blobShadow, heroPose, flyToHUD, tick: t => { time.value = t; } };
+  return { time, hero, rim, rimCol, rimAmt, setLight, cloudShade, farHills, shootingStars, critters, arena, bursts, pondLife, groundDetail, sky, water, windify, portalMaterial, sparks, glow, blobShadow, heroPose, flyToHUD, tick: t => { time.value = t; } };
 }

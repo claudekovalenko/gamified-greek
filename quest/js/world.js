@@ -519,7 +519,7 @@ const toonRamp = (() => { const t = new THREE.DataTexture(new Uint8Array([90, 90
 const toonCache = {};
 function tmat(color, opts = {}) {
   const k = color + JSON.stringify(opts);
-  return toonCache[k] || (toonCache[k] = new THREE.MeshToonMaterial(Object.assign({ color, gradientMap: toonRamp }, opts)));
+  return toonCache[k] || (toonCache[k] = FX.rim(new THREE.MeshToonMaterial(Object.assign({ color, gradientMap: toonRamp }, opts))));
 }
 const inkMat = new THREE.MeshBasicMaterial({ color: 0x2a1a0e, side: THREE.BackSide });
 function tmesh(geo, color, opts, ink = 1.06) {
