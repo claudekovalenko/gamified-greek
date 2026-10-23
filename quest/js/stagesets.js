@@ -36,7 +36,28 @@ export function makeSets(THREE, { LOW, golem, FX }) {
       tree(g, Math.cos(a) * r, Math.sin(a) * r - 4, kinds[Math.floor(rand() * kinds.length)], 0.8 + rand() * 0.8, leaf);
     }
   }
-  function ground(g, color, r = 80) { const mt = M(color, { flatShading: false }); if (FX) FX.groundDetail(mt); const m = new THREE.Mesh(new THREE.CircleGeometry(r, 40), mt); m.rotation.x = -Math.PI / 2; m.position.y = -0.02; m.receiveShadow = !LOW; g.add(m); return m; }
+  function ground(g, color, r = 80) {
+    const mt = M(color, { flatShading: false }); if (FX) FX.groundDetail(mt);
+    const m = new THREE.Mesh(new THREE.CircleGeometry(r, 40), mt); m.rotation.x = -Math.PI / 2; m.position.y = -0.02; m.receiveShadow = !LOW; g.add(m);
+    // a meadow of swaying blades around the arena, kept clear of the middle where the trial is held
+    if (FX && !LOW) {
+      const blade = new THREE.BufferGeometry();
+      blade.setAttribute('position', new THREE.Float32BufferAttribute([-0.06, 0, 0, 0.06, 0, 0, 0, 0.55, 0], 3));
+      blade.setAttribute('normal', new THREE.Float32BufferAttribute([0, 0, 1, 0, 0, 1, 0, 0, 1], 3));
+      blade.setAttribute('color', new THREE.Float32BufferAttribute([0.62, 0.62, 0.62, 0.62, 0.62, 0.62, 1.1, 1.1, 1.0], 3));
+      const N = 2600, im = new THREE.InstancedMesh(blade, FX.windify(new THREE.MeshBasicMaterial({ side: THREE.DoubleSide, vertexColors: true }), { amp: 0.24, freq: 1.8 }), N);
+      const mx = new THREE.Matrix4(), q = new THREE.Quaternion(), sc = new THREE.Vector3(), p = new THREE.Vector3(), c = new THREE.Color(), up = new THREE.Vector3(0, 1, 0);
+      for (let i = 0; i < N; i++) {
+        const a = Math.random() * Math.PI * 2, d = 4.5 + Math.pow(Math.random(), 0.7) * 22, x = Math.cos(a) * d, z = Math.sin(a) * d - 2;
+        if (z > 3 && Math.abs(x) < 7) { mx.makeScale(0, 0, 0); im.setMatrixAt(i, mx); im.setColorAt(i, c); continue; } // the hero's side stays clear
+        const s0 = 0.7 + Math.random() * 0.9; q.setFromAxisAngle(up, Math.random() * 6.3);
+        mx.compose(p.set(x, 0, z), q, sc.set(s0, s0 * (0.7 + Math.random() * 0.8), s0)); im.setMatrixAt(i, mx);
+        im.setColorAt(i, c.setHex(color).offsetHSL(0, 0.05, (Math.random() - 0.3) * 0.14));
+      }
+      g.add(im);
+    }
+    return m;
+  }
   function water(g, w, d, z, color = 0x3a9ad0, y = -0.15) {
     const c = new THREE.Color(color), mt = FX ? FX.water({ deep: c.clone().multiplyScalar(0.55).getHex(), shallow: color, sky: 0xcfe8ff }) : new THREE.MeshStandardMaterial({ color, roughness: 0.1, metalness: 0.4, transparent: true, opacity: 0.88, flatShading: true });
     const m = new THREE.Mesh(new THREE.PlaneGeometry(w, d, 30, 6), mt);
