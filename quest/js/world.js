@@ -1128,7 +1128,7 @@ hud.innerHTML = `
     <div class="wstat"><div class="whearts" id="whearts"></div><div class="wlv"><b id="wlv">1</b><span class="wxp"><i id="wxp"></i></span></div><div class="wcoins">🪙 <b id="wcoins">0</b></div></div>
     <div class="wbtns"><button class="wb" id="wmapbtn" title="World map">🗺</button><button class="wb" data-act="go" data-arg="codex" title="Library">📖</button><button class="wb" data-act="go" data-arg="review" title="Review">🔁<span id="wdue" class="wbadge"></span></button><button class="wb" data-act="go" data-arg="path" title="Journal">📜</button><button class="wb" data-act="go" data-arg="profile" title="Profile">👤</button></div>
   </div>
-  <div class="wquest" id="wquest"><div class="wq-arrow" id="wqarrow">▲</div><div><div class="wq-k">Quest</div><div id="wqtext"></div></div></div>
+  <div class="wquest" id="wquest"><div class="wq-arrow" id="wqarrow"><span id="wqglyph">▲</span></div><div><div class="wq-k">Quest</div><div id="wqtext"></div></div></div>
   <div class="wbanner" id="wbanner"></div>
   <div class="wprompt" id="wprompt"></div>
   <div class="wjoy-rest" id="wjoyrest"></div>
@@ -1723,7 +1723,7 @@ function step(dt) {
   // quest arrow
   if (W.target) {
     const a = Math.atan2(W.target.x - pos.x, W.target.z - pos.z) - (cam.yaw + Math.PI);
-    $('wqarrow').style.transform = `rotate(${-a}rad)`;
+    $('wqglyph').style.transform = `rotate(${-a}rad)`; // only the arrow turns; the distance stays upright
     $('wqarrow').dataset.d = Math.round(Math.hypot(W.target.x - pos.x, W.target.z - pos.z)) + 'm';
   }
   if (beacon) beacon.material.opacity = 0.14 + Math.sin(t * 2) * 0.06;

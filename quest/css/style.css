@@ -627,3 +627,4 @@ body.irisfx::after { content: ''; position: fixed; inset: 0; z-index: 60; pointe
 @media (pointer: coarse) { .wjoy-rest { display: block; } }
 .whud:has(.wjoy.on) .wjoy-rest { opacity: 0; }
 @media (orientation: landscape) and (max-height: 520px) { .wjoy-rest { left: auto; right: calc(28px + env(safe-area-inset-right)); } }
+#wqglyph { display: block; line-height: 1; }
