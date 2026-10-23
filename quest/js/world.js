@@ -461,8 +461,7 @@ function lampPost(x, z) {
 function signPost(x, z, text) {
   const g = new THREE.Group();
   const p = mesh(new THREE.CylinderGeometry(0.1, 0.1, 2.2, 6), 0x6a4a2a); p.position.y = 1.1; g.add(p);
-  const b = mesh(new THREE.BoxGeometry(2.2, 0.6, 0.12), 0x8a6a3a); b.position.y = 2; g.add(b);
-  const t = textSprite(text, { size: 30, bg: null, color: '#ffe9a8', scale: 0.008 }); t.position.y = 2.75; g.add(t);
+  const b = FX.signBoard(text, 2.4); b.position.y = 2; b.rotation.y = 0.35; g.add(b); // the name painted on the board, turned to greet you as you come up the road
   put(g, x, z);
 }
 // wind-blown grass along the road, drawn in one call with a swaying shader

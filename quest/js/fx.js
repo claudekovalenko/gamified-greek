@@ -852,6 +852,24 @@ export function makeFX(THREE, { LOW = false } = {}) {
     return g;
   }
 
+  // ── a painted wooden sign board: the words lettered on grained planks (both faces) ──
+  function signBoard(text, w = 2.4, h = 0.62) {
+    const W = 512, H = Math.round(512 * h / w), c = document.createElement('canvas'); c.width = W; c.height = H; const x = c.getContext('2d');
+    x.fillStyle = '#8a6a3a'; x.fillRect(0, 0, W, H);
+    for (let i = 0; i < 40; i++) { x.strokeStyle = `rgba(${Math.random() < 0.5 ? '60,40,20' : '170,130,80'},${0.15 + Math.random() * 0.2})`; x.lineWidth = 1 + Math.random() * 2; x.beginPath(); const y = Math.random() * H; x.moveTo(0, y); x.bezierCurveTo(W * 0.3, y + (Math.random() - 0.5) * 8, W * 0.7, y + (Math.random() - 0.5) * 8, W, y + (Math.random() - 0.5) * 6); x.stroke(); }
+    x.strokeStyle = 'rgba(40,25,10,.6)'; x.lineWidth = 3; x.beginPath(); x.moveTo(0, H / 2); x.lineTo(W, H / 2); x.stroke(); // the seam between two planks
+    let fs = Math.round(H * 0.56); x.font = `800 ${fs}px Nunito, sans-serif`;
+    while (x.measureText(text).width > W * 0.88 && fs > 12) { fs -= 2; x.font = `800 ${fs}px Nunito, sans-serif`; }
+    x.textAlign = 'center'; x.textBaseline = 'middle';
+    x.fillStyle = 'rgba(40,25,10,.55)'; x.fillText(text, W / 2 + 2, H / 2 + 3);
+    x.fillStyle = '#fff2c8'; x.fillText(text, W / 2, H / 2);
+    const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4;
+    const face = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.85 }), edge = new THREE.MeshStandardMaterial({ color: 0x6a4a2a, roughness: 0.9 });
+    const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, 0.1), [edge, edge, edge, edge, face, face]);
+    m.castShadow = !LOW;
+    return m;
+  }
+
   // ── a soft round shadow under things that float or fly ──
   let blobTex = null;
   function blobShadow(r = 0.6) {
@@ -981,5 +999,5 @@ export function makeFX(THREE, { LOW = false } = {}) {
         <span class="wm2-dot">${it.state === 'locked' ? '🔒' : it.icon || '•'}</span><span class="wm2-label ${pts[i][0] > W / 2 ? 'left' : ''}"><b>${i + 1}. ${esc(it.name)}</b><small>${esc(it.sub)}</small></span>${it.state === 'here' ? '<span class="wm2-you">🧙</span>' : ''}</button>`).join('')}</div></div>`;
   }
 
-  return { time, wetness, hero, aurora, gusts, rainbow, flowerGeo, footprints, mapHTML, vortex, lightPool, setNight, skyEnv, bloom, sunShafts, rim, rimCol, rimAmt, setLight, cloudShade, farHills, shootingStars, critters, arena, bursts, pondLife, groundDetail, sky, water, windify, portalMaterial, sparks, glow, blobShadow, heroPose, flyToHUD, tick: t => { time.value = t; } };
+  return { time, wetness, signBoard, hero, aurora, gusts, rainbow, flowerGeo, footprints, mapHTML, vortex, lightPool, setNight, skyEnv, bloom, sunShafts, rim, rimCol, rimAmt, setLight, cloudShade, farHills, shootingStars, critters, arena, bursts, pondLife, groundDetail, sky, water, windify, portalMaterial, sparks, glow, blobShadow, heroPose, flyToHUD, tick: t => { time.value = t; } };
 }
