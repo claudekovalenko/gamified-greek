@@ -225,7 +225,8 @@ export function createStage(ctx) {
   const D = 10; // distance of the UI plane from the camera
   function frame() {
     const hh = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * D;
-    return { hh, hw: hh * camera.aspect, portrait: camera.aspect < 0.9 };
+    // upright screens keep a margin at the sides so tablets and banner rods aren't clipped
+    return { hh, hw: hh * camera.aspect * (camera.aspect < 0.9 ? 0.93 : 1), portrait: camera.aspect < 0.9 };
   }
   // Every question makes fresh canvas textures; free the old ones so a long
   // lesson doesn't fill the phone's GPU memory and slow down.
@@ -349,7 +350,7 @@ export function createStage(ctx) {
     const { hh, hw, portrait } = frame();
     const prompt = strip(q.prompt);
     const bw = Math.min(hw * 1.9, 13), bh = portrait ? hh * 0.26 : hh * 0.24;
-    const b = banner(prompt, bw, bh); place(b, 0, hh - bh / 2 - hh * 0.12); introAnim(b, 0);
+    const b = banner(prompt, bw, bh); place(b, 0, hh - bh / 2 - hh * (portrait ? 0.2 : 0.12)); introAnim(b, 0); // upright: clear of the round buttons
     if (q.big && q.small) {
       // a whole sentence or verse: on parchment so it reads against any sky
       const bigW = Math.min(hw * 1.9, 13), bigH = (portrait ? hh * 0.3 : hh * 0.32) * (q.sub ? 0.8 : 1);
@@ -367,7 +368,7 @@ export function createStage(ctx) {
       // short words get a snug plane so they can be drawn big
       const bigW = Math.min(hw * 1.5, 9, bigH * (1.2 + txt.length * 0.42)), BH = Math.round(1024 * bigH / bigW);
       const bigY = (portrait ? hh * 0.2 : hh * 0.18) + (q.sub ? hh * 0.04 : 0);
-      const big = new THREE.Mesh(new THREE.PlaneGeometry(bigW, bigH), new THREE.MeshBasicMaterial({ map: textCanvas(txt, { W: 1024, H: BH, greek: true, maxSize: Math.round(BH * 0.78), minSize: 40, color: '#fff7e0', glass: true, pad: Math.round(BH * 0.1) }), transparent: true, depthWrite: false }));
+      const big = new THREE.Mesh(new THREE.PlaneGeometry(bigW, bigH), new THREE.MeshBasicMaterial({ map: textCanvas(txt, { W: 1024, H: BH, greek: true, maxSize: Math.round(BH * (txt.length <= 2 ? 1 : 0.78)), minSize: 40, color: '#fff7e0', glass: true, pad: Math.round(BH * (txt.length <= 2 ? 0.03 : 0.1)) }), transparent: true, depthWrite: false }));
       const bg = new THREE.Group(); bg.add(big); bg.userData = { base: new THREE.Vector3() };
       place(bg, 0, bigY); introAnim(bg, 0.05);
       S.big = bg;
