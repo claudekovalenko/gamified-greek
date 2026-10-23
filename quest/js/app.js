@@ -804,6 +804,22 @@
         return `<button class="wr ${on ? 'on' : ''} ${own ? '' : 'locked'}" data-act="${own ? 'equip' : 'buyItem'}" data-arg="${slot}:${it.id}">${sw}<b>${esc(it.name)}</b><span>${on ? 'Wearing' : own ? 'Wear' : it.price + ' 🪙'}</span></button>`;
       }).join('')}</div></div>`).join('')}</div>`;
   }
+  // ── time played: counted in 15-second steps while the game is open, on screen, and you've done something in the last 2 minutes ──
+  let lastAct = Date.now(), timeTicks = 0;
+  for (const t of ['pointerdown', 'pointermove', 'keydown', 'touchstart', 'wheel']) addEventListener(t, () => { lastAct = Date.now(); }, { passive: true, capture: true });
+  setInterval(() => {
+    if (document.visibilityState !== 'visible' || Date.now() - lastAct > 120000) return;
+    const s = S(), d = U.day(); s.time = s.time || {}; s.time[d] = (s.time[d] || 0) + 15;
+    if (++timeTicks % 4 === 0) E.save();
+  }, 15000);
+  const fmtTime = sec => sec < 60 ? (sec ? 'under 1 min' : '0 min') : sec < 3600 ? `${Math.round(sec / 60)} min` : `${Math.floor(sec / 3600)} h ${Math.round(sec % 3600 / 60)} min`;
+  function timeCard(s, days) {
+    const T = s.time || {}, maxT = Math.max(900, ...days.map(d => T[d] || 0)), week = days.reduce((n, d) => n + (T[d] || 0), 0);
+    return `<div class="card"><h3>⏱ Time played <span class="muted small">today <b>${fmtTime(T[U.day()] || 0)}</b> · this week <b>${fmtTime(week)}</b></span></h3><div class="week">${days.map(d => {
+      const v = T[d] || 0, dn = new Date(d + 'T12:00').toLocaleDateString(undefined, { weekday: 'narrow' });
+      return `<div class="wd"><div class="wbar"><i class="${v >= 900 ? 'hit' : ''}" style="height:${(v / maxT) * 100}%"></i></div><b>${Math.round(v / 60)}m</b><span>${dn}</span></div>`;
+    }).join('')}</div></div>`;
+  }
   function renderProfile() {
     const s = S(), lv = E.levelInfo(), st = s.stats;
     const days = Array.from({ length: 7 }, (_, i) => U.addDays(U.day(), i - 6));
@@ -819,6 +835,7 @@
         const v = s.history[d] || 0, dn = new Date(d + 'T12:00').toLocaleDateString(undefined, { weekday: 'narrow' });
         return `<div class="wd"><div class="wbar"><i class="${v >= s.dailyGoal ? 'hit' : ''}" style="height:${(v / maxD) * 100}%"></i><em style="bottom:${(s.dailyGoal / maxD) * 100}%"></em></div><b>${v}</b><span>${dn}</span></div>`;
       }).join('')}</div></div>
+      ${timeCard(s, days)}
       <div class="card"><h3>Shop <span class="muted small">you have ${s.coins} 🪙</span></h3>
         <div class="shop"><div><b>🧊 Streak freeze</b><p class="muted small">Protects your streak for one missed day (max 2).</p><button class="btn primary" data-act="buy" data-arg="freeze">50 🪙</button></div>
         <div><b>🚀 XP boost</b><p class="muted small">Double XP on your next 3 lessons${s.boost ? ` (${s.boost} left)` : ''}.</p><button class="btn primary" data-act="buy" data-arg="boost">80 🪙</button></div></div></div>
