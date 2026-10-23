@@ -1662,7 +1662,7 @@ function step(dt) {
     const d = Math.hypot(pos.x - e.x, pos.z - e.z);
     if (e.kind === 'villain') { e.obj.userData.body.position.y = Math.abs(Math.sin(t * 5)) * 0.08; e.obj.userData.body.rotation.z = Math.sin(t * 2.3) * 0.12; }
     e.mark.position.y = (e.tagY || 2.7) + 0.9 + Math.sin(t * 3) * 0.12;
-    if (e.tag) e.tag.visible = e !== talkTo && (!INDOOR || camera.position.distanceTo(e.obj.position) > 3.2); // no giant name in your face (in a small room, or mid-conversation)
+    if (e.tag) e.tag.visible = e !== talkTo && (!INDOOR || camera.position.distanceTo(e.obj.position) > 6); // no giant name in your face (in a small room, or mid-conversation)
     if (e.kind === 'side' || e.kind === 'vgate') { if (d < best) { best = d; nearEnt = e; } continue; }
     if (e.kind === 'chest') { if (e.glow.visible) e.glow.position.y = 1.9 + Math.sin(t * 3) * 0.12; }
     else if (e.kind === 'pedestal') { e.spin.rotation.y += dt; e.spin.position.y = 1.7 + Math.sin(t * 2) * 0.1; }

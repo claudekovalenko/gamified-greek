@@ -226,7 +226,9 @@ export function makeVenues(ctx) {
     B.add(new THREE.BoxGeometry(1.8, 1.7, 0.7), 0x8a8378, 2.4, 0.85, -D / 2 + 0.5, undefined, inn);
     B.add(new THREE.BoxGeometry(1.1, 0.9, 0.12), 0x1a1208, 2.4, 0.55, -D / 2 + 0.86, undefined, inn);
     B.add(new THREE.BoxGeometry(2.1, 0.12, 0.85), 0x6a4a2a, 2.4, 1.76, -D / 2 + 0.55, undefined, inn);
-    const flame = fire({ basic: (g, c, x, y, z) => B.basic(g, c, x, y, z, inn), glowAt: (c, s, x, y, z) => B.glowAt(c, s, x, y, z, inn) }, 2.4, 0.05, -D / 2 + 0.75, 0.6);
+    const flame = fire({ basic: (g, c, x, y, z) => B.basic(g, c, x, y, z, inn), glowAt: (c, s, x, y, z) => B.glowAt(c, s, x, y, z, inn) }, 2.4, 0.05, -D / 2 + 0.75, 0.85);
+    B.add(new THREE.BoxGeometry(0.8, 0.12, 0.12), 0x4a2a14, 2.25, 0.08, -D / 2 + 0.8, undefined, inn).rotation.y = 0.4; // logs in the grate
+    B.add(new THREE.BoxGeometry(0.8, 0.12, 0.12), 0x4a2a14, 2.55, 0.12, -D / 2 + 0.75, undefined, inn).rotation.y = -0.5;
     B.add(new THREE.BoxGeometry(2.3, 1.2, 0.08), 0x2a3a2a, 0, 1.9, -D / 2 + 0.2, undefined, inn);
     if (o.title) { const t = ctx.textSprite(o.title, { size: 34, bg: null, color: '#f5f0dc', scale: 0.0068 }); t.position.set(0, 1.9, -D / 2 + 0.35); inn.add(t); }
     B.add(new THREE.CylinderGeometry(0.3, 0.22, 0.45, 8), 0xb5523a, W / 2 - 0.7, 0.22, D / 2 - 0.8, undefined, inn);
@@ -250,6 +252,14 @@ export function makeVenues(ctx) {
       g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('color', new THREE.Float32BufferAttribute(col, 4));
       const beam = new THREE.Mesh(g, beamMat); beam.renderOrder = 4; inn.add(beam);
     }
+    // each cottage keeps its own things: herbs drying from a beam, a cat asleep by the fire, a tapestry, a loom or a chest of scrolls
+    const has = k => ((V >> k) & 1) === 1;
+    if (has(0)) for (let k = 0; k < 5; k++) { B.add(new THREE.CylinderGeometry(0.01, 0.01, 0.35, 3), 0x3a2a1a, -2.6 + k * 0.35, H - 0.45, -1.6, undefined, inn); B.add(new THREE.ConeGeometry(0.1, 0.35, 5), [0x6a8a3a, 0x8a9a4a, 0x7a5a8a][k % 3], -2.6 + k * 0.35, H - 0.75, -1.6, undefined, inn).rotation.x = Math.PI; }
+    if (has(1)) { const cat = B.add(new THREE.SphereGeometry(0.22, 8, 6), pick([0x2a2a2a, 0xd8803a, 0x8a8a8a]), 1.6, 0.14, -D / 2 + 1.45, undefined, inn); cat.scale.set(1.3, 0.6, 1); B.add(new THREE.SphereGeometry(0.12, 8, 6), cat.material.color.getHex(), 1.92, 0.2, -D / 2 + 1.5, undefined, inn); for (const s2 of [-1, 1]) B.add(new THREE.ConeGeometry(0.04, 0.09, 4), cat.material.color.getHex(), 1.95, 0.32, -D / 2 + 1.5 + s2 * 0.06, undefined, inn); }
+    if (has(2)) { const tp = B.add(new THREE.PlaneGeometry(1.4, 1.8), pick([0x8a2a3a, 0x2f5f8f, 0x3f7d5a, 0x7a4a9a]), -W / 2 + 0.17, 1.9, 1.9, undefined, inn); tp.rotation.y = Math.PI / 2; B.add(new THREE.PlaneGeometry(1.1, 1.4), 0xe0b040, -W / 2 + 0.18, 1.9, 1.9, undefined, inn).rotation.y = Math.PI / 2; B.add(new THREE.PlaneGeometry(0.9, 1.2), pick([0x8a2a3a, 0x2f5f8f, 0x3f7d5a]), -W / 2 + 0.19, 1.9, 1.9, undefined, inn).rotation.y = Math.PI / 2; }
+    if (has(3)) { B.add(new THREE.BoxGeometry(1.1, 0.6, 0.6), 0x6a4a2a, W / 2 - 0.8, 0.3, 0.5, undefined, inn); for (let k = 0; k < 5; k++) { const sc = B.add(new THREE.CylinderGeometry(0.07, 0.07, 0.5, 8), 0xf5e6c0, W / 2 - 1.15 + k * 0.17, 0.66, 0.5, undefined, inn); sc.rotation.z = Math.PI / 2; } }
+    else { B.add(new THREE.BoxGeometry(0.1, 1.4, 1.2), 0x6a4a2a, W / 2 - 0.5, 0.7, 0.6, undefined, inn); for (let k = 0; k < 8; k++) B.add(new THREE.BoxGeometry(0.02, 1.2, 0.02), 0xe8d8a8, W / 2 - 0.5, 0.75, 0.1 + k * 0.14, undefined, inn); }
+    B.col(W / 2 - 0.8, 0.5, 0.55); // the chest or loom
     // a window seat and a map on the wall
     B.add(new THREE.BoxGeometry(0.6, 0.45, 1.6), 0x8a5a2a, -W / 2 + 0.5, 0.22, 0, undefined, inn);
     B.add(new THREE.BoxGeometry(0.5, 0.14, 1.5), 0x3f6d8a, -W / 2 + 0.5, 0.5, 0, undefined, inn);
