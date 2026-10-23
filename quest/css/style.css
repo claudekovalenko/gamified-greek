@@ -611,3 +611,4 @@ body.in-stage .main > .s3 { pointer-events: none; }
 .wm2-you { position: absolute; top: -26px; left: 50%; transform: translateX(-50%); font-size: 20px; animation: wm2bob 1s infinite alternate; }
 @keyframes wm2pulse { 50% { box-shadow: 0 0 0 9px rgba(224, 165, 38, .12), 0 3px 0 #b07a10; } }
 @keyframes wm2bob { to { transform: translate(-50%, -4px); } }
+.whud:has(.wbattle.on) .wbanner, .whud:has(.wdlg.on) .wbanner { opacity: 0 !important; } /* the region banner steps aside for battles and conversations */

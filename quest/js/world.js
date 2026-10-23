@@ -1629,7 +1629,7 @@ function step(dt) {
   const foe = battle && battle.w && battle.w.obj.position, focus = foe || SQ.focus(), aim = foe || (SQ.busy() && focus);
   if (aim) {
     const dx = aim.x - pos.x, dz = aim.z - pos.z, dl = Math.hypot(dx, dz) || 1, sd = foe ? 1.8 : 1.2;
-    tmp.set(pos.x - dx / dl * 5.5 - dz / dl * sd, Math.max(pos.y, aim.y) + (foe ? 5 : 4), pos.z - dz / dl * 5.5 + dx / dl * sd);
+    tmp.set(pos.x - dx / dl * 5.5 - dz / dl * sd, Math.max(pos.y, aim.y) + (foe ? (battle.w.raider ? 5.5 : 4.2) : 4), pos.z - dz / dl * 5.5 + dx / dl * sd);
     tmp.y = Math.max(tmp.y, groundAt(tmp.x, tmp.z) + 1);
   }
   // talking: an over-the-shoulder shot, the speaker framed above the dialogue box
@@ -1638,7 +1638,7 @@ function step(dt) {
   if (INDOOR && !aim) { INDOOR.roomCam(pos, tmp); let dy = INDOOR.face - cam.yaw; cam.yaw += Math.atan2(Math.sin(dy), Math.cos(dy)) * Math.min(1, dt * 3); }
   if (INDOOR) INDOOR.clampCam(tmp);
   camera.position.lerp(tmp, cam.snap ? 1 : Math.min(1, dt * (aim ? 4 : 8))); cam.snap = false;
-  if (tk) camLook.lerp(tmp2.set(pos.x + (tk.x - pos.x) * 0.7, pos.y + 0.5, pos.z + (tk.z - pos.z) * 0.7), Math.min(1, dt * 5)); else camLook.lerp(tmp2.set(pos.x, pos.y + 1.4, pos.z).lerp(focus || tmp2, focus ? (foe ? 0.45 : 0.7) : 0), Math.min(1, dt * 6));
+  if (tk) camLook.lerp(tmp2.set(pos.x + (tk.x - pos.x) * 0.7, pos.y + 0.5, pos.z + (tk.z - pos.z) * 0.7), Math.min(1, dt * 5)); else camLook.lerp(tmp2.set(pos.x, pos.y + 1.4, pos.z).lerp(focus || tmp2, focus ? (foe ? 0.45 : 0.7) : 0).setY(foe && battle.w.raider ? Math.max(pos.y + 1.4, foe.y + 0.4) : tmp2.y), Math.min(1, dt * 6));
   camera.lookAt(camLook);
   if (S_SHAKE > 0) { S_SHAKE = Math.max(0, S_SHAKE - dt); camera.position.x += (Math.random() - 0.5) * S_SHAKE; camera.position.y += (Math.random() - 0.5) * S_SHAKE; }
   sun.position.set(pos.x + 30, pos.y + 60, pos.z + 20); sun.target.position.set(pos.x, pos.y, pos.z);
