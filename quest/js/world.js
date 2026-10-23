@@ -1604,7 +1604,9 @@ function step(dt) {
   // through a cottage door: the camera comes inside with you
   const room = VEN.room(pos);
   if (room !== DOOR) doorway(room);
-  const cDist = INDOOR ? Math.min(cam.dist, 4.6) : cam.dist, cPitch = INDOOR ? Math.max(0.55, Math.min(0.8, cam.pitch)) : cam.pitch;
+  // up on a lookout the camera eases back and up for the view over the valley
+  P.viewT = (P.viewT || 0) + ((VEN.view(pos) && !busy ? 1 : 0) - (P.viewT || 0)) * Math.min(1, dt * 1.5);
+  const cDist = INDOOR ? Math.min(cam.dist, 4.6) : cam.dist + P.viewT * 9, cPitch = INDOOR ? Math.max(0.55, Math.min(0.8, cam.pitch)) : cam.pitch + P.viewT * (0.3 - cam.pitch);
   let cd = cDist;
   for (let k = 1; k <= 6; k++) {
     const fk = k / 6, cx = pos.x + Math.sin(cam.yaw) * Math.cos(cPitch) * cDist * fk, cz = pos.z + Math.cos(cam.yaw) * Math.cos(cPitch) * cDist * fk;

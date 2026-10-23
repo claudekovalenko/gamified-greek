@@ -433,7 +433,10 @@ export function makeVenues(ctx) {
     const tube = B.add(new THREE.CylinderGeometry(0.08, 0.12, 1, 8), 0xc9a43a, 0, 1.1, 0, { metalness: 0.7, roughness: 0.3 }, tel); tube.rotation.x = 1.2;
     B.add(new THREE.CylinderGeometry(0.05, 0.05, 2.4, 5), 0x6a4a2a, 1.6, yP + 1.2, -2.2);
     const flag = B.add(new THREE.BoxGeometry(0.9, 0.5, 0.03), 0xc9452b, 2.05, yP + 2.15, -2.2);
-    return { B, teacher: [0.5, -0.9], entry: [0, z1 + L + 0.9], y: yP, update: (dt, t) => { flag.rotation.y = Math.sin(t * 3) * 0.3; flag.scale.x = 1 + Math.sin(t * 5) * 0.05; } };
+    return { B, teacher: [0.5, -0.9], entry: [0, z1 + L + 0.9], y: yP,
+      // standing up on the deck: the host can pull the camera back for the view
+      onDeck: p => { const l = B.F.l(p.x, p.z); return Math.abs(l.x) < 1.9 && l.z > z0 - 0.1 && l.z < z1 + 0.1 && p.y > yP - 0.5; },
+      update: (dt, t) => { flag.rotation.y = Math.sin(t * 3) * 0.3; flag.scale.x = 1 + Math.sin(t * 5) * 0.05; } };
   }
 
   const BUILD = { campfire, stall, house, stones, garden, lookout };
@@ -484,6 +487,8 @@ export function makeVenues(ctx) {
     inside: pos => list.some(v => v.inside && Math.abs(pos.x - v.x) < 6 && Math.abs(pos.z - v.z) < 6 && v.inside(pos)),
     // 1 by day, less at dusk and night: how bright the light through the windows is
     setDaylight: (k, color = 0xffffff) => { beamMat.opacity = k; beamMat.color.set(color); for (const m of windowMats) m.emissiveIntensity = k < 0.5 ? 2.2 : 0.7; },
+    // true while you stand on top of a lookout
+    view: pos => list.some(v => v.onDeck && Math.abs(pos.x - v.x) < 5 && Math.abs(pos.z - v.z) < 5 && v.onDeck(pos)),
     // the room you're standing in (a cottage), or null
     room: pos => list.find(v => v.room && Math.abs(pos.x - v.x) < 6 && Math.abs(pos.z - v.z) < 6 && v.inside(pos)) || null,
     update(dt, t, pos, onGround) {
