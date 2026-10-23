@@ -1876,7 +1876,7 @@ W.debug = { critters, BLOOM, BURSTS, ARENA, get moodNow() { return MOOD; }, get 
   if (typeof w.yaw === 'number') cam.yaw = w.yaw;
   camera.position.set(w.x, groundAt(w.x, w.z) + 5, w.z + 8);
   setPet();
-  stage = createStage({ FX, bloom: BLOOM, look: LOOK, renderer, person, golem, creep, wispMesh, ZONES, KG, animatePerson, applyLook, buildPet, animatePet });
+  stage = createStage({ FX, bloom: BLOOM, mood: () => MOODS[MOOD], look: LOOK, renderer, person, golem, creep, wispMesh, ZONES, KG, animatePerson, applyLook, buildPet, animatePet });
   W.debug.stage = stage;
   W.ok = true;
   document.dispatchEvent(new Event('world-ready'));

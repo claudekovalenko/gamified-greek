@@ -51,10 +51,14 @@ export function createStage(ctx) {
     }
     let [top, mid, bot] = SET.sky;
     if (tint === 'shade' && !SET.indoor) { const c = (a, b) => new THREE.Color(a).lerp(new THREE.Color(b), 0.45).getHex(); top = c(top, 0x2a1a4a); mid = c(mid, 0x7a6aa8); bot = c(bot, 0x3a2a4a); }
-    paintSky(top, mid, bot, tint === 'shade' ? 0.6 : 0); scene.fog.color.setHex(mid); scene.fog.near = SET.fog[0]; scene.fog.far = SET.fog[1];
+    // outdoors the trial keeps the hour of the world you came from (sunset, night, dawn, storm)
+    const M = !SET.indoor && ctx.mood && ctx.mood();
+    let stars = tint === 'shade' ? 0.6 : 0;
+    if (M) { const c = (a, b) => new THREE.Color(a).lerp(new THREE.Color(b), 0.7).getHex(); top = c(top, M.top); mid = c(mid, M.mid); bot = c(bot, M.bot); stars = Math.max(stars, M.stars || 0); }
+    paintSky(top, mid, bot, stars); scene.fog.color.setHex(mid); scene.fog.near = SET.fog[0]; scene.fog.far = SET.fog[1];
     sky.visible = !SET.indoor;
-    hemi.intensity = (SET.hemi || 1.15) * (tint === 'shade' ? 0.7 : 1);
-    sun.intensity = SET.indoor ? 0.8 : 2.4;
+    hemi.intensity = (SET.hemi || 1.15) * (tint === 'shade' ? 0.7 : 1) * (M ? Math.max(0.65, M.hemi) : 1);
+    sun.intensity = SET.indoor ? 0.8 : M ? Math.max(1, M.sunI * 1.2) : 2.4;
   }
 
   // hero
