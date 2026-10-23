@@ -14,14 +14,19 @@ export function makeSets(THREE, { LOW, golem, FX }) {
   const ico = (r, c, d = 0, o) => mk(new THREE.IcosahedronGeometry(r, d), c, o);
   const cone = (r, h, c, seg = 7, o) => mk(new THREE.ConeGeometry(r, h, seg), c, o);
 
+  // foliage shares the world's look: darker beneath, sunlit on top, swaying in the wind
+  const leafMats = {};
+  const leafMat = c => leafMats[c] || (leafMats[c] = FX ? FX.windify(M(c), { amp: 0.04, base: -1.4, shade: [-1.4, 1.4] }) : M(c));
+  const lcone = (r, h, c) => mk(new THREE.ConeGeometry(r, h, 7), leafMat(c));
+  const lico = (r, c) => mk(new THREE.IcosahedronGeometry(r, 0), leafMat(c));
   function tree(g, x, z, kind = 'round', s = 1, leaf = 0x4f8f3a) {
     const t = new THREE.Group();
     t.add(at(cyl(0.2 * s, 0.32 * s, 2 * s, 0x6a4a2a, 6), 0, s, 0));
-    if (kind === 'pine') { t.add(at(cone(1.4 * s, 3.6 * s, leaf), 0, 3.4 * s, 0)); }
-    else if (kind === 'snowpine') { t.add(at(cone(1.4 * s, 3.6 * s, 0x3a5a4a), 0, 3.4 * s, 0)); t.add(at(cone(0.75 * s, 1.3 * s, 0xf4f8fb), 0, 4.7 * s, 0)); }
-    else if (kind === 'cypress') t.add(at(cone(0.6 * s, 5 * s, 0x2f4a2a), 0, 3.6 * s, 0));
-    else if (kind === 'willow') { const c = ico(1.8 * s, 0x7aa84a); c.scale.y = 0.8; t.add(at(c, 0, 3 * s, 0)); }
-    else { t.add(at(ico(1.4 * s, leaf), 0, 2.9 * s, 0)); t.add(at(ico(1 * s, leaf), 0.6 * s, 3.7 * s, -0.3 * s)); }
+    if (kind === 'pine') { t.add(at(lcone(1.4 * s, 3.6 * s, leaf), 0, 3.4 * s, 0)); }
+    else if (kind === 'snowpine') { t.add(at(lcone(1.4 * s, 3.6 * s, 0x3a5a4a), 0, 3.4 * s, 0)); t.add(at(cone(0.75 * s, 1.3 * s, 0xf4f8fb), 0, 4.7 * s, 0)); }
+    else if (kind === 'cypress') t.add(at(lcone(0.6 * s, 5 * s, 0x2f4a2a), 0, 3.6 * s, 0));
+    else if (kind === 'willow') { const c = lico(1.8 * s, 0x7aa84a); c.scale.y = 0.8; t.add(at(c, 0, 3 * s, 0)); }
+    else { t.add(at(lico(1.4 * s, leaf), 0, 2.9 * s, 0)); t.add(at(lico(1 * s, leaf), 0.6 * s, 3.7 * s, -0.3 * s)); }
     t.position.set(x, 0, z); g.add(t); return t;
   }
   // trees in an arc behind and beside the arena
