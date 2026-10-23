@@ -225,6 +225,29 @@ export function makeFX(THREE, { LOW = false } = {}) {
     return api;
   }
 
+  // ── environment: a soft sky-and-ground reflection so metals and gems shine instead of looking dull ──
+  // set(top, mid, bot) rebuilds it for the current sky (cheap: a tiny scene, done once per change)
+  function skyEnv(renderer, scene, intensity = 0.35) {
+    const pm = new THREE.PMREMGenerator(renderer), es = new THREE.Scene();
+    const u = { uTop: { value: new THREE.Color() }, uMid: { value: new THREE.Color() }, uBot: { value: new THREE.Color() } };
+    es.add(new THREE.Mesh(new THREE.SphereGeometry(10, 24, 12), new THREE.ShaderMaterial({
+      uniforms: u, side: THREE.BackSide,
+      vertexShader: 'varying vec3 vD; void main() { vD = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.); }',
+      fragmentShader: 'uniform vec3 uTop, uMid, uBot; varying vec3 vD; void main() { float y = vD.y; gl_FragColor = vec4(y > 0. ? mix(uMid, uTop, smoothstep(0., .6, y)) : mix(uMid, uBot, smoothstep(0., .3, -y)), 1.); }',
+    })));
+    let rt = null, key = '';
+    if ('environmentIntensity' in scene) scene.environmentIntensity = LOW ? 0 : intensity;
+    return {
+      set(top, mid, bot) {
+        if (LOW) return;
+        u.uTop.value.set(top); u.uMid.value.set(mid); u.uBot.value.set(bot);
+        const k = u.uTop.value.getHexString() + u.uMid.value.getHexString() + u.uBot.value.getHexString();
+        if (k === key) return; key = k;
+        const old = rt; rt = pm.fromScene(es, 0.04); scene.environment = rt.texture; if (old) old.dispose();
+      },
+    };
+  }
+
   // ── rim light: a soft glow along a character's edges so they stand out from the scenery ──
   const rimCol = { value: new THREE.Color(0xfff2d8) }, rimAmt = { value: LOW ? 0 : 0.35 };
   function rim(material) {
@@ -710,5 +733,5 @@ export function makeFX(THREE, { LOW = false } = {}) {
     return { update, group: G };
   }
 
-  return { time, hero, bloom, sunShafts, rim, rimCol, rimAmt, setLight, cloudShade, farHills, shootingStars, critters, arena, bursts, pondLife, groundDetail, sky, water, windify, portalMaterial, sparks, glow, blobShadow, heroPose, flyToHUD, tick: t => { time.value = t; } };
+  return { time, hero, skyEnv, bloom, sunShafts, rim, rimCol, rimAmt, setLight, cloudShade, farHills, shootingStars, critters, arena, bursts, pondLife, groundDetail, sky, water, windify, portalMaterial, sparks, glow, blobShadow, heroPose, flyToHUD, tick: t => { time.value = t; } };
 }
