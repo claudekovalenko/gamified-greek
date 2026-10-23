@@ -782,5 +782,23 @@ export function makeFX(THREE, { LOW = false } = {}) {
     return { update, group: G };
   }
 
-  return { time, hero, footprints, vortex, setNight, skyEnv, bloom, sunShafts, rim, rimCol, rimAmt, setLight, cloudShade, farHills, shootingStars, critters, arena, bursts, pondLife, groundDetail, sky, water, windify, portalMaterial, sparks, glow, blobShadow, heroPose, flyToHUD, tick: t => { time.value = t; } };
+  // ── the world map: a parchment with a winding road through every region ──
+  // items: [{ name, sub, icon, state: 'here' | 'open' | 'done' | 'locked' }]; buttons carry data-wm="i"
+  function mapHTML(items) {
+    const step = 78, W = 300, H = items.length * step + 40;
+    const pts = items.map((_, i) => [W / 2 + Math.sin(i * 1.25 + 0.4) * 82, H - 40 - i * step]);
+    let d = `M ${pts[0][0]} ${pts[0][1] + 40}`;
+    pts.forEach(([x, y], i) => { const [px, py] = i ? pts[i - 1] : [x, y + 40]; d += ` C ${px} ${py - step * 0.5}, ${x} ${y + step * 0.5}, ${x} ${y}`; });
+    const esc = t => String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+    const reached = items.reduce((n, it, i) => (it.state !== 'locked' ? i : n), 0);
+    const trees = Array.from({ length: Math.round(items.length * 2.2) }, (_, k) => { const y = 20 + (k * 53) % (H - 40), x = (k % 2 ? 18 : W - 30) + Math.sin(k * 3.1) * 10; return `<text x="${x}" y="${y}" class="wmap-deco">${['🌲', '🌳', '⛰️', '🌿'][k % 4]}</text>`; }).join('');
+    return `<div class="wmap2"><div class="wmap2-in"><svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet" style="aspect-ratio:${W}/${H}">
+      ${trees}
+      <path d="${d}" class="wmap-road"/><path d="${d}" class="wmap-dash" style="--len:${H * 2}"/>
+      <path d="${d}" class="wmap-walked" pathLength="${items.length}" stroke-dasharray="${reached + 0.02} ${items.length}"/>
+      </svg>${items.map((it, i) => `<button class="wm2 ${it.state}" data-wm="${i}" ${it.state === 'locked' ? 'disabled' : ''} style="left:${(pts[i][0] / W * 100).toFixed(1)}%;top:${(pts[i][1] / H * 100).toFixed(1)}%">
+        <span class="wm2-dot">${it.state === 'locked' ? '🔒' : it.icon || '•'}</span><span class="wm2-label ${pts[i][0] > W / 2 ? 'left' : ''}"><b>${i + 1}. ${esc(it.name)}</b><small>${esc(it.sub)}</small></span>${it.state === 'here' ? '<span class="wm2-you">🧙</span>' : ''}</button>`).join('')}</div></div>`;
+  }
+
+  return { time, hero, footprints, mapHTML, vortex, setNight, skyEnv, bloom, sunShafts, rim, rimCol, rimAmt, setLight, cloudShade, farHills, shootingStars, critters, arena, bursts, pondLife, groundDetail, sky, water, windify, portalMaterial, sparks, glow, blobShadow, heroPose, flyToHUD, tick: t => { time.value = t; } };
 }

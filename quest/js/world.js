@@ -1117,8 +1117,9 @@ function storyBeat(zi) {
 // travel to any world you have reached
 function worldMap() {
   const reach = i => i === 0 || gateOpen(i - 1);
-  dialog('🗺 World Map', `<div class="wmap">${ZONES.map((Z, i) => `<button class="wm ${reach(i) ? '' : 'locked'} ${i === P.zone ? 'here' : ''}" data-wm="${i}" ${reach(i) ? '' : 'disabled'}>
-      <b>${i + 1}. ${esc(Z.name)}</b><span>${reach(i) ? esc(KG.units[i].title) + (i === P.zone ? ' · you are here' : '') : '🔒 Beat the guardian before it'}</span></button>`).join('')}</div>`, [{ label: 'Close' }]);
+  const icons = ['🏡', '🌲', '🌾', '🌊', '⛰️', '🏛️', '🪞', '🏔️', '📚'];
+  dialog('🗺 World Map', FX.mapHTML(ZONES.map((Z, i) => ({ name: Z.name, sub: reach(i) ? KG.units[i].title : 'Beat the guardian before it', icon: icons[LOOK(i)], state: i === P.zone ? 'here' : !reach(i) ? 'locked' : gateOpen(i) ? 'done' : 'open' }))), [{ label: 'Close' }]);
+  const here = document.querySelector('.wm2.here'), box = here && here.closest('.wmap2'); if (box) box.scrollTop = here.offsetTop - box.clientHeight / 2; // (scrollIntoView would scroll the whole world view)
   document.querySelectorAll('[data-wm]').forEach(b => b.onclick = () => {
     const i = +b.dataset.wm, m = ents.find(e => e.kind === 'mentor' && e.zone === i);
     closeDialog();

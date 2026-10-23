@@ -588,3 +588,25 @@ body.in-stage .main > .s3 { pointer-events: none; }
   .learn.parchment { left: calc(10px + env(safe-area-inset-left)); right: calc(10px + env(safe-area-inset-right)); }
   .main { padding-left: calc(16px + env(safe-area-inset-left)); padding-right: calc(16px + env(safe-area-inset-right)); }
 }
+/* the world map: parchment with a winding road */
+.wmap2 { position: relative; margin: 0 auto; max-width: 340px; padding: 6px; border-radius: 14px; background: radial-gradient(ellipse at 50% 40%, #f8ecd0, #e6d2a6 70%, #cfb482); border: 3px solid #b8935a; box-shadow: inset 0 0 30px rgba(120, 80, 30, .35); max-height: 62vh; overflow: auto; }
+.wmap2-in { position: relative; }
+.wmap2 svg { display: block; width: 100%; height: auto; }
+.wmap-deco { font-size: 15px; opacity: .55; }
+.wmap-road { fill: none; stroke: #c9a46a; stroke-width: 14; stroke-linecap: round; }
+.wmap-dash { fill: none; stroke: #8a6a3a; stroke-width: 2; stroke-dasharray: 6 7; opacity: .6; }
+.wmap-walked { fill: none; stroke: #e0a526; stroke-width: 5; stroke-linecap: round; opacity: .85; }
+.wm2 { position: absolute; transform: translate(-50%, -50%); display: flex; align-items: center; gap: 6px; background: none; border: 0; padding: 0; color: #3a2a10; }
+.wm2-dot { display: grid; place-items: center; width: 42px; height: 42px; border-radius: 50%; font-size: 22px; background: #fff7e0; border: 3px solid #8a6a3a; box-shadow: 0 3px 0 #8a6a3a; transition: transform .15s; }
+.wm2:not(:disabled):hover .wm2-dot, .wm2:not(:disabled):focus .wm2-dot { transform: scale(1.12); }
+.wm2.here .wm2-dot { border-color: #e0a526; box-shadow: 0 0 0 4px rgba(224, 165, 38, .35), 0 3px 0 #b07a10; animation: wm2pulse 1.6s infinite; }
+.wm2.done .wm2-dot { background: #fff2c0; }
+.wm2.locked .wm2-dot { background: #d8c8a8; filter: grayscale(1); opacity: .7; }
+.wm2-label { position: absolute; left: 50px; white-space: nowrap; text-align: left; line-height: 1.15; background: rgba(255, 248, 228, .85); padding: 3px 7px; border-radius: 8px; }
+.wm2-label.left { left: auto; right: 50px; text-align: right; }
+.wm2-label b { display: block; font-size: .8rem; }
+.wm2-label small { font-size: .68rem; color: #6a5530; }
+.wm2.locked .wm2-label { opacity: .6; }
+.wm2-you { position: absolute; top: -26px; left: 50%; transform: translateX(-50%); font-size: 20px; animation: wm2bob 1s infinite alternate; }
+@keyframes wm2pulse { 50% { box-shadow: 0 0 0 9px rgba(224, 165, 38, .12), 0 3px 0 #b07a10; } }
+@keyframes wm2bob { to { transform: translate(-50%, -4px); } }
