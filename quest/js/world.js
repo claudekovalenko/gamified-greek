@@ -133,6 +133,7 @@ const BURSTS = FX.bursts(scene); // light pillars when a foe is banished
 const PRINTS = FX.footprints(scene); // footprints fading behind you on the road
 const HILLS = FX.farHills(scene); // far mountain ranges on the horizon
 const BOW = FX.rainbow(scene); // a rainbow after the storm
+const GUST = FX.gusts(scene); // a flurry of leaves on the wind now and then
 const STARS = FX.shootingStars(scene); // a shooting star now and then at night
 const SHAFTS = FX.sunShafts(scene); // sunbeams slanting down among the trees
 // at night the hero's wand gives a soft warm glow (always in the scene, so switching it on costs nothing)
@@ -1762,6 +1763,7 @@ function step(dt) {
   SPK.update(dt); DUST.update(dt); ARENA.update(dt); BURSTS.update(dt); if (!INDOOR) POND.update(dt, pos); STARS.update(dt, camera.position, INDOOR ? 0 : atm.stars);
   { const want = !LOW && !INDOOR && atm.stars > 0.5 ? 7 : 0; heroLight.intensity += (want - heroLight.intensity) * Math.min(1, dt * 2); heroLight.position.set(pos.x, pos.y + 2.2, pos.z); }
   FX.hero.value.copy(pos);
+  GUST.update(dt, pos, INDOOR ? null : ZONES[Math.max(0, P.zone)].leaf.concat(ACCENT[LOOK(Math.max(0, P.zone))] || []));
   SHAFTS.update(dt, pos, camera.position, groundAt, INDOOR || atm.stars > 0.5 || atm.clouds > 0.8 ? 0 : 1, (MOODS[MOOD] || {}).sunDir);
   updateNearGrass(pos);
   CRIT.update(dt, t, pos, groundAt, INDOOR ? 0 : atm.stars < 0.5 ? 1 : 0);

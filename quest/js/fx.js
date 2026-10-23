@@ -543,6 +543,35 @@ export function makeFX(THREE, { LOW = false } = {}) {
     };
   }
 
+  // ── now and then a gust of wind sweeps a flurry of leaves past the hero ──
+  // update(dt, pos, colors): colours of the leaves for this place (null for none)
+  function gusts(scene, n = LOW ? 0 : 40) {
+    const geo = new THREE.PlaneGeometry(0.24, 0.15), L = [];
+    for (let i = 0; i < n; i++) { const m = new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ side: THREE.DoubleSide, transparent: true })); m.visible = false; scene.add(m); L.push({ m, t: 0, v: new THREE.Vector3(), spin: new THREE.Vector3() }); }
+    let wait = 8;
+    return {
+      update(dt, p, colors) {
+        if (!n) return;
+        if ((wait -= dt) <= 0 && colors) {
+          wait = 14 + Math.random() * 16;
+          const a = Math.random() * 6.283, dx = Math.cos(a), dz = Math.sin(a);
+          L.forEach((l, i) => {
+            const back = 12 + Math.random() * 6, side = (Math.random() - 0.5) * 10;
+            l.m.position.set(p.x - dx * back - dz * side, p.y + 0.3 + Math.random() * 2.5, p.z - dz * back + dx * side);
+            l.v.set(dx * (7 + Math.random() * 3), 0.5 + Math.random(), dz * (7 + Math.random() * 3)); l.spin.set(Math.random() * 8, Math.random() * 8, Math.random() * 8);
+            l.t = 2.6 + Math.random() * 1.2 + i * 0.03; l.m.material.color.setHex(colors[i % colors.length]); l.m.visible = true;
+          });
+        }
+        for (const l of L) {
+          if (l.t <= 0) continue;
+          l.t -= dt; l.m.position.addScaledVector(l.v, dt); l.m.position.y += Math.sin(l.t * 5 + l.spin.x) * dt * 0.8;
+          l.m.rotation.x += l.spin.x * dt; l.m.rotation.y += l.spin.y * dt; l.m.rotation.z += l.spin.z * dt;
+          l.m.material.opacity = Math.min(1, l.t * 2); if (l.t <= 0) l.m.visible = false;
+        }
+      },
+    };
+  }
+
   // ── a rainbow arching over the valley: show(dir) after a storm (it appears opposite dir), then fades over a minute ──
   function rainbow(scene) {
     const u = { uA: { value: 0 } };
@@ -906,5 +935,5 @@ export function makeFX(THREE, { LOW = false } = {}) {
         <span class="wm2-dot">${it.state === 'locked' ? '🔒' : it.icon || '•'}</span><span class="wm2-label ${pts[i][0] > W / 2 ? 'left' : ''}"><b>${i + 1}. ${esc(it.name)}</b><small>${esc(it.sub)}</small></span>${it.state === 'here' ? '<span class="wm2-you">🧙</span>' : ''}</button>`).join('')}</div></div>`;
   }
 
-  return { time, hero, rainbow, flowerGeo, footprints, mapHTML, vortex, lightPool, setNight, skyEnv, bloom, sunShafts, rim, rimCol, rimAmt, setLight, cloudShade, farHills, shootingStars, critters, arena, bursts, pondLife, groundDetail, sky, water, windify, portalMaterial, sparks, glow, blobShadow, heroPose, flyToHUD, tick: t => { time.value = t; } };
+  return { time, hero, gusts, rainbow, flowerGeo, footprints, mapHTML, vortex, lightPool, setNight, skyEnv, bloom, sunShafts, rim, rimCol, rimAmt, setLight, cloudShade, farHills, shootingStars, critters, arena, bursts, pondLife, groundDetail, sky, water, windify, portalMaterial, sparks, glow, blobShadow, heroPose, flyToHUD, tick: t => { time.value = t; } };
 }
