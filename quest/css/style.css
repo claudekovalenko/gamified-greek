@@ -657,3 +657,12 @@ body.irisfx::after { content: ''; position: fixed; inset: 0; z-index: 60; pointe
 .wb:active { transform: scale(.92); box-shadow: inset 0 0 0 1px rgba(232,190,100,.6), 0 1px 4px rgba(0,0,0,.2); }
 .wxp i { background: linear-gradient(180deg, #ffe08a, var(--gold) 60%, #c98a10); box-shadow: 0 0 6px rgba(255,200,80,.7); }
 .wlv b { box-shadow: inset 0 -2px 0 rgba(0,0,0,.2), 0 0 0 2px rgba(255,230,160,.35); }
+/* narrow phones held upright: smaller buttons; hearts on one line, level and coins on the next, the quest card below both */
+@media (max-width: 480px) {
+  .wbtns { gap: 4px; }
+  .wb { width: 38px; height: 38px; border-radius: 12px; font-size: 1.1rem; }
+  .wstat { gap: 4px 8px; padding: 6px 10px; }
+  .whearts { flex-basis: 100%; font-size: .95rem; }
+  .wxp { width: 36px; }
+  .wquest { top: calc(84px + env(safe-area-inset-top)); }
+}
