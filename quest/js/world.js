@@ -792,6 +792,7 @@ function addEnt(e) {
   const nameTag = textSprite(e.label, { size: 30 });
   nameTag.position.y = e.tagY || 2.7; e.obj.add(nameTag); e.tag = nameTag;
   e.mark = marker('!', '#ffd166'); e.mark.position.y = (e.tagY || 2.7) + 0.9; e.mark.visible = false; e.obj.add(e.mark);
+  { const h = FX.glow(0xffd166, 1.8, 0.5); h.renderOrder = -1; e.mark.add(h); h.scale.set(1.8 / e.mark.scale.x, 1.8 / e.mark.scale.y, 1); } // a soft halo behind the "!"
   ents.push(e); colliders.push({ x: e.x, z: e.z, r: e.r || 0.8 });
   return e;
 }
