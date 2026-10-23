@@ -87,6 +87,7 @@ export function makeVenues(ctx) {
     };
   }
   // window light; the host dims it at night with setDaylight
+  const windowMats = new Set(); // cottage windows glow brighter after dark
   const beamMat = new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, fog: false });
   const tween = (dur, fn) => { let t = 0; anims.push(dt => { t = Math.min(1, t + dt / dur); fn(t); return t < 1; }); };
   const V3 = (x, y, z) => new THREE.Vector3(x, y, z);
@@ -191,7 +192,7 @@ export function makeVenues(ctx) {
     for (const x of [-1, 1]) B.add(new THREE.BoxGeometry(0.2, 2.35, 0.36), timber, x * 0.95, 1.17, D / 2, undefined, walls);
     B.add(new THREE.BoxGeometry(W, 0.16, 0.34), timber, 0, 2.1, -D / 2, undefined, walls);
     for (const s of [-1, 1]) {
-      B.add(new THREE.BoxGeometry(0.36, 0.9, 1.2), 0xffe08a, s * W / 2, 1.7, 0, { emissive: 0xffb84a, emissiveIntensity: 0.7 }, walls);
+      windowMats.add(B.add(new THREE.BoxGeometry(0.36, 0.9, 1.2), 0xffe08a, s * W / 2, 1.7, 0, { emissive: 0xffb84a, emissiveIntensity: 0.7 }, walls).material);
       B.add(new THREE.BoxGeometry(0.42, 0.1, 1.4), timber, s * W / 2, 1.2, 0, undefined, walls);
     }
     // the door stands open
@@ -474,7 +475,7 @@ export function makeVenues(ctx) {
     place, ground, list,
     inside: pos => list.some(v => v.inside && Math.abs(pos.x - v.x) < 6 && Math.abs(pos.z - v.z) < 6 && v.inside(pos)),
     // 1 by day, less at dusk and night: how bright the light through the windows is
-    setDaylight: (k, color = 0xffffff) => { beamMat.opacity = k; beamMat.color.set(color); },
+    setDaylight: (k, color = 0xffffff) => { beamMat.opacity = k; beamMat.color.set(color); for (const m of windowMats) m.emissiveIntensity = k < 0.5 ? 2.2 : 0.7; },
     // the room you're standing in (a cottage), or null
     room: pos => list.find(v => v.room && Math.abs(pos.x - v.x) < 6 && Math.abs(pos.z - v.z) < 6 && v.inside(pos)) || null,
     update(dt, t, pos, onGround) {
