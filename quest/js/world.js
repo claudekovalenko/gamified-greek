@@ -1062,7 +1062,14 @@ function setPet() {
   pet = buildPet(E.look().pet);
   if (pet) { pet.position.copy(player.position).add(new THREE.Vector3(1, 1, 1)); scene.add(pet); }
 }
-E.on(t => { if (t === 'look') { applyLook(player); setPet(); } });
+E.on(t => {
+  if (t === 'look') { applyLook(player); setPet(); }
+  // a level gained out in the world: a golden pillar of light rises around the hero
+  if (t === 'level' && mode === 'world') {
+    const p = player.position; BURSTS.fire({ x: p.x, y: p.y, z: p.z }, 0xffd166);
+    for (let k = 0; k < 24; k++) { const a = k / 24 * Math.PI * 2; SPK.emit(tmp2.set(p.x + Math.cos(a) * 1.2, p.y + 0.3, p.z + Math.sin(a) * 1.2), { color: 0xffe08a, n: 2, speed: 0.6, up: 3, gravity: -1, size: 0.35, life: 1.4 }); }
+  }
+});
 const P = { turn: 0, vel: new THREE.Vector3(), onGround: true, hearts: 5, maxHearts: 5, hurtT: 0, regen: 0, zone: -1 };
 const cam = { yaw: Math.PI, pitch: 0.42, dist: 8.5, auto: 0 };
 const input = { f: 0, r: 0, run: false, jump: false, keys: {}, joy: null, drag: null };
