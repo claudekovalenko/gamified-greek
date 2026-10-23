@@ -402,7 +402,15 @@ export function makeVenues(ctx) {
         if (now) go(1); else { tween(0.8, k => go(1 - Math.pow(1 - k, 3))); const p = B.F.w(0, gz); ctx.SPK.emit(V3(p.x, gy + 1.2, p.z), { colors: [0xffd166, 0x9ad0ff, 0xffffff], n: 50, speed: 4, size: 0.4 }); }
       },
     };
-    return { B, teacher: [0.4, -1.4], entry: [0, gz + 1.6], gate, update: (dt, t) => runes.forEach((r, i) => { r.scale.setScalar(1.1 + Math.sin(t * 3 + i) * 0.15); }) };
+    let petalT = 0;
+    return { B, teacher: [0.4, -1.4], entry: [0, gz + 1.6], gate, update: (dt, t, pos) => {
+      runes.forEach((r, i) => { r.scale.setScalar(1.1 + Math.sin(t * 3 + i) * 0.15); });
+      // inside the hedge: blossom drifts down from the apple tree and fireflies of pollen hang in the air
+      if (open && (petalT -= dt) <= 0 && Math.hypot(pos.x - cx, pos.z - cz) < R + 3) {
+        petalT = 0.12; const a = Math.random() * 6.283, r = Math.random() * R * 0.9, p = B.F.w(Math.cos(a) * r, Math.sin(a) * r);
+        ctx.SPK.emit(V3(p.x, gy + 2.5 + Math.random() * 1.5, p.z), Math.random() < 0.7 ? { colors: [0xffc8d8, 0xfff0f4], n: 1, speed: 0.3, up: -0.3, gravity: -0.4, drag: 0.8, size: 0.2, life: 4 } : { color: 0xfff0a0, n: 1, speed: 0.2, up: 0.1, gravity: 0, drag: 0.5, size: 0.16, life: 2.5 });
+      }
+    } };
   }
 
   // ── 🔭 a lookout up a stair ────────────────────────────────
