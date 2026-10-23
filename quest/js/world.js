@@ -1624,7 +1624,12 @@ function step(dt) {
   const run = input.keys.ShiftLeft || input.keys.ShiftRight;
   // on a stick, speed follows how far you push: a gentle walk, then a run at the edge
   const speed = input.joy ? (mag < 0.8 ? mag * 8.5 : 6.8 + (mag - 0.8) * 26) : mag * (run ? 12 : 7.2);
-  const fx = -Math.sin(cam.yaw), fz = -Math.cos(cam.yaw), rx = Math.cos(cam.yaw), rz = -Math.sin(cam.yaw);
+  // while you hold one direction, it stays the same direction on the ground, so the camera can swing round behind you
+  // without steering you in a circle; a new direction, a stop, or turning the view yourself picks up the camera's heading again
+  { const ia = Math.atan2(r, f), held = mag > 0.05 && P.inA !== undefined && Math.abs(Math.atan2(Math.sin(ia - P.inA), Math.cos(ia - P.inA))) < 0.3;
+    if (!held || input.drag || cam.auto > 0) { P.moveYaw = cam.yaw; P.steady = 0; } else P.steady = (P.steady || 0) + dt;
+    P.inA = mag > 0.05 ? ia : undefined; }
+  const my = P.moveYaw ?? cam.yaw, fx = -Math.sin(my), fz = -Math.cos(my), rx = Math.cos(my), rz = -Math.sin(my);
   let mx = fx * f + rx * r, mz = fz * f + rz * r; const ml = Math.hypot(mx, mz) || 1; mx /= ml; mz /= ml;
   if (mag > 0.05) {
     const want = Math.atan2(mx, mz);
@@ -1684,9 +1689,11 @@ function step(dt) {
 
   // camera: follow and gently swing behind the player while walking (more readily on a phone stick)
   cam.auto = Math.max(0, cam.auto - dt);
-  if (mag > 0.3 && cam.auto <= 0 && !INDOOR && (f > 0.2 || (input.joy && f > -0.4))) {
+  // …and keep walking one way (sideways, or even back towards the camera) and after a moment it comes round behind you too
+    const fwd = f > 0.2 || (input.joy && f > -0.4), settled = (P.steady || 0) > 0.7;
+    if (mag > 0.3 && cam.auto <= 0 && !INDOOR && (fwd || settled)) {
     let d = (player.rotation.y + Math.PI) - cam.yaw; d = Math.atan2(Math.sin(d), Math.cos(d));
-    cam.yaw += d * dt * (input.joy ? 2.2 : 1.2) * Math.min(1, mag);
+    cam.yaw += d * dt * (fwd ? (input.joy ? 2.2 : 1.2) : 1.5) * Math.min(1, mag);
   }
   // pull the camera in when a hill stands between it and the hero
   // through a cottage door: the camera comes inside with you
