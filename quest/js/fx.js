@@ -125,6 +125,23 @@ export function makeFX(THREE, { LOW = false } = {}) {
     return material;
   }
 
+  // ── ground: painterly patches of light and shade, warmer and cooler, on any vertex-coloured ground ──
+  function groundDetail(material, { amt = 1.25 } = {}) {
+    material.onBeforeCompile = sh => {
+      sh.vertexShader = 'varying vec3 vGW;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n vGW = (modelMatrix * vec4(transformed, 1.)).xyz;');
+      sh.fragmentShader = 'varying vec3 vGW;\n' + NOISE.replace(/OCT/g, '3') + '\n' + sh.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>
+        {
+          float n1 = vn(vGW.xz * .07), n2 = vn(vGW.xz * .45 + 3.1), n3 = vn(vGW.xz * 2.3 + 7.7);
+          float k = ${amt.toFixed(2)};
+          diffuseColor.rgb *= 1. + k * (.2 * (n1 - .5) + .1 * (n2 - .5) + .06 * (n3 - .5));
+          diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * vec3(1.1, 1.05, .82), k * smoothstep(.55, .85, n1) * .45);
+          diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * vec3(.9, 1., 1.08), k * smoothstep(.6, .9, 1. - n1) * .3);
+        }`);
+    };
+    material.customProgramCacheKey = () => 'ground' + amt;
+    return material;
+  }
+
   // ── swirling portal disc ──
   function portalMaterial(c1 = 0x9ad0ff, c2 = 0x7a3aff) {
     return new THREE.ShaderMaterial({
@@ -333,5 +350,5 @@ export function makeFX(THREE, { LOW = false } = {}) {
     return { update, group: G };
   }
 
-  return { time, critters, sky, water, windify, portalMaterial, sparks, glow, blobShadow, heroPose, flyToHUD, tick: t => { time.value = t; } };
+  return { time, critters, groundDetail, sky, water, windify, portalMaterial, sparks, glow, blobShadow, heroPose, flyToHUD, tick: t => { time.value = t; } };
 }

@@ -270,7 +270,7 @@ function buildTerrain() {
   }
   g.setAttribute('color', new THREE.Float32BufferAttribute(cols, 3));
   g.computeVertexNormals();
-  const t = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.95, flatShading: false }));
+  const t = new THREE.Mesh(g, FX.groundDetail(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.95, flatShading: false })));
   t.receiveShadow = true;
   scene.add(t);
 
