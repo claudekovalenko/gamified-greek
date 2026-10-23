@@ -133,6 +133,7 @@ const BURSTS = FX.bursts(scene); // light pillars when a foe is banished
 const PRINTS = FX.footprints(scene); // footprints fading behind you on the road
 const HILLS = FX.farHills(scene); // far mountain ranges on the horizon
 const BOW = FX.rainbow(scene); // a rainbow after the storm
+const AUR = FX.aurora(scene); // northern lights on cold and starry nights
 const GUST = FX.gusts(scene); // a flurry of leaves on the wind now and then
 const STARS = FX.shootingStars(scene); // a shooting star now and then at night
 const SHAFTS = FX.sunShafts(scene); // sunbeams slanting down among the trees
@@ -163,6 +164,7 @@ function paintSky() {
   HILLS.setColors(atm.mid, atm.top, atm.stars);
   if (!blendAtmosphere.envT || performance.now() - blendAtmosphere.envT > 1500) { blendAtmosphere.envT = performance.now(); ENV.set(atm.top, atm.mid, atm.mid.clone().lerp(new THREE.Color(0x4a5a3a), 0.6)); }
   FX.setNight(Math.min(1, atm.stars * 1.4));
+  AUR.set(INDOOR ? 0 : atm.stars > 0.5 ? 0.7 : 0);
   FX.setLight({ sun: atm.sun.getHex(), sunI: atm.sunI, hemi: atm.hemi, stars: atm.stars });
   waterMat.userData.setSun((MOODS[MOOD] || {}).sunDir || [0.35, 0.42, -0.84], atm.sun.clone().lerp(new THREE.Color(0xffffff), 0.3));
   try { VEN.setDaylight(atm.stars > 0.5 ? 0.35 : Math.min(1, atm.sunI / 2.2), atm.stars > 0.5 ? 0x8aa8ff : 0xffffff); } catch (e) { /* the venues aren't made yet */ }
@@ -1640,7 +1642,7 @@ function step(dt) {
   camera.lookAt(camLook);
   if (S_SHAKE > 0) { S_SHAKE = Math.max(0, S_SHAKE - dt); camera.position.x += (Math.random() - 0.5) * S_SHAKE; camera.position.y += (Math.random() - 0.5) * S_SHAKE; }
   sun.position.set(pos.x + 30, pos.y + 60, pos.z + 20); sun.target.position.set(pos.x, pos.y, pos.z);
-  sky.position.copy(camera.position); HILLS.update(camera.position); BOW.update(dt, camera.position);
+  sky.position.copy(camera.position); HILLS.update(camera.position); BOW.update(dt, camera.position); AUR.update(camera.position);
 
   // regions
   const zi = zoneOf(pos.z);
@@ -1761,7 +1763,7 @@ function step(dt) {
   }
 
   SPK.update(dt); DUST.update(dt); ARENA.update(dt); BURSTS.update(dt); if (!INDOOR) POND.update(dt, pos); STARS.update(dt, camera.position, INDOOR ? 0 : atm.stars);
-  { const want = !LOW && !INDOOR && atm.stars > 0.5 ? 7 : 0; heroLight.intensity += (want - heroLight.intensity) * Math.min(1, dt * 2); heroLight.position.set(pos.x, pos.y + 2.2, pos.z); }
+  { const want = !LOW && !INDOOR && atm.stars > 0.5 ? 3.5 : 0; heroLight.intensity += (want - heroLight.intensity) * Math.min(1, dt * 2); heroLight.position.set(pos.x, pos.y + 3.2, pos.z); }
   FX.hero.value.copy(pos);
   GUST.update(dt, pos, INDOOR ? null : ZONES[Math.max(0, P.zone)].leaf.concat(ACCENT[LOOK(Math.max(0, P.zone))] || []));
   SHAFTS.update(dt, pos, camera.position, groundAt, INDOOR || atm.stars > 0.5 || atm.clouds > 0.8 ? 0 : 1, (MOODS[MOOD] || {}).sunDir);

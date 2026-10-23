@@ -572,6 +572,27 @@ export function makeFX(THREE, { LOW = false } = {}) {
     };
   }
 
+  // ── northern lights: shimmering green-violet curtains high in the sky; set(k) 0..1 ──
+  function aurora(scene) {
+    const u = { uTime: time, uK: { value: 0 } };
+    const geo = new THREE.CylinderGeometry(260, 260, 90, 96, 1, true);
+    const m = new THREE.Mesh(geo, new THREE.ShaderMaterial({
+      uniforms: u, transparent: true, depthWrite: false, fog: false, side: THREE.BackSide, blending: THREE.AdditiveBlending, defines,
+      vertexShader: 'varying vec2 vUv; void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.); gl_Position.z = gl_Position.w * .9996; }',
+      fragmentShader: `uniform float uTime, uK; varying vec2 vUv; ${NOISE}
+        void main() {
+          float x = vUv.x * 24., w = sin(x * 1.3 + uTime * .15) * .12 + fbm(vec2(x * .6, uTime * .05)) * .25;
+          float band = smoothstep(.0, .25, vUv.y - w) * smoothstep(1., .45, vUv.y - w);
+          float rays = .5 + .5 * sin(x * 14. + fbm(vec2(x * 2., uTime * .2)) * 6.);
+          vec3 c = mix(vec3(.2, 1., .55), vec3(.6, .35, 1.), smoothstep(.3, .9, vUv.y));
+          float edge = smoothstep(.2, .6, fbm(vec2(vUv.x * 4., uTime * .03)));
+          gl_FragColor = vec4(c * band * (.35 + .65 * rays) * edge * uK * .55, 1.);
+        }`,
+    }));
+    m.visible = false; m.frustumCulled = false; m.renderOrder = -8; scene.add(m);
+    return { set(k) { u.uK.value = k; m.visible = k > 0.01; }, update(cam) { if (m.visible) m.position.set(cam.x, cam.y + 175, cam.z); } };
+  }
+
   // ── a rainbow arching over the valley: show(dir) after a storm (it appears opposite dir), then fades over a minute ──
   function rainbow(scene) {
     const u = { uA: { value: 0 } };
@@ -935,5 +956,5 @@ export function makeFX(THREE, { LOW = false } = {}) {
         <span class="wm2-dot">${it.state === 'locked' ? '🔒' : it.icon || '•'}</span><span class="wm2-label ${pts[i][0] > W / 2 ? 'left' : ''}"><b>${i + 1}. ${esc(it.name)}</b><small>${esc(it.sub)}</small></span>${it.state === 'here' ? '<span class="wm2-you">🧙</span>' : ''}</button>`).join('')}</div></div>`;
   }
 
-  return { time, hero, gusts, rainbow, flowerGeo, footprints, mapHTML, vortex, lightPool, setNight, skyEnv, bloom, sunShafts, rim, rimCol, rimAmt, setLight, cloudShade, farHills, shootingStars, critters, arena, bursts, pondLife, groundDetail, sky, water, windify, portalMaterial, sparks, glow, blobShadow, heroPose, flyToHUD, tick: t => { time.value = t; } };
+  return { time, hero, aurora, gusts, rainbow, flowerGeo, footprints, mapHTML, vortex, lightPool, setNight, skyEnv, bloom, sunShafts, rim, rimCol, rimAmt, setLight, cloudShade, farHills, shootingStars, critters, arena, bursts, pondLife, groundDetail, sky, water, windify, portalMaterial, sparks, glow, blobShadow, heroPose, flyToHUD, tick: t => { time.value = t; } };
 }
