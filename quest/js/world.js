@@ -806,6 +806,7 @@ function buildEntities() {
     portal.add(ring);
     const disc = new THREE.Mesh(new THREE.CircleGeometry(2.8, 40), portalMat);
     portal.add(disc); portal.userData.disc = disc;
+    const vx = FX.vortex(3); portal.add(vx); portal.userData.vortex = vx; const vx2 = FX.vortex(3); vx2.rotation.y = Math.PI; portal.add(vx2); portal.userData.vortex2 = vx2;
     gate.add(portal);
     portals[i] = portal;
     put(gate, gx, gz);
@@ -1531,7 +1532,7 @@ function step(dt) {
     if (!w.seen.includes(zi)) { w.seen.push(zi); E.save(); if (KG.story.arrive[zi] && !dlgOpen) setTimeout(() => storyBeat(zi), first ? 300 : 900); }
   }
   blendAtmosphere(zi, Math.min(1, dt * 1.2));
-  for (const pt of portals) if (pt && pt.visible) { pt.userData.disc.rotation.z -= dt * 1.5; pt.children[0].rotation.z += dt * 0.4; }
+  for (const pt of portals) if (pt && pt.visible && Math.abs(pt.parent.position.z - pos.z) < 80) { pt.userData.disc.rotation.z -= dt * 1.5; pt.children[0].rotation.z += dt * 0.4; pt.userData.vortex.userData.update(dt); pt.userData.vortex2.userData.update(dt); }
   if (bannerT > 0 && (bannerT -= dt) <= 0) $('wbanner').classList.remove('on');
 
   // NPCs idle & interaction

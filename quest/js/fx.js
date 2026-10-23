@@ -525,6 +525,26 @@ export function makeFX(THREE, { LOW = false } = {}) {
     };
   }
 
+  // ── motes of light spiralling into a portal: add vortex() to the portal group, call update(dt) ──
+  function vortex(R = 3, n = LOW ? 40 : 90, color = 0xfff0c0) {
+    const pos = new Float32Array(n * 3), S = [];
+    for (let i = 0; i < n; i++) S.push({ a: Math.random() * 6.283, f: Math.random(), sp: 0.25 + Math.random() * 0.35 });
+    const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    const pts = new THREE.Points(geo, new THREE.PointsMaterial({ color, size: 0.34, map: sparkTexture(), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
+    pts.frustumCulled = false;
+    pts.userData.update = dt => {
+      if (!pts.parent || !pts.parent.visible) return;
+      S.forEach((s, i) => {
+        s.f += dt * s.sp; if (s.f >= 1) { s.f = 0; s.a = Math.random() * 6.283; }
+        s.a += dt * (1 + s.f * 4);
+        const r = R * 1.25 * (1 - s.f);
+        pos[i * 3] = Math.cos(s.a) * r; pos[i * 3 + 1] = Math.sin(s.a) * r; pos[i * 3 + 2] = 0.15 + (1 - s.f) * 0.6;
+      });
+      geo.attributes.position.needsUpdate = true;
+    };
+    return pts;
+  }
+
   // ── swirling portal disc ──
   function portalMaterial(c1 = 0x9ad0ff, c2 = 0x7a3aff) {
     return new THREE.ShaderMaterial({
@@ -745,5 +765,5 @@ export function makeFX(THREE, { LOW = false } = {}) {
     return { update, group: G };
   }
 
-  return { time, hero, setNight, skyEnv, bloom, sunShafts, rim, rimCol, rimAmt, setLight, cloudShade, farHills, shootingStars, critters, arena, bursts, pondLife, groundDetail, sky, water, windify, portalMaterial, sparks, glow, blobShadow, heroPose, flyToHUD, tick: t => { time.value = t; } };
+  return { time, hero, vortex, setNight, skyEnv, bloom, sunShafts, rim, rimCol, rimAmt, setLight, cloudShade, farHills, shootingStars, critters, arena, bursts, pondLife, groundDetail, sky, water, windify, portalMaterial, sparks, glow, blobShadow, heroPose, flyToHUD, tick: t => { time.value = t; } };
 }
