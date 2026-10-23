@@ -33,6 +33,11 @@ export function makeFX(THREE, { LOW = false } = {}) {
             vec3 q = floor(d * 260.); float st = fract(sin(dot(q, vec3(12.9898, 78.233, 37.719))) * 43758.5453);
             float tw = .6 + .4 * sin(uTime * 3. + st * 40.);
             col += step(.9975, st) * uStars * tw * smoothstep(.02, .3, y) * vec3(1., .95, .85);
+            // the Milky Way: a soft, dusty band of light across the sky, with dark lanes
+            float band = exp(-pow(dot(d, normalize(vec3(.35, .6, .72))), 2.) * 40.);
+            float dust = fbm(d.xz * 5. + d.y * 3.), lanes = smoothstep(.55, .75, fbm(d.xz * 9. + 3.));
+            col += vec3(.75, .76, .95) * band * (.3 + .5 * dust) * (1. - lanes * .5) * uStars * smoothstep(.05, .35, y) * .16;
+            col += step(.993, st) * band * uStars * .6 * smoothstep(.05, .35, y);
           }
           // at night the sun is the moon: a pale disc with soft grey seas and a halo
           if (uStars > .5) {
