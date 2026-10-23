@@ -25,6 +25,33 @@ const RADIUS = { campfire: 3.8, house: 5.8, stones: 6.4, stall: 2.8, garden: 5.4
 // how uneven the ground may be under each (the cottage and lookout stand on foundations and posts)
 const SLOPE = { campfire: 1.4, house: 3, stones: 9, stall: 1.6, garden: 1.4, lookout: 3 };
 const OFF = { campfire: 8.5, house: 12.5, stones: 12.5, stall: 5.8, garden: 11, lookout: 10.5 };
+// Stepping out of a cottage, the world outside has changed: each visit moves the
+// day on to the next of these. moodAtmos(A, m) returns world look A in mood m
+// (0 = the world as it is), with the same keys (top, mid, bot, sun, sunI, hemi, fog, clouds, stars),
+// plus hemiSky, hemiGround and exposure for the host to apply.
+export const MOODS = [
+  null,
+  { name: 'sunset', say: '🌇 The sun is setting outside.', top: 0x3a2a78, mid: 0xf4a868, bot: 0xffe0b0, sun: 0xffa050, sunI: 1.9, hemi: 0.95, fog: [50, 200], clouds: 0.5, stars: 0.2, sunDir: [-0.4, 0.1, -0.9], water: [0x3a3a6a, 0xe0a070], hemiSky: 0xffc890, hemiGround: 0x5a3a2a, exposure: 0.9 },
+  { name: 'night', say: '🌙 Night has fallen while you were inside. Look at the stars!', top: 0x070c26, mid: 0x26346a, bot: 0x5a6898, sun: 0xa8b8ff, sunI: 0.5, hemi: 0.55, fog: [35, 170], clouds: 0.2, stars: 1, sunDir: [0.2, 0.35, -0.9], water: [0x0c1838, 0x3a5a98], hemiSky: 0x6a84d0, hemiGround: 0x141a30, exposure: 0.62 },
+  { name: 'dawn', say: '🌄 Morning mist. A new day!', top: 0x7a86c0, mid: 0xf2c8c4, bot: 0xfff2e4, sun: 0xffd2b8, sunI: 1.6, hemi: 1.1, fog: [14, 95], clouds: 0.6, stars: 0, sunDir: [0.6, 0.12, -0.8], water: [0x5a7aa8, 0xf0c8c8], hemiSky: 0xffe0e8, hemiGround: 0x6a6a5a, exposure: 1.05 },
+  { name: 'storm', say: '⛈️ Storm clouds rolled in!', top: 0x2e3440, mid: 0x7e8894, bot: 0xaab2bc, sun: 0xd8e0ff, sunI: 0.7, hemi: 0.9, fog: [22, 130], clouds: 1, stars: 0, water: [0x1e2a36, 0x6a7a88], hemiSky: 0xa8b4c8, hemiGround: 0x2a3430, exposure: 0.78 },
+];
+// what drifts in the air in each mood: fireflies at night, rain in the storm, petals at dawn
+const MOTES = {
+  night: { every: 0.12, o: { colors: [0xd8ff70, 0xfff090], n: 1, speed: 0.4, up: 0.15, gravity: 0.15, drag: 0.3, size: 0.28, size1: 0.1, life: 3.2, spread: 6 } },
+  storm: { every: 0.012, o: { color: 0xc8d8f0, n: 2, speed: 0.2, up: -14, gravity: -12, drag: 0, size: 0.2, size1: 0.16, life: 0.9, spread: 9 }, high: 9 },
+  dawn: { every: 0.15, o: { colors: [0xffc8d8, 0xfff0f4], n: 1, speed: 0.6, up: -0.4, gravity: -0.5, drag: 0.6, size: 0.22, size1: 0.18, life: 4, spread: 8 }, high: 5 },
+};
+let moteT = 0;
+export function moodMotes(m, sparks, pos, dt) {
+  const M = MOODS[m % MOODS.length], k = M && MOTES[M.name];
+  if (!k) return;
+  for (moteT += dt; moteT > k.every; moteT -= k.every) {
+    const a = Math.random() * 6.283, r = 2 + Math.random() * k.o.spread;
+    sparks.emit({ x: pos.x + Math.cos(a) * r, y: pos.y + (k.high || 1) + Math.random() * 1.5, z: pos.z + Math.sin(a) * r }, k.o);
+  }
+}
+export const moodAtmos = (A, m) => (m % MOODS.length ? Object.assign({}, A, MOODS[m % MOODS.length]) : A);
 export const VENUE_TYPES = ['campfire', 'house', 'stones', 'stall', 'garden', 'lookout'];
 // the wanted type first, then the rest in a rotating order so the fallbacks vary too
 export const venueOrder = n => VENUE_TYPES.map((_, k) => VENUE_TYPES[(n + k) % VENUE_TYPES.length]);
@@ -125,9 +152,9 @@ export function makeVenues(ctx) {
     return { B, teacher: [0, -0.6], entry: [0, 2.3] };
   }
 
-  // ── 🏠 cottage: walk in through the door; the roof lifts away inside ──
+  // ── 🏠 cottage: walk in through the door into a room of its own ──
   function house(cx, cz, face, o) {
-    const B = start(cx, cz, face), W = 8.4, D = 7, H = 3;
+    const B = start(cx, cz, face), W = 8.4, D = 7, H = 3.4;
     const { lo, hi } = B.range(-W / 2, W / 2, -D / 2, D / 2, W / 4);
     const fy = hi + 0.25;
     B.add(new THREE.BoxGeometry(W + 0.4, fy - lo + 0.6, D + 0.4), 0x9a8f80, 0, (fy + lo - 0.6) / 2 - 0.06, 0);
@@ -136,7 +163,7 @@ export function makeVenues(ctx) {
     const plaster = 0xeadfc8, timber = 0x5a3a20, w = (x, z, len, alongX) => B.add(new THREE.BoxGeometry(alongX ? len : 0.3, H, alongX ? 0.3 : len), plaster, x, H / 2, z, undefined, walls);
     w(0, -D / 2, W, true); w(-W / 2, 0, D, false); w(W / 2, 0, D, false);
     const seg = (W - 1.8) / 2; w(-(0.9 + seg / 2), D / 2, seg, true); w(0.9 + seg / 2, D / 2, seg, true);
-    B.add(new THREE.BoxGeometry(1.8, 0.7, 0.3), plaster, 0, H - 0.35, D / 2, undefined, walls);
+    B.add(new THREE.BoxGeometry(1.8, H - 2.35, 0.3), plaster, 0, (H + 2.35) / 2, D / 2, undefined, walls);
     for (const x of [-W / 2, W / 2]) for (const z of [-D / 2, D / 2]) B.add(new THREE.BoxGeometry(0.38, H + 0.05, 0.38), timber, x, H / 2, z, undefined, walls);
     for (const x of [-1, 1]) B.add(new THREE.BoxGeometry(0.2, 2.35, 0.36), timber, x * 0.95, 1.17, D / 2, undefined, walls);
     B.add(new THREE.BoxGeometry(W, 0.16, 0.34), timber, 0, 2.1, -D / 2, undefined, walls);
@@ -170,11 +197,23 @@ export function makeVenues(ctx) {
     B.add(new THREE.BoxGeometry(2.3, 1.2, 0.08), 0x2a3a2a, 0, 1.9, -D / 2 + 0.2, undefined, inn);
     if (o.title) { const t = ctx.textSprite(o.title, { size: 34, bg: null, color: '#f5f0dc', scale: 0.0068 }); t.position.set(0, 1.9, -D / 2 + 0.35); inn.add(t); }
     B.add(new THREE.CylinderGeometry(0.3, 0.22, 0.45, 8), 0xb5523a, W / 2 - 0.7, 0.22, D / 2 - 0.8, undefined, inn);
+    // a ceiling with beams and a hanging lantern: once you're in, you're in a room of your own
+    const ceil = B.add(new THREE.PlaneGeometry(W, D), 0xc8b090, 0, H - 0.02, 0, undefined, inn); ceil.rotation.x = Math.PI / 2;
+    for (let x = -W / 2 + 1; x < W / 2; x += 1.6) B.add(new THREE.BoxGeometry(0.22, 0.26, D), timber, x, H - 0.15, 0, undefined, inn);
+    const lx = -1.9, lz = 0.6;
+    B.add(new THREE.CylinderGeometry(0.02, 0.02, 0.7, 4), 0x2a2a2a, lx, H - 0.4, lz, undefined, inn);
+    B.add(new THREE.BoxGeometry(0.3, 0.38, 0.3), 0xffe09a, lx, H - 0.9, lz, { emissive: 0xffb84a, emissiveIntensity: 1.3 }, inn);
+    B.add(new THREE.ConeGeometry(0.26, 0.2, 4), 0x3a2a1a, lx, H - 0.62, lz, undefined, inn).rotation.y = Math.PI / 4;
+    B.glowAt(0xffc870, 2.6, lx, H - 0.9, lz, inn);
+    // a window seat and a map on the wall
+    B.add(new THREE.BoxGeometry(0.6, 0.45, 1.6), 0x8a5a2a, -W / 2 + 0.5, 0.22, 0, undefined, inn);
+    B.add(new THREE.BoxGeometry(0.5, 0.14, 1.5), 0x3f6d8a, -W / 2 + 0.5, 0.5, 0, undefined, inn);
+    B.add(new THREE.BoxGeometry(0.05, 0.9, 1.3), 0xe8d8a8, W / 2 - 0.18, 1.6, D / 2 - 2.2, undefined, inn);
     B.add(new THREE.IcosahedronGeometry(0.45, 0), 0x4f8f3a, W / 2 - 0.7, 0.75, D / 2 - 0.8, undefined, inn);
     // walls block, except at the door
     for (let x = -W / 2; x <= W / 2 + 1e-6; x += 0.6) { B.col(x, -D / 2, 0.35); if (Math.abs(x) > 1.1) B.col(x, D / 2, 0.35); }
     for (let z = -D / 2 + 0.6; z < D / 2; z += 0.6) { B.col(-W / 2, z, 0.35); B.col(W / 2, z, 0.35); }
-    B.col(-2.4, -1.4, 0.75); B.col(2.4, -D / 2 + 0.7, 0.8);
+    B.col(-2.4, -1.4, 0.75); B.col(2.4, -D / 2 + 0.7, 0.8); B.col(-W / 2 + 0.6, -0.45, 0.45); B.col(-W / 2 + 0.6, 0.45, 0.45);
     // the floor, and a step up to the door
     // the steps up to the door are a gentle ramp underfoot, as long as the plinth is high
     const F = B.F, SL = Math.max(1.2, (fy - B.rawL(0, D / 2 + 2)) / 0.7), gd = B.rawL(0, D / 2 + 0.2 + SL);
@@ -184,16 +223,20 @@ export function makeVenues(ctx) {
       for (let j = 0; j < n; j++) { const top = fy - (j + 1) * (fy - gd) / (n + 0.3); B.add(new THREE.BoxGeometry(2.2, top - gd + 0.3, SL / n), 0x9a8f80, 0, (top + gd - 0.3) / 2, D / 2 + 0.2 + (j + 0.5) * SL / n); }
       plat(cx, cz, Math.hypot(W, D) / 2 + SL + 1, (x, z) => { const l = F.l(x, z); return Math.abs(l.x) < 1.1 && l.z >= D / 2 + 0.2 && l.z <= D / 2 + 0.2 + SL ? fy - (l.z - D / 2 - 0.2) / SL * (fy - gd) : null; });
     }
-    let cut = 1;
     return {
-      B, teacher: [0.5, -1.3], entry: [0, D / 2 + SL + 1], y: fy,
+      B, teacher: [0.5, -1.3], entry: [0, D / 2 + SL + 1], y: fy, room: true,
       inside: p => { const l = F.l(p.x, p.z); return Math.abs(l.x) < W / 2 - 0.25 && Math.abs(l.z) < D / 2 - 0.15; },
-      update(dt, t, pos) {
-        const want = this.inside(pos) ? 0.22 : 1;
-        cut += (want - cut) * Math.min(1, dt * 6);
-        walls.scale.y = cut; roof.visible = cut > 0.92;
-        flame(dt, t, F);
+      // the camera's spot in the room: high up by the door, looking in, drifting across as you walk
+      roomCam(pos, c) {
+        const l = F.l(pos.x, pos.z), p = F.w(Math.max(-1.6, Math.min(1.6, l.x * 0.5)), D / 2 - 0.5);
+        c.set(p.x, fy + H - 0.45, p.z);
       },
+      // keeps the camera inside the room, under the ceiling
+      clampCam(c) {
+        const l = F.l(c.x, c.z), m = 0.45, p = F.w(Math.max(-W / 2 + m, Math.min(W / 2 - m, l.x)), Math.max(-D / 2 + m, Math.min(D / 2 - m, l.z)));
+        c.x = p.x; c.z = p.z; c.y = Math.max(fy + 0.9, Math.min(fy + H - 0.4, c.y));
+      },
+      update(dt, t) { flame(dt, t, F); },
     };
   }
 
@@ -389,6 +432,8 @@ export function makeVenues(ctx) {
   return {
     place, ground, list,
     inside: pos => list.some(v => v.inside && Math.abs(pos.x - v.x) < 6 && Math.abs(pos.z - v.z) < 6 && v.inside(pos)),
+    // the room you're standing in (a cottage), or null
+    room: pos => list.find(v => v.room && Math.abs(pos.x - v.x) < 6 && Math.abs(pos.z - v.z) < 6 && v.inside(pos)) || null,
     update(dt, t, pos, onGround) {
       for (let i = anims.length - 1; i >= 0; i--) if (anims[i](dt) === false) anims.splice(i, 1);
       for (const v of list) {

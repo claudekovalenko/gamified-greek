@@ -6,7 +6,7 @@ import * as THREE from './vendor/three.module.min.js';
 import { createStage } from './stage.js';
 import { makeFX } from './fx.js';
 import { makeSideQuests } from './sidequests.js';
-import { makeVenues, venueOrder } from './venues.js';
+import { makeVenues, venueOrder, moodAtmos, moodMotes, MOODS } from './venues.js';
 import { tallyRaiders, raiderMesh, animateRaider } from './raiders.js';
 
 const KG = window.KG, E = KG.engine, U = KG.util;
@@ -137,17 +137,40 @@ const ATMOS = [
   { top: 0x4a3a8a, mid: 0xf8c070, bot: 0xfff0c8, sun: 0xffc860, sunI: 2.3, hemi: 1.1, fog: [60, 230], clouds: 0.4, stars: 0.15 },   // Great Library: golden sunset
 ];
 const atm = { top: new THREE.Color(ATMOS[0].top), mid: new THREE.Color(ATMOS[0].mid), bot: new THREE.Color(ATMOS[0].bot), sun: new THREE.Color(ATMOS[0].sun), sunI: 2.2, hemi: 1.1, near: 60, far: 230, clouds: 0.45, stars: 0 };
+// MOOD: how far the day has moved on (each cottage you step out of moves it on); INDOOR: inside a room
+let MOOD = 0, INDOOR = null, DOOR = null, EXPO = 1;
 function paintSky() {
+  const M = MOODS[MOOD] || {};
   sky.userData.set(atm);
-  waterMat.userData.setColors(0x1f6a9a, 0x5ac0e0, atm.mid);
+  waterMat.userData.setColors(...(M.water || [0x1f6a9a, 0x5ac0e0]), atm.mid);
   scene.fog.color.copy(atm.mid); scene.fog.near = atm.near; scene.fog.far = atm.far;
   sun.color.copy(atm.sun); sun.intensity = atm.sunI; hemi.intensity = atm.hemi;
+  hemi.color.setHex(M.hemiSky || 0xdff0ff); hemi.groundColor.setHex(M.hemiGround || 0x5a6a3a); EXPO = M.exposure || 1;
+  // indoors: warm lamplight, the sun only through the windows
+  if (INDOOR) { sun.intensity *= 0.25; hemi.color.setHex(0xffdcb0); hemi.groundColor.setHex(0x7a5a3a); hemi.intensity = 1.25; EXPO = 1; }
 }
 function blendAtmosphere(zi, k) {
-  const A = ATMOS[LOOK(zi)], T = new THREE.Color();
+  const A = moodAtmos(ATMOS[LOOK(zi)], MOOD), T = new THREE.Color();
   atm.top.lerp(T.setHex(A.top), k); atm.mid.lerp(T.setHex(A.mid), k); atm.bot.lerp(T.setHex(A.bot), k); atm.sun.lerp(T.setHex(A.sun), k);
   atm.sunI += (A.sunI - atm.sunI) * k; atm.hemi += (A.hemi - atm.hemi) * k; atm.clouds += (A.clouds - atm.clouds) * k; atm.stars += (A.stars - atm.stars) * k; atm.near += (A.fog[0] - atm.near) * k; atm.far += (A.fog[1] - atm.far) * k;
   paintSky();
+}
+// stepping through a cottage door: a quick fade, and you're in a room of your own;
+// step back out and the day outside has moved on
+function doorway(v) {
+  root.classList.remove('doorfx'); void root.offsetWidth; root.classList.add('doorfx');
+  // the day moves on only after a real visit, not a step back over the threshold
+  const leaving = !v, moveOn = leaving && performance.now() - (doorway.at || 0) > 2500;
+  if (v) doorway.at = performance.now();
+  DOOR = v;
+  setTimeout(() => {
+    INDOOR = v;
+    if (moveOn) MOOD = (MOOD + 1) % MOODS.length;
+    blendAtmosphere(Math.max(0, P.zone), 1);
+    cam.snap = true;
+    if (moveOn && MOODS[MOOD]) KG.app.toast(MOODS[MOOD].say);
+  }, 220);
+  setTimeout(() => root.classList.remove('doorfx'), 800);
 }
 sun = new THREE.DirectionalLight(0xfff1d6, 2.2);
 sun.castShadow = true;
@@ -598,7 +621,7 @@ const portals = [];
 function marker(text, color) { const m = textSprite(text, { size: 64, bg: null, color, font: `900 64px Nunito, sans-serif`, scale: 0.016 }); return m; }
 function addEnt(e) {
   const nameTag = textSprite(e.label, { size: 30 });
-  nameTag.position.y = e.tagY || 2.7; e.obj.add(nameTag);
+  nameTag.position.y = e.tagY || 2.7; e.obj.add(nameTag); e.tag = nameTag;
   e.mark = marker('!', '#ffd166'); e.mark.position.y = (e.tagY || 2.7) + 0.9; e.mark.visible = false; e.obj.add(e.mark);
   ents.push(e); colliders.push({ x: e.x, z: e.z, r: e.r || 0.8 });
   return e;
@@ -673,7 +696,7 @@ function buildEntities() {
         const m = person({ robe: ROBES[who % ROBES.length], hair: [0xdddddd, 0x6a3e1e, 0x2a1a10, 0xc8a050][who % 4], beard: who % 3 === 0, staff: who % 2 === 0, hood: who % 4 === 1, skin: [0xf0c8a0, 0xd8a878, 0xb07850, 0x8a5a3a][who % 4] });
         m.rotation.y = v ? v.tFace : side > 0 ? -Math.PI / 2 : Math.PI / 2;
         put(m, x, zz);
-        const e = addEnt({ kind: 'mentor', zone: i, obj: m, x, z: zz, node: n, person: P, label: `${P[0]} · ${P[1]}`, venue: v });
+        const e = addEnt({ kind: 'mentor', zone: i, obj: m, x, z: zz, node: n, person: P, label: `${P[0]} · ${P[1]}`, venue: v, tagY: v && v.room ? 2.3 : undefined });
         if (v && v.gate) {
           const g = addEnt({ kind: 'vgate', zone: i, obj: v.gate.obj, x: v.gate.x, z: v.gate.z, label: '🔒 Word Gate', tagY: 2.4, r: 0.01, vgate: v.gate });
           e.gateEnt = g;
@@ -1390,9 +1413,10 @@ function step(dt) {
     cam.yaw += d * dt * (input.joy ? 2.2 : 1.2) * Math.min(1, mag);
   }
   // pull the camera in when a hill stands between it and the hero
-  // inside a cottage the camera comes in close and looks down over the cut-away walls
-  P.inT = (P.inT || 0) + ((VEN.inside(pos) ? 1 : 0) - (P.inT || 0)) * Math.min(1, dt * 4);
-  const cDist = cam.dist + (Math.min(cam.dist, 8.5) - cam.dist) * P.inT, cPitch = cam.pitch + (Math.max(cam.pitch, 1.1) - cam.pitch) * P.inT;
+  // through a cottage door: the camera comes inside with you
+  const room = VEN.room(pos);
+  if (room !== DOOR) doorway(room);
+  const cDist = INDOOR ? Math.min(cam.dist, 4.6) : cam.dist, cPitch = INDOOR ? Math.max(0.55, Math.min(0.8, cam.pitch)) : cam.pitch;
   let cd = cDist;
   for (let k = 1; k <= 6; k++) {
     const fk = k / 6, cx = pos.x + Math.sin(cam.yaw) * Math.cos(cPitch) * cDist * fk, cz = pos.z + Math.cos(cam.yaw) * Math.cos(cPitch) * cDist * fk;
@@ -1408,7 +1432,9 @@ function step(dt) {
     tmp.set(pos.x - dx / dl * 5.5 - dz / dl * sd, Math.max(pos.y, aim.y) + (foe ? 5 : 4), pos.z - dz / dl * 5.5 + dx / dl * sd);
     tmp.y = Math.max(tmp.y, groundAt(tmp.x, tmp.z) + 1);
   }
-  camera.position.lerp(tmp, Math.min(1, dt * (aim ? 4 : 8)));
+  if (INDOOR && !aim) { INDOOR.roomCam(pos, tmp); let dy = INDOOR.face - cam.yaw; cam.yaw += Math.atan2(Math.sin(dy), Math.cos(dy)) * Math.min(1, dt * 3); }
+  if (INDOOR) INDOOR.clampCam(tmp);
+  camera.position.lerp(tmp, cam.snap ? 1 : Math.min(1, dt * (aim ? 4 : 8))); cam.snap = false;
   camLook.lerp(tmp2.set(pos.x, pos.y + 1.4, pos.z).lerp(focus || tmp2, focus ? (foe ? 0.45 : 0.7) : 0), Math.min(1, dt * 6));
   camera.lookAt(camLook);
   if (S_SHAKE > 0) { S_SHAKE = Math.max(0, S_SHAKE - dt); camera.position.x += (Math.random() - 0.5) * S_SHAKE; camera.position.y += (Math.random() - 0.5) * S_SHAKE; }
@@ -1435,6 +1461,7 @@ function step(dt) {
     const d = Math.hypot(pos.x - e.x, pos.z - e.z);
     if (e.kind === 'villain') { e.obj.userData.body.position.y = Math.abs(Math.sin(t * 5)) * 0.08; e.obj.userData.body.rotation.z = Math.sin(t * 2.3) * 0.12; }
     e.mark.position.y = (e.tagY || 2.7) + 0.9 + Math.sin(t * 3) * 0.12;
+    if (e.tag) e.tag.visible = !INDOOR || camera.position.distanceTo(e.obj.position) > 3.2; // no giant name in your face in a small room
     if (e.kind === 'side' || e.kind === 'vgate') { if (d < best) { best = d; nearEnt = e; } continue; }
     if (e.kind === 'chest') { if (e.glow.visible) e.glow.position.y = 1.9 + Math.sin(t * 3) * 0.12; }
     else if (e.kind === 'pedestal') { e.spin.rotation.y += dt; e.spin.position.y = 1.7 + Math.sin(t * 2) * 0.1; }
@@ -1530,6 +1557,7 @@ function step(dt) {
   updateAmbience(dt, t, pos);
   SQ.update(dt, t, pos, P.onGround);
   VEN.update(dt, t, pos, P.onGround);
+  if (!INDOOR) moodMotes(MOOD, SPK, pos, dt);
 
   if ((saveT += dt) > 5) { saveT = 0; savePos(); }
 }
@@ -1545,8 +1573,8 @@ function loop() {
   raf = requestAnimationFrame(loop);
   const dt = Math.min(0.05, clock.getDelta());
   FX.tick(clock.elapsedTime);
-  if (mode === 'stage') { stage.update(dt, clock.elapsedTime); stage.render(renderer); }
-  else { step(dt); renderer.render(scene, camera); }
+  if (mode === 'stage') { renderer.toneMappingExposure = 1; stage.update(dt, clock.elapsedTime); stage.render(renderer); }
+  else { step(dt); renderer.toneMappingExposure = EXPO; renderer.render(scene, camera); }
 }
 function startLoop() { if (!active) { active = true; clock.getDelta(); loop(); } }
 function resize() {
@@ -1607,7 +1635,7 @@ W.onLessonDone = (node, r) => {
     if (e) burst(new THREE.Vector3(e.x, groundAt(e.x, e.z) + 2, e.z), 0xffffff);
   });
 };
-W.debug = { sim: (n, dt = 1 / 60) => { for (let i = 0; i < n; i++) step(dt); }, colliders, VEN, og: (x, z, r, t) => openGround(x, z, r, t), SQ, scene, startBattle: w => startBattle(w), player, camera, cam, P, ents, wisps, questTarget, teleport: (x, z) => { player.position.set(x, groundAt(x, z), z); snapCamera(); } };
+W.debug = { get moodNow() { return MOOD; }, get indoor() { return !!INDOOR; }, mood: m => { MOOD = m; blendAtmosphere(P.zone < 0 ? 0 : P.zone, 1); }, sim: (n, dt = 1 / 60) => { for (let i = 0; i < n; i++) step(dt); }, colliders, VEN, og: (x, z, r, t) => openGround(x, z, r, t), SQ, scene, startBattle: w => startBattle(w), player, camera, cam, P, ents, wisps, questTarget, teleport: (x, z) => { player.position.set(x, groundAt(x, z), z); snapCamera(); } };
 
 // ── build ─────────────────────────────────────────────────────
 (async () => {
