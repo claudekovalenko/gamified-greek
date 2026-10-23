@@ -47,9 +47,11 @@ export function makeFX(THREE, { LOW = false } = {}) {
           }
           if (y > .0 && uCloud > 0.) {
             vec2 uv = d.xz / (y + .18) * .9 + uTime * vec2(.012, .005);
-            float n = fbm(uv * 1.3), c = smoothstep(1.05 - uCloud * .7, 1.2 - uCloud * .6, n) * smoothstep(.04, .32, y);
+            float n = fbm(uv * 1.3) + .08, c = smoothstep(.95 - uCloud * .7, 1.15 - uCloud * .6, n) * smoothstep(.04, .32, y); // fuller skies of cumulus
             float lit = smoothstep(.3, 1., fbm(uv * 1.3 + uSunDir.xz * .2));
             vec3 cc = mix(vec3(1.02), mix(uMid, uTop, .35) * .9 + .12, lit * .55);
+            // low sun: the cloud undersides catch the warm horizon light
+            float low = smoothstep(.35, .05, uSunDir.y); cc = mix(cc, cc * mix(vec3(1.), uSun * 1.25 + uMid * .3, .8), low * (1. - lit * .5));
             cc += uSun * pow(s, 8.) * .5;
             col = mix(col, cc, c * .9);
           }
