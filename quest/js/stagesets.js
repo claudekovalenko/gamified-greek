@@ -3,7 +3,7 @@
 // creature you train against there. Used by js/stage.js.
 export const THEMES = ['village', 'forest', 'meadow', 'river', 'ridge', 'ruins', 'lake', 'peak', 'library'];
 
-export function makeSets(THREE, { LOW, golem }) {
+export function makeSets(THREE, { LOW, golem, FX }) {
   const M = (color, o = {}) => new THREE.MeshStandardMaterial(Object.assign({ color, roughness: 0.85, flatShading: true }, o));
   const sh = m => { m.castShadow = m.receiveShadow = !LOW; return m; };
   const mk = (geo, color, o) => sh(new THREE.Mesh(geo, color.isMaterial ? color : M(color, o)));
@@ -31,9 +31,10 @@ export function makeSets(THREE, { LOW, golem }) {
       tree(g, Math.cos(a) * r, Math.sin(a) * r - 4, kinds[Math.floor(rand() * kinds.length)], 0.8 + rand() * 0.8, leaf);
     }
   }
-  function ground(g, color, r = 80) { const m = new THREE.Mesh(new THREE.CircleGeometry(r, 40), M(color)); m.rotation.x = -Math.PI / 2; m.position.y = -0.02; m.receiveShadow = !LOW; g.add(m); return m; }
+  function ground(g, color, r = 80) { const mt = M(color, { flatShading: false }); if (FX) FX.groundDetail(mt); const m = new THREE.Mesh(new THREE.CircleGeometry(r, 40), mt); m.rotation.x = -Math.PI / 2; m.position.y = -0.02; m.receiveShadow = !LOW; g.add(m); return m; }
   function water(g, w, d, z, color = 0x3a9ad0, y = -0.15) {
-    const m = new THREE.Mesh(new THREE.PlaneGeometry(w, d, 30, 6), new THREE.MeshStandardMaterial({ color, roughness: 0.1, metalness: 0.4, transparent: true, opacity: 0.88, flatShading: true }));
+    const c = new THREE.Color(color), mt = FX ? FX.water({ deep: c.clone().multiplyScalar(0.55).getHex(), shallow: color, sky: 0xcfe8ff }) : new THREE.MeshStandardMaterial({ color, roughness: 0.1, metalness: 0.4, transparent: true, opacity: 0.88, flatShading: true });
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(w, d, 30, 6), mt);
     m.rotation.x = -Math.PI / 2; m.position.set(0, y, z); g.add(m); return m;
   }
   function motes(g, color, n, vy, size = 0.18, spread = [-20, 20, 0, 12, -26, 8]) {
