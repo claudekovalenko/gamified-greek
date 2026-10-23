@@ -174,7 +174,9 @@ export function makeFX(THREE, { LOW = false } = {}) {
   // and exposure are applied in the final pass. Falls back to a plain render if unsupported.
   function bloom(renderer, { strength = 0.55, threshold = 0.82 } = {}) {
     const caps = renderer.capabilities;
-    if (!caps.isWebGL2) return { render: (s, c) => renderer.render(s, c), enabled: false };
+    // needs half-float render targets (some older phones can't draw into them): otherwise a plain render
+    const ext = renderer.extensions;
+    if (!caps.isWebGL2 || !(ext.has('EXT_color_buffer_float') || ext.has('EXT_color_buffer_half_float'))) return { render: (s, c) => renderer.render(s, c), enabled: false, strength: { value: 0 } };
     const mk = (w, h, o = {}) => new THREE.WebGLRenderTarget(w, h, Object.assign({ type: THREE.HalfFloatType, depthBuffer: false }, o));
     let W = 0, H = 0, main, a, b;
     const quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2)), qs = new THREE.Scene(), qc = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
@@ -210,6 +212,7 @@ export function makeFX(THREE, { LOW = false } = {}) {
       render(scene, camera) {
         if (!api.enabled) { renderer.setRenderTarget(null); return renderer.render(scene, camera); }
         fit();
+        if (!api.checked) { api.checked = true; renderer.setRenderTarget(main); const gl = renderer.getContext(); if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE) { api.enabled = false; renderer.setRenderTarget(null); return renderer.render(scene, camera); } }
         renderer.setRenderTarget(main); renderer.render(scene, camera);
         bright.uniforms.tSrc.value = main.texture; pass(bright, a);
         for (let i = 0; i < 2; i++) {
