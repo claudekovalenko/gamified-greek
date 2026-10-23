@@ -818,6 +818,17 @@ export function makeFX(THREE, { LOW = false } = {}) {
     s.userData.glow = { size, opacity }; glows.push(s);
     return s;
   }
+  // ── moss on whatever faces the sky (rocks, stones): pass a standard material; amount 0..1 ──
+  function mossy(mat, color = 0x5f8a3a, amount = 0.8) {
+    const c = new THREE.Color(color), v = `vec3(${c.r.toFixed(4)}, ${c.g.toFixed(4)}, ${c.b.toFixed(4)})`, k = amount.toFixed(3);
+    mat.onBeforeCompile = sh => {
+      sh.fragmentShader = sh.fragmentShader.replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>
+        { vec3 wN = (vec4(normal, 0.) * viewMatrix).xyz; float mk = smoothstep(.2, .65, wN.y) * ${k};
+          diffuseColor.rgb = mix(diffuseColor.rgb, ${v} * (.8 + .25 * wN.y), mk); }`);
+    };
+    mat.customProgramCacheKey = () => 'mossy' + v + k;
+    return mat;
+  }
   // ── a street-lamp head: six glowing glass panes under an iron cap, on a collar; place it at the bulb's height ──
   let LANT = null;
   function lantern() {
@@ -1015,5 +1026,5 @@ export function makeFX(THREE, { LOW = false } = {}) {
         <span class="wm2-dot">${it.state === 'locked' ? '🔒' : it.icon || '•'}</span><span class="wm2-label ${pts[i][0] > W / 2 ? 'left' : ''}"><b>${i + 1}. ${esc(it.name)}</b><small>${esc(it.sub)}</small></span>${it.state === 'here' ? '<span class="wm2-you">🧙</span>' : ''}</button>`).join('')}</div></div>`;
   }
 
-  return { time, lantern, wetness, signBoard, hero, aurora, gusts, rainbow, flowerGeo, footprints, mapHTML, vortex, lightPool, setNight, skyEnv, bloom, sunShafts, rim, rimCol, rimAmt, setLight, cloudShade, farHills, shootingStars, critters, arena, bursts, pondLife, groundDetail, sky, water, windify, portalMaterial, sparks, glow, blobShadow, heroPose, flyToHUD, tick: t => { time.value = t; } };
+  return { time, mossy, lantern, wetness, signBoard, hero, aurora, gusts, rainbow, flowerGeo, footprints, mapHTML, vortex, lightPool, setNight, skyEnv, bloom, sunShafts, rim, rimCol, rimAmt, setLight, cloudShade, farHills, shootingStars, critters, arena, bursts, pondLife, groundDetail, sky, water, windify, portalMaterial, sparks, glow, blobShadow, heroPose, flyToHUD, tick: t => { time.value = t; } };
 }

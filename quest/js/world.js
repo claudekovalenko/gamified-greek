@@ -390,7 +390,7 @@ function scatterTrees() {
   for (const im of [trunks, leaves, pines]) { im.castShadow = true; im.receiveShadow = true; scene.add(im); }
 
   // rocks & flowers
-  const rocks = new THREE.InstancedMesh(new THREE.DodecahedronGeometry(0.7, 0), mat(0x8f8a80), 260);
+  const rocks = new THREE.InstancedMesh(new THREE.DodecahedronGeometry(0.7, 0), FX.mossy(new THREE.MeshStandardMaterial({ roughness: 0.9, flatShading: true }), 0x6f9a45, 0.8), 260);
   for (let i = 0; i < 260; i++) {
     const z = -Math.random() * -END_Z, side = Math.random() < 0.5 ? -1 : 1, x = pathX(z) + side * (4 + Math.random() * 30);
     const s = 0.4 + Math.random() * 1.4;
@@ -398,6 +398,7 @@ function scatterTrees() {
     m.compose(pos.set(x, height(x, z) + 0.2 * s, z), q, sc.set(s, s * 0.7, s));
     if (keepOut.some(c => Math.hypot(c.x - x, c.z - z) < c.r)) m.makeScale(0, 0, 0);
     rocks.setMatrixAt(i, m);
+    rocks.setColorAt(i, new THREE.Color(0x8f8a80).setHex(0x8f8a80).offsetHSL((Math.random() - 0.5) * 0.04, (Math.random() - 0.5) * 0.06, (Math.random() - 0.5) * 0.1)); // no two stones quite alike
   }
   rocks.castShadow = rocks.receiveShadow = true; scene.add(rocks);
   const NF = LOW ? 600 : 1500, fl = new THREE.InstancedMesh(FX.flowerGeo(), FX.windify(new THREE.MeshStandardMaterial({ roughness: 1, vertexColors: true }), { amp: 0.35, freq: 2, nearFade: true }), NF);
