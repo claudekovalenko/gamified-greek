@@ -1575,6 +1575,8 @@ function step(dt) {
     else if (e.kind === 'pedestal') { e.spin.rotation.y += dt; e.spin.position.y = 1.7 + Math.sin(t * 2) * 0.1; }
     else if (d < 12) { const want = Math.atan2(pos.x - e.x, pos.z - e.z); let dr = want - e.obj.rotation.y; dr = Math.atan2(Math.sin(dr), Math.cos(dr)); e.obj.rotation.y += dr * Math.min(1, dt * 3); }
     if (e.kind === 'mentor' || e.kind === 'guardian') animatePerson(e.obj, 0, dt);
+    // the one you're talking with talks with their hands, and nods
+    if (e === talkTo && e.obj.userData.arms && e.obj.userData.eyes) { const u = e.obj.userData; u.arms[1].rotation.x = -0.5 + Math.sin(t * 3.1) * 0.35; u.arms[0].rotation.x = -0.15 + Math.sin(t * 2.3 + 1) * 0.15; u.body.rotation.x = Math.sin(t * 4.2) * 0.04; }
     if (d < best) { best = d; nearEnt = e; }
   }
   const pr = $('wprompt');
