@@ -121,7 +121,9 @@ export function makeSideQuests(ctx) {
       const f = fishMesh(kind), tag = glowWord(w.g); tag.position.y = 1; f.add(tag);
       ctx.add(f); ctx.sfx('reel');
       const from = r.at.clone(), to = ctx.player.position.clone().add(V(0, 1.6, 0));
-      tween(0.9, t => { f.position.lerpVectors(from, to, t); f.position.y += Math.sin(t * Math.PI) * 3.5; f.rotation.x = t * Math.PI * 2; f.rotation.y = t * 4; }, () => {
+      // a splash where it breaks the surface, and drips flung from it as it flies
+      ctx.SPK.emit(from, { color: 0xe0f4ff, n: 34, speed: 3.2, up: 1.6, gravity: -10, size: 0.28, life: 0.8 });
+      tween(0.9, t => { f.position.lerpVectors(from, to, t); f.position.y += Math.sin(t * Math.PI) * 3.5; f.rotation.x = t * Math.PI * 2; f.rotation.y = t * 4; if (t < 0.6 && Math.random() < 0.5) ctx.SPK.emit(f.position, { color: 0xcfeaff, n: 1, speed: 0.4, up: 0, gravity: -9, size: 0.16, life: 0.6 }); }, () => {
         ctx.SPK.emit(f.position, { color: kind === 'gold' ? 0xffd166 : 0x9ad0ff, n: 30, speed: 4, size: 0.4 }); f.parent.remove(f);
       });
       ctx.SPK.emit(from, { color: 0xffffff, n: 24, speed: 3, up: 1.4, gravity: -9, size: 0.3 });
