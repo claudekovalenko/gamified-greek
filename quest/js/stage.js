@@ -301,7 +301,7 @@ export function createStage(ctx) {
     const vx = (Math.random() - 0.5) * 1.2;
     tween(1.1, k => {
       const s0 = (k < 0.15 ? k / 0.15 * 1.3 : 1.3 - Math.min(0.3, (k - 0.15) * 1.5)) * size;
-      sp.scale.set(3.2 * s0, 0.8 * s0, 1); sp.position.y = pos.y + k * 1.6; sp.position.x = pos.x + vx * k;
+      sp.scale.set(3.6 * s0, 0.9 * s0, 1); sp.position.y = pos.y + k * 1.2; sp.position.x = pos.x + vx * k;
       sp.material.opacity = k < 0.7 ? 1 : 1 - (k - 0.7) / 0.3;
     }, () => { scene.remove(sp); t.dispose(); sp.material.dispose(); });
   }
@@ -318,8 +318,8 @@ export function createStage(ctx) {
     shock(p, n >= 5 ? 0xff9a3a : 0xffd166, n >= 5 ? 4.5 : 3);
     if (!FOES.includes(S.oppKind)) { popText(p.clone().add(new THREE.Vector3(0, 0.6, 0)), U.pick(['Καλῶς!', 'Εὖγε!', 'Well done!', 'Yes!']), '#fff2c0'); KG.app.sfx('hit'); return; }
     const dmg = 10 + n * 2;
-    popText(p.clone().add(new THREE.Vector3(0, 0.6, 0)), n >= 5 ? `CRIT −${dmg * 2}` : `−${dmg}`, n >= 5 ? '#ff9a3a' : '#ffe9a8', n >= 5 ? 1.25 : 1);
-    if (n >= 3 && n % 5 === 0) popText(p.clone().add(new THREE.Vector3(0, 1.6, 0)), `${n}× COMBO!`, '#7fd0ff', 1.1);
+    popText(p.clone().add(new THREE.Vector3(0, -0.9, 1.2)), n >= 5 ? `CRIT −${dmg * 2}` : `−${dmg}`, n >= 5 ? '#ff9a3a' : '#ffe9a8', n >= 5 ? 1.5 : 1.15); // over the foe's chest, clear of its health bar
+    if (n >= 3 && n % 5 === 0) popText(p.clone().add(new THREE.Vector3(0, 2.1, 0)), `${n}× COMBO!`, '#7fd0ff', 1.35);
     KG.app.sfx('hit'); S.shake = Math.max(S.shake, n >= 5 ? 0.3 : 0.15);
   }
   function oppReact(hit) {
@@ -786,6 +786,7 @@ export function createStage(ctx) {
   }
 
   S.debugMini = () => MG; // used by the browser tests
+  S.debugScene = () => scene;
   S.orderLine = () => (S.order ? S.order.line.map(c => c.t) : []);
   S.lock = () => { S.locked = true; };
   // outcome animation for a multiple-choice answer (chosen may be -1 for timeouts)
@@ -870,7 +871,8 @@ export function createStage(ctx) {
     for (const p of S.picks) if (p.visible && p.userData.base && !(S.sel === p)) p.rotation.y = Math.sin(t * 1.3 + p.userData.base.x) * 0.04;
     if (MG && !MG.over) { MG.t += dt; ({ rain: rainUpdate, defense: defenseUpdate, race: raceUpdate }[MG.q.game] || (() => {}))(dt); }
     else if (!MG) hero.position.z += (5.2 - hero.position.z) * Math.min(1, dt * 4);
-    S.anims = S.anims.filter(fn => fn(dt) !== false);
+    // run this frame's animations; any started by one of them (a hit's damage number, shock ring, knockback) join the list instead of being lost
+    const run = S.anims; S.anims = []; S.anims = run.filter(fn => fn(dt) !== false).concat(S.anims);
     SPK.update(dt);
   };
   S.render = r => {
