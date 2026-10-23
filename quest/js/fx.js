@@ -105,10 +105,12 @@ export function makeFX(THREE, { LOW = false } = {}) {
   }
 
   // ── wind: sways foliage and grass; taller parts move more ──
-  function windify(material, { amp = 0.08, base = 0, freq = 1.3, gust = true } = {}) {
+  // push: (instanced grass) blades bend away from the hero's feet (the host keeps FX.hero up to date)
+  const hero = { value: new THREE.Vector3(0, -999, 0) };
+  function windify(material, { amp = 0.08, base = 0, freq = 1.3, gust = true, push = false } = {}) {
     material.onBeforeCompile = sh => {
-      sh.uniforms.uTime = time;
-      sh.vertexShader = 'uniform float uTime;\n' + sh.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>
+      sh.uniforms.uTime = time; sh.uniforms.uHero = hero;
+      sh.vertexShader = 'uniform float uTime; uniform vec3 uHero;\n' + sh.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>
         {
           #ifdef USE_INSTANCING
             vec3 ip = instanceMatrix[3].xyz;
@@ -119,9 +121,20 @@ export function makeFX(THREE, { LOW = false } = {}) {
           float g = ${gust ? '0.65 + 0.55 * sin(dot(ip.xz, vec2(.11, .07)) - uTime * 1.7)' : '1.0'};
           float sw = sin(uTime * ${freq.toFixed(2)} + ip.x * .35 + ip.z * .23) * ${amp.toFixed(3)} * hgt * g;
           transformed.x += sw; transformed.z += sw * .55;
+          ${push ? `#ifdef USE_INSTANCING
+          {
+            vec2 d = ip.xz - uHero.xz; float dd = length(d);
+            float k = smoothstep(1.5, .25, dd) * step(abs(ip.y - uHero.y), 2.) * hgt;
+            if (k > 0.) {
+              mat3 im = mat3(instanceMatrix); float sc = length(im[0]);
+              vec3 lp = transpose(im) * vec3(d / max(dd, .001), 0.).xzy / (sc * sc);
+              transformed.xz += lp.xz * k * .7; transformed.y -= k * .35;
+            }
+          }
+          #endif` : ''}
         }`);
     };
-    material.customProgramCacheKey = () => 'wind' + amp + base + freq + gust;
+    material.customProgramCacheKey = () => 'wind' + amp + base + freq + gust + push;
     return material;
   }
 
@@ -414,5 +427,5 @@ export function makeFX(THREE, { LOW = false } = {}) {
     return { update, group: G };
   }
 
-  return { time, cloudShade, critters, arena, bursts, groundDetail, sky, water, windify, portalMaterial, sparks, glow, blobShadow, heroPose, flyToHUD, tick: t => { time.value = t; } };
+  return { time, hero, cloudShade, critters, arena, bursts, groundDetail, sky, water, windify, portalMaterial, sparks, glow, blobShadow, heroPose, flyToHUD, tick: t => { time.value = t; } };
 }

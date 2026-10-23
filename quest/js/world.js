@@ -426,7 +426,7 @@ function grass() {
   blade.setAttribute('normal', new THREE.Float32BufferAttribute([0, 0, 1, 0, 0, 1, 0, 0, 1], 3));
   blade.setAttribute('color', new THREE.Float32BufferAttribute([0.62, 0.62, 0.62, 0.62, 0.62, 0.62, 1.1, 1.1, 1.0], 3));
   const mat = new THREE.MeshBasicMaterial({ side: THREE.DoubleSide, vertexColors: true });
-  FX.windify(mat, { amp: 0.24, freq: 1.8 });
+  FX.windify(mat, { amp: 0.24, freq: 1.8, push: true });
   const im = new THREE.InstancedMesh(blade, mat, N);
   const m = new THREE.Matrix4(), q = new THREE.Quaternion(), sc = new THREE.Vector3(), p = new THREE.Vector3(), c = new THREE.Color();
   let n = 0;
@@ -1562,6 +1562,7 @@ function step(dt) {
   }
 
   SPK.update(dt); DUST.update(dt); ARENA.update(dt); BURSTS.update(dt);
+  FX.hero.value.copy(pos);
   CRIT.update(dt, t, pos, groundAt, INDOOR ? 0 : atm.stars < 0.5 ? 1 : 0);
   for (let k = anims.length - 1; k >= 0; k--) if (anims[k](dt, t) === false) anims.splice(k, 1);
   updateAmbience(dt, t, pos);
