@@ -443,7 +443,16 @@ export function makeFX(THREE, { LOW = false } = {}) {
         fish.visible = true; ripple(x, wy, z, 1.2);
       }
     }
-    return { ripple, update };
+    // in the rain: many small rings on the water near the hero
+    function rain(dt, c, k) {
+      if (!list.length || k <= 0) return;
+      for (let i = 0; i < (LOW ? 1 : 3); i++) {
+        if (Math.random() > k * 0.9) continue;
+        const a = Math.random() * 6.283, d = Math.random() * 18, x = c.x + Math.cos(a) * d, z = c.z + Math.sin(a) * d, wy = waterAt(x, z, c.y);
+        if (wy !== null) ripple(x, wy, z, 0.35 + Math.random() * 0.3, 0.6);
+      }
+    }
+    return { ripple, update, rain };
   }
 
   // ── far mountains: two hazy ranges on the horizon that travel with the camera ──

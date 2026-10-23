@@ -1759,6 +1759,11 @@ function step(dt) {
     P.boltT = 5 + Math.random() * 9; FLASH = 1.3; setTimeout(() => { FLASH = 1.0; }, 160);
   }
   FLASH = Math.max(0, FLASH - dt * 3.5);
+  // rain splashes on the ground and rings on the water while the storm lasts
+  if (MOODS[MOOD] && MOODS[MOOD].name === 'storm' && !INDOOR) {
+    POND.rain(dt, pos, 1);
+    for (let i = 0; i < (LOW ? 1 : 3); i++) { const a = Math.random() * 6.283, d = 1 + Math.random() * 14, x = pos.x + Math.cos(a) * d, z = pos.z + Math.sin(a) * d; tmp2.set(x, groundAt(x, z) + 0.05, z); SPK.emit(tmp2, { color: 0xd8e4f4, n: 2, speed: 1.2, up: 0.9, gravity: -9, drag: 0, size: 0.1, life: 0.3, spread: 0.05 }); }
+  }
 
   if ((saveT += dt) > 5) { saveT = 0; savePos(); }
 }
