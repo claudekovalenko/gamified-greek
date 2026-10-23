@@ -667,3 +667,8 @@ body.irisfx::after { content: ''; position: fixed; inset: 0; z-index: 60; pointe
   .wquest { top: calc(84px + env(safe-area-inset-top)); }
 }
 @media (max-width: 480px) { .whelp { white-space: normal; text-align: center; width: max-content; max-width: calc(100vw - 24px); } }
+/* text shown over the 3D scene (model translation, word notes, tips) sits on a solid card so it can be read against any sky */
+.s3foot:has(.fb), .s3foot:has(> .muted:not(.s3help)), .s3foot:has(.tip) { background: var(--card); border-radius: 18px 18px 0 0; box-shadow: 0 -8px 30px rgba(0,0,0,.3); border-top: 4px solid var(--gold); pointer-events: auto; color: var(--ink); }
+.s3 .tip, .s3 .wordinfo, .s3 .fb-d .muted { background: var(--bg2); color: var(--ink); }
+.s3 .fb-d .muted { display: block; margin-top: 8px; padding: 8px 10px; border-left: 4px solid var(--gold); border-radius: 10px; line-height: 1.5; }
+.s3 .s3foot > .muted:not(.s3help) { color: var(--ink); opacity: .8; margin: 6px 0; }
