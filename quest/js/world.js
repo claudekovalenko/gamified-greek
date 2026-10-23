@@ -521,7 +521,7 @@ function tmesh(geo, color, opts, ink = 1.06) {
   return m;
 }
 function person({ skin = 0xf0c8a0, robe = 0x3f7d3a, hair = 0x6a3e1e, hood = false, beard = false, staff = false, scale = 1 } = {}) {
-  const g = new THREE.Group(), body = new THREE.Group();
+  const g = new THREE.Group(), body = new THREE.Group(), eyes = [];
   g.add(body);
   const robeDark = new THREE.Color(robe).multiplyScalar(0.7).getHex();
   const torso = tmesh(new THREE.CylinderGeometry(0.32, 0.56, 1.05, 18), robe); torso.position.y = 1.05; body.add(torso);
@@ -534,8 +534,8 @@ function person({ skin = 0xf0c8a0, robe = 0x3f7d3a, hair = 0x6a3e1e, hood = fals
   const hairM = tmesh(new THREE.SphereGeometry(0.345, 18, 10, 0, Math.PI * 2, 0, Math.PI / 1.9), hair); hairM.position.y = 1.9; hairM.rotation.x = -0.28; body.add(hairM);
   for (const sd of [-1, 1]) {
     const tuft = tmesh(new THREE.SphereGeometry(0.11, 8, 6), hair, {}, 0); tuft.position.set(sd * 0.29, 1.82, -0.04); body.add(tuft);
-    const eye = tmesh(new THREE.SphereGeometry(0.062, 10, 8), 0xffffff, {}, 0); eye.position.set(sd * 0.115, 1.89, 0.27); body.add(eye);
-    const pupil = new THREE.Mesh(new THREE.SphereGeometry(0.034, 8, 6), new THREE.MeshBasicMaterial({ color: 0x1a1208 })); pupil.position.set(sd * 0.115, 1.89, 0.322); body.add(pupil);
+    const eye = tmesh(new THREE.SphereGeometry(0.062, 10, 8), 0xffffff, {}, 0); eye.position.set(sd * 0.115, 1.89, 0.27); body.add(eye); eyes.push(eye);
+    const pupil = new THREE.Mesh(new THREE.SphereGeometry(0.034, 8, 6), new THREE.MeshBasicMaterial({ color: 0x1a1208 })); pupil.position.set(sd * 0.115, 1.89, 0.322); body.add(pupil); eyes.push(pupil);
     const brow = tmesh(new THREE.BoxGeometry(0.11, 0.025, 0.03), hair === 0xdddddd ? 0xbbbbbb : hair, {}, 0); brow.position.set(sd * 0.115, 1.98, 0.29); brow.rotation.z = sd * -0.12; body.add(brow);
     const cheek = new THREE.Mesh(new THREE.CircleGeometry(0.045, 10), new THREE.MeshBasicMaterial({ color: 0xff9a8a, transparent: true, opacity: 0.45 })); cheek.position.set(sd * 0.19, 1.8, 0.285); cheek.rotation.y = sd * 0.5; body.add(cheek);
   }
@@ -559,7 +559,7 @@ function person({ skin = 0xf0c8a0, robe = 0x3f7d3a, hair = 0x6a3e1e, hood = fals
   }
   if (staff) { const st = tmesh(new THREE.CylinderGeometry(0.05, 0.05, 2.4, 8), 0x6a4a2a, {}, 0); st.position.set(0.55, 1.2, 0.15); body.add(st); const gem = mesh(new THREE.OctahedronGeometry(0.15), 0x7fd0ff, { emissive: 0x3fa0ff }); gem.position.set(0.55, 2.45, 0.15); body.add(gem); }
   g.scale.setScalar(scale);
-  g.userData = { body, legs, arms, phase: 0 };
+  g.userData = { body, legs, arms, eyes, phase: 0 };
   return g;
 }
 function animatePerson(p, speed, dt) {
@@ -569,6 +569,13 @@ function animatePerson(p, speed, dt) {
   u.legs[0].rotation.x = sw; u.legs[1].rotation.x = -sw;
   u.arms[0].rotation.x = -sw * 0.8; u.arms[1].rotation.x = sw * 0.8;
   u.body.position.y = Math.abs(Math.cos(u.phase)) * 0.08 * amt + Math.sin(u.phase * 0.35) * 0.015;
+  // a blink every few seconds
+  if (u.eyes) {
+    u.blink = (u.blink ?? Math.random() * 4) - dt;
+    const shut = u.blink < 0 && u.blink > -0.13;
+    if (shut !== u.shut) { u.shut = shut; for (const e of u.eyes) e.scale.y = shut ? 0.12 : 1; }
+    if (u.blink <= -0.13) u.blink = 2 + Math.random() * 4;
+  }
 }
 // Skulch the Riddle-Creep: pale, crouched, all eyes. He steals the questions you miss.
 function creep() {
