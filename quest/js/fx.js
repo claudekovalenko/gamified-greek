@@ -145,7 +145,7 @@ export function makeFX(THREE, { LOW = false } = {}) {
             // anything standing between the camera and the hero thins out so the hero stays in view
             vec3 ab = uHero + vec3(0., 1.2, 0.) - cameraPosition; float k = clamp(dot(vNF - cameraPosition, ab) / dot(ab, ab), 0., 1.);
             float off = distance(vNF, cameraPosition + ab * k);
-            if (k > .45 && k < .92 && off < 1.6 && th > .3 + off * .35) discard; }`);
+            if (k > .45 && k < .92 && off < 1.3 && vNF.y < uHero.y + 3.2 && th > .3 + off * .45) discard; }`);
       }
       if (push) {
         sh.uniforms.uTint = grassTint;
