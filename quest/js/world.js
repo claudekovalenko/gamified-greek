@@ -867,6 +867,7 @@ const VEN = makeVenues({
   THREE, add: o => scene.add(o), mesh, rawGround: (x, z) => groundBase(x, z), textSprite, glow: (c, sz) => FX.glow(c, sz),
   col: (x, z, r) => { const c = { x, z, r }; colliders.push(c); return c; }, keep: (x, z, r) => keepOut.push({ x, z, r }),
   free: (x, z, r, tol) => openGround(x, z, r, tol), SPK, water: () => waterMat,
+  signBoard: (t, w, h) => FX.signBoard(t, w, h),
   smoke: p => DUST.emit(p, { color: 0xd8d4d0, n: 1, speed: 0.25, up: 1.2, gravity: 0.6, drag: 0.6, size: 0.6, size1: 2.2, life: 3.2, spread: 0.2 }),
   splash: (x, z, face) => {
     player.position.set(x, groundAt(x, z), z); P.vel.set(0, 0, 0); player.rotation.y = face; cam.yaw = face + Math.PI;

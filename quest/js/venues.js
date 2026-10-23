@@ -8,7 +8,7 @@
 // ctx = { THREE, add(obj), mesh(geo, color, opts), rawGround(x, z) (ground without
 //   the venues), col(x, z, r) → collider object, keep(x, z, r) (keep trees and
 //   side quests away), free(x, z, r) → open ground?, textSprite, glow(color, size),
-//   SPK (fx sparks), water() → water material, splash(x, z, face), smoke(pos) (optional) }
+//   SPK (fx sparks), water() → water material, splash(x, z, face), smoke(pos) and signBoard(text, w, h) (optional) }
 // and asks ground(x, z, base) for the height of floors, decks and stones.
 
 export const WHERE = { campfire: 'by the campfire', house: 'in the cottage', stones: 'on the island in the pond', stall: 'at the market stall', garden: 'behind the word gate', lookout: 'up on the lookout' };
@@ -478,7 +478,8 @@ export function makeVenues(ctx) {
     }
     const sx = from.x - px * 1.3, sz = from.z - pz * 1.3, sy = raw(sx, sz);
     const post = ctx.mesh(new THREE.CylinderGeometry(0.08, 0.08, 1.9, 6), 0x6a4a2a); post.position.set(sx, sy + 0.95, sz); g.add(post);
-    const t = ctx.textSprite(sign, { size: 28, bg: 'rgba(120,80,40,.92)', color: '#fff2c8', scale: 0.009 }); t.position.set(sx, sy + 2.05, sz); g.add(t);
+    if (ctx.signBoard) { const b = ctx.signBoard(sign, 2.1, 0.5); b.position.set(sx, sy + 1.75, sz); b.rotation.y = Math.atan2(px, pz); g.add(b); } // the name painted on a board, facing the road
+    else { const t = ctx.textSprite(sign, { size: 28, bg: 'rgba(120,80,40,.92)', color: '#fff2c8', scale: 0.009 }); t.position.set(sx, sy + 2.05, sz); g.add(t); }
     return g;
   }
 
