@@ -672,3 +672,5 @@ body.irisfx::after { content: ''; position: fixed; inset: 0; z-index: 60; pointe
 .s3 .tip, .s3 .wordinfo, .s3 .fb-d .muted { background: var(--bg2); color: var(--ink); }
 .s3 .fb-d .muted { display: block; margin-top: 8px; padding: 8px 10px; border-left: 4px solid var(--gold); border-radius: 10px; line-height: 1.5; }
 .s3 .s3foot > .muted:not(.s3help) { color: var(--ink); opacity: .8; margin: 6px 0; }
+/* the arcade clock over a 3D game: a compact pill, not a bar across the whole screen */
+.s3 .atimer { flex: 0 1 300px; margin: 0 auto; font-size: 1.05rem; padding: 2px 4px; box-shadow: 0 2px 8px rgba(0,0,0,.25); }

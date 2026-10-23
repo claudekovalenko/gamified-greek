@@ -263,7 +263,7 @@ export function createStage(ctx) {
   const orbGeo = new THREE.SphereGeometry(1, 12, 10);
   function orb(from, to, color, onHit, size = 0.32) {
     const o = new THREE.Mesh(orbGeo, new THREE.MeshBasicMaterial({ color }));
-    o.scale.setScalar(size);
+    o.scale.setScalar(size); o.userData.fx = true;
     const light = orbLights.find(l => !l.userData.busy);
     if (light) { light.userData.busy = true; light.color.setHex(color); light.intensity = 8; }
     scene.add(o);
@@ -308,7 +308,7 @@ export function createStage(ctx) {
     x.fillStyle = color; x.fillText(text, 256, 66);
     const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
     const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: t, depthTest: false, transparent: true }));
-    sp.renderOrder = 20; sp.position.copy(pos); scene.add(sp);
+    sp.renderOrder = 20; sp.position.copy(pos); sp.userData.fx = true; scene.add(sp);
     const vx = (Math.random() - 0.5) * 1.2;
     tween(1.1, k => {
       const s0 = (k < 0.15 ? k / 0.15 * 1.3 : 1.3 - Math.min(0.3, (k - 0.15) * 1.5)) * size;
@@ -320,7 +320,7 @@ export function createStage(ctx) {
   const ringGeo = new THREE.RingGeometry(0.8, 1, 40);
   function shock(pos, color = 0xffd166, size = 3) {
     const m = new THREE.Mesh(ringGeo, new THREE.MeshBasicMaterial({ color, transparent: true, side: THREE.DoubleSide, depthWrite: false, blending: THREE.AdditiveBlending }));
-    m.position.copy(pos); m.lookAt(camera.position); scene.add(m);
+    m.position.copy(pos); m.lookAt(camera.position); m.userData.fx = true; scene.add(m);
     tween(0.45, k => { m.scale.setScalar(0.2 + ease(k) * size); m.material.opacity = 1 - k; }, () => { scene.remove(m); m.material.dispose(); });
   }
   function oppHit() {
@@ -523,7 +523,7 @@ export function createStage(ctx) {
   // ── public API ─────────────────────────────────────────────
   S.ok = true;
   S.enter = (kind, unit = 0) => {
-    S.kind = kind; S.unit = unit;
+    S.kind = kind; S.unit = unit; S.anims = []; sweepFx();
     useSet(kind === 'arcade' ? 'arena' : THEMES[ctx.look(unit)] || 'arena', kind === 'shade' || kind === 'creep' ? 'shade' : '');
     setOpponent(kind, unit);
     clearUI(); S.q = null;
@@ -534,7 +534,10 @@ export function createStage(ctx) {
     pet = ctx.buildPet(E_look().pet);
     if (pet) { pet.position.set(1.5, pet.userData.fly ? 2.6 : 0, 5.6); pet.rotation.y = Math.PI; scene.add(pet); }
   };
-  S.exit = () => { S.active = false; clearUI(); S.q = null; S.anims = []; MG = null; };
+  // passing effects (hit numbers, K.O.!, shock rings, spell orbs) are swept away whenever the stage is left or entered,
+  // so none is left hanging frozen in the air when its animation is cut short
+  function sweepFx() { for (const o of scene.children.filter(o => o.userData.fx)) scene.remove(o); for (const l of orbLights) { l.userData.busy = false; l.intensity = 0; } }
+  S.exit = () => { S.active = false; clearUI(); S.q = null; S.anims = []; MG = null; sweepFx(); };
   S.ask = (q, handlers) => {
     MG = null;
     clearUI(); S.plank = null; S.q = q; S.h = handlers; S.answered = false; S.locked = false; S.big = null;
@@ -760,11 +763,12 @@ export function createStage(ctx) {
     const R = KG.readings[MG.q.reading];
     MG.total = MG.q.chunks.length; MG.idx = 0; MG.time = 5 + MG.q.chunks.length * 3.5; MG.left = MG.time; MG.built = [];
     const { hh, hw, portrait } = frame();
-    const b = banner(R.words.map(w => w.w + w.p).join(' '), Math.min(hw * 1.94, 14), portrait ? hh * 0.36 : hh * 0.3, true);
-    place(b, 0, hh * (portrait ? 0.62 : 0.72)); introAnim(b, 0);
+    // the verse on a scroll below the clock, your translation growing on a strip beneath it, the choices as tablets below
+    const b = banner(R.words.map(w => w.w + w.p).join(' '), Math.min(hw * 1.7, 11), portrait ? hh * 0.3 : hh * 0.26, true);
+    place(b, 0, hh * (portrait ? 0.5 : 0.52)); introAnim(b, 0);
     if (!MG.q.arcade) { // the arcade has its own clock
-      const bar = new THREE.Mesh(new THREE.BoxGeometry(hw * 1.9, hh * 0.035, 0.1), new THREE.MeshBasicMaterial({ color: 0xffd166 }));
-      place(bar, 0, hh * 0.5); MG.bar = bar; MG.barW = hw * 1.9;
+      const bw = Math.min(hw * 1.1, 7), bar = new THREE.Mesh(new THREE.BoxGeometry(bw, hh * 0.03, 0.1), new THREE.MeshBasicMaterial({ color: 0xffd166 }));
+      place(bar, 0, hh * (portrait ? 0.33 : 0.36)); MG.bar = bar; MG.barW = bw;
     }
     raceChoices();
   }
@@ -772,14 +776,17 @@ export function createStage(ctx) {
     for (const g of MG.items) removePick(g);
     MG.items = [];
     if (MG.idx >= MG.q.chunks.length) return miniEnd(true, `You finished the race with ${Math.ceil(MG.left)} seconds to spare!`);
-    const { hh, hw } = frame(), right = MG.q.chunks[MG.idx];
+    const { hh, hw, portrait } = frame(), right = MG.q.chunks[MG.idx];
     const pool = MG.q.chunks.slice(MG.idx + 1).concat(MG.q.extras).filter(c => c !== right);
     const opts = U.shuffle([right, ...U.sample(U.uniq(pool), 2)]);
     if (MG.line) drop(MG.line);
-    MG.line = banner(MG.built.join(' ') || '…', Math.min(hw * 1.94, 14), hh * 0.2); place(MG.line, 0, hh * 0.24);
+    MG.line = banner(MG.built.length ? MG.built.join(' ') + ' …' : 'Your translation: …', Math.min(hw * 1.5, 10), hh * 0.13); place(MG.line, 0, hh * (portrait ? 0.18 : 0.2));
+    // landscape: three tablets side by side; upright: stacked, but not edge to edge
+    const gap = hw * 0.05, tw = portrait ? hw * 1.5 : Math.min((hw * 1.8 - gap * 2) / 3, 5), th = portrait ? hh * 0.12 : hh * 0.22;
     opts.forEach((o, i) => {
-      const g = slab(o, hw * 1.7, hh * 0.13, { face: '#f3e7c8' });
-      place(g, 0, -hh * 0.1 - i * hh * 0.17); introAnim(g, i * 0.05);
+      const g = slab(o, tw, th, { face: '#f3e7c8', num: i + 1 });
+      if (portrait) place(g, 0, -hh * 0.06 - i * (th + hh * 0.04)); else place(g, (i - 1) * (tw + gap), -hh * 0.36);
+      introAnim(g, i * 0.05);
       g.userData.pick = { type: 'mini', ok: o === right, val: o }; S.picks.push(g); MG.items.push(g);
     });
     MG.lock = false;
@@ -822,7 +829,7 @@ export function createStage(ctx) {
     clearUI();
     if (win) {
       for (let i = 0; i < 4; i++) setTimeout(() => particles(new THREE.Vector3((Math.random() - 0.5) * 10, 4 + Math.random() * 3, -2 + Math.random() * 4), U.pick([0xffd166, 0x7fd0ff, 0xff8fab, 0x7ed58f]), 60, 8), i * 220);
-      if (opp && FOES.includes(S.oppKind)) { const p = worldPos(opp).add(new THREE.Vector3(0, 2, 0)); shock(p, 0xffffff, 7); setTimeout(() => { particles(p, 0xffd166, 80, 9); shock(p, 0xffd166, 10); popText(p.clone().add(new THREE.Vector3(0, 2, 0)), 'K.O.!', '#ffd166', 1.5); }, 500); }
+      if (opp && FOES.includes(S.oppKind)) { const p = worldPos(opp).add(new THREE.Vector3(0, 2, 0)); shock(p, 0xffffff, 7); setTimeout(() => { if (!S.active) return; particles(p, 0xffd166, 80, 9); shock(p, 0xffd166, 10); popText(p.clone().add(new THREE.Vector3(0, 2, 0)), 'K.O.!', '#ffd166', 1.5); }, 500); }
       if (opp && FOES.includes(S.oppKind)) tween(1.2, t => { opp.rotation.x = -t * 0.5; opp.position.y = oppPos.y - t * 2; opp.scale.setScalar((S.oppKind === 'shade' ? 2.6 : S.oppKind === 'guardian' ? 1.25 : S.oppKind === 'creep' ? 1.7 : 1) * (1 - t * 0.5)); });
       else if (opp && opp.userData.body) nod();
       tween(0.8, t => { hero.position.y = Math.sin(t * Math.PI) * 1.2; hero.rotation.y = HERO_R + t * Math.PI * 2; });
@@ -842,6 +849,8 @@ export function createStage(ctx) {
   };
   S.pointer = pointer;
   S.key = e => {
+    // the verse race's numbered tablets answer to 1–3 as well
+    if (MG && !MG.over && MG.q.game === 'race' && /^[1-9]$/.test(e.key)) { const g = MG.items[+e.key - 1]; if (g && g.visible) { choose(g); return true; } }
     if (!S.q || S.locked) return false;
     if (/^[1-9]$/.test(e.key) && S.q.type === 'mc') { const g = S.picks.find(p => p.userData.pick.type === 'opt' && p.userData.pick.i === +e.key - 1); if (g) { choose(g); return true; } }
     return false;
