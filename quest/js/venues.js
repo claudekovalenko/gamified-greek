@@ -108,11 +108,14 @@ export function makeVenues(ctx) {
   function fire(B, x, y, z, s = 1) {
     const outer = B.basic(new THREE.ConeGeometry(0.45 * s, 1.2 * s, 7), 0xff7a20, x, y + 0.55 * s, z);
     const inner = B.basic(new THREE.ConeGeometry(0.25 * s, 0.8 * s, 7), 0xffd040, x, y + 0.42 * s, z);
+    // two smaller tongues lick up beside the main flame, each on its own rhythm
+    const tongues = [-1, 1].map(k => { const m = B.basic(new THREE.ConeGeometry(0.2 * s, 0.75 * s, 6), k < 0 ? 0xff9a30 : 0xff6a1a, x + k * 0.22 * s, y + 0.35 * s, z + k * 0.08 * s); m.rotation.z = -k * 0.25; return m; });
     B.glowAt(0xff9a40, 4.2 * s, x, y + 0.8 * s, z);
     let et = 0;
     return (dt, t, F) => {
       outer.scale.set(1 + Math.sin(t * 13) * 0.1, 1 + Math.sin(t * 9) * 0.16, 1 + Math.cos(t * 11) * 0.1);
       inner.scale.set(1, 1 + Math.sin(t * 15 + 1) * 0.2, 1);
+      tongues.forEach((m, k) => { m.scale.y = 0.8 + 0.35 * Math.abs(Math.sin(t * (7 + k * 3) + k * 2)); m.rotation.y = t * (2 + k); });
       if ((et -= dt) <= 0) { et = 0.14; const p = F.w(x, z); ctx.SPK.emit(V3(p.x, y + 1.1 * s, p.z), { color: 0xffa040, n: 1, speed: 0.5, up: 1, gravity: 1.2, size: 0.25, life: 1.4 }); }
     };
   }
@@ -226,9 +229,17 @@ export function makeVenues(ctx) {
     B.add(new THREE.BoxGeometry(1.8, 1.7, 0.7), 0x8a8378, 2.4, 0.85, -D / 2 + 0.5, undefined, inn);
     B.add(new THREE.BoxGeometry(1.1, 0.9, 0.12), 0x1a1208, 2.4, 0.55, -D / 2 + 0.86, undefined, inn);
     B.add(new THREE.BoxGeometry(2.1, 0.12, 0.85), 0x6a4a2a, 2.4, 1.76, -D / 2 + 0.55, undefined, inn);
-    const flame = fire({ basic: (g, c, x, y, z) => B.basic(g, c, x, y, z, inn), glowAt: (c, s, x, y, z) => B.glowAt(c, s, x, y, z, inn) }, 2.4, 0.05, -D / 2 + 0.75, 0.85);
-    B.add(new THREE.BoxGeometry(0.8, 0.12, 0.12), 0x4a2a14, 2.25, 0.08, -D / 2 + 0.8, undefined, inn).rotation.y = 0.4; // logs in the grate
-    B.add(new THREE.BoxGeometry(0.8, 0.12, 0.12), 0x4a2a14, 2.55, 0.12, -D / 2 + 0.75, undefined, inn).rotation.y = -0.5;
+    // the fire burns in the mouth of the hearth, on a stone slab over a bed of embers, and the stones round it are laid one by one
+    B.add(new THREE.BoxGeometry(1.9, 0.1, 0.6), 0x77706a, 2.4, 0.05, -D / 2 + 1.1, undefined, inn);
+    B.add(new THREE.BoxGeometry(0.75, 0.05, 0.32), 0xff6a20, 2.4, 0.12, -D / 2 + 1.02, { emissive: 0xff4a10, emissiveIntensity: 1.6 }, inn);
+    const flame = fire({ basic: (g, c, x, y, z) => B.basic(g, c, x, y, z, inn), glowAt: (c, s, x, y, z) => B.glowAt(c, s, x, y, z, inn) }, 2.4, 0.14, -D / 2 + 1.02, 0.8);
+    B.add(new THREE.BoxGeometry(0.8, 0.12, 0.12), 0x4a2a14, 2.25, 0.17, -D / 2 + 1.04, undefined, inn).rotation.y = 0.4; // logs in the grate
+    B.add(new THREE.BoxGeometry(0.8, 0.12, 0.12), 0x4a2a14, 2.55, 0.21, -D / 2 + 1.0, undefined, inn).rotation.y = -0.5;
+    for (let r = 0; r < 5; r++) for (let i = 0; i < 6; i++) {
+      const sx = 1.62 + i * 0.31 + (r % 2) * 0.15, sy = 0.15 + r * 0.33;
+      if (sx > 3.2 || (Math.abs(sx - 2.4) < 0.62 && sy < 1.05)) continue;
+      B.add(new THREE.BoxGeometry(0.28, 0.29, 0.05), [0x8f877c, 0x7f786e, 0x9a9184][(i + r) % 3], sx, sy, -D / 2 + 0.87, undefined, inn);
+    }
     B.add(new THREE.BoxGeometry(2.3, 1.2, 0.08), 0x2a3a2a, 0, 1.9, -D / 2 + 0.2, undefined, inn);
     if (o.title) { const t = ctx.textSprite(o.title, { size: 34, bg: null, color: '#f5f0dc', scale: 0.0068 }); t.position.set(0, 1.9, -D / 2 + 0.35); inn.add(t); }
     B.add(new THREE.CylinderGeometry(0.3, 0.22, 0.45, 8), 0xb5523a, W / 2 - 0.7, 0.22, D / 2 - 0.8, undefined, inn);
