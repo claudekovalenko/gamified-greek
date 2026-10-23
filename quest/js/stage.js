@@ -145,8 +145,20 @@ export function createStage(ctx) {
   // draws text centered and shrinks the font until it fits the box
   function textCanvas(text, { W = 512, H = 256, greek = false, maxSize = 70, minSize = 18, color = '#2a1d0c', bg = null, weight = 800, pad = 26, border = null }) {
     const c = document.createElement('canvas'); c.width = W; c.height = H; const x = c.getContext('2d');
-    if (bg) { x.fillStyle = bg; x.fillRect(0, 0, W, H); }
-    if (border) { x.strokeStyle = border; x.lineWidth = 10; x.strokeRect(8, 8, W - 16, H - 16); }
+    if (bg) {
+      // aged parchment: a warm centre, darker edges and a faint grain
+      x.fillStyle = bg; x.fillRect(0, 0, W, H);
+      const g = x.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.2, W / 2, H / 2, Math.max(W, H) * 0.7);
+      g.addColorStop(0, 'rgba(255,250,235,.35)'); g.addColorStop(1, 'rgba(120,80,30,.22)'); x.fillStyle = g; x.fillRect(0, 0, W, H);
+      for (let i = 0; i < W * H / 900; i++) { x.fillStyle = `rgba(${Math.random() < 0.5 ? '90,60,20' : '255,255,240'},${Math.random() * 0.07})`; x.fillRect(Math.random() * W, Math.random() * H, 2 + Math.random() * 3, 1 + Math.random() * 2); }
+    }
+    if (border) {
+      // a double gold rule with a stud in each corner
+      const b = Math.max(6, Math.round(Math.min(W, H) * 0.035));
+      x.strokeStyle = border; x.lineWidth = b; x.strokeRect(b, b, W - 2 * b, H - 2 * b);
+      x.globalAlpha = 0.55; x.lineWidth = Math.max(2, b / 3); x.strokeRect(b * 2.6, b * 2.6, W - 5.2 * b, H - 5.2 * b); x.globalAlpha = 1;
+      x.fillStyle = border; for (const [cx, cy] of [[b * 2.6, b * 2.6], [W - b * 2.6, b * 2.6], [b * 2.6, H - b * 2.6], [W - b * 2.6, H - b * 2.6]]) { x.beginPath(); x.arc(cx, cy, b * 0.9, 0, 7); x.fill(); }
+    }
     let size = maxSize, lines;
     for (; size >= minSize; size -= 2) {
       x.font = `${greek ? 400 : weight} ${size}px ${greek ? GK : UI}`;
