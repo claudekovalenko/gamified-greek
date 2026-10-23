@@ -88,7 +88,7 @@ export function createStage(ctx) {
     const Z = ZONES[unit];
     if (kind === 'creep') { opp = creep(); opp.scale.setScalar(1.7); } else
     if (kind === 'beast') { opp = sets.beast(ctx.look(unit)); } else
-    if (kind === 'guardian') { opp = golem([0x8a8a8a, 0x6a7a4a, 0xc9a43a, 0x4a6a8a, 0x6a6a7a, 0xa08060, 0xa0b0c0, 0xcfe0ff, 0xe0c060][unit]); opp.scale.setScalar(1.25); }
+    if (kind === 'guardian') { opp = golem([0x8a8a8a, 0x6a7a4a, 0xc9a43a, 0x4a6a8a, 0x6a6a7a, 0xa08060, 0xa0b0c0, 0xcfe0ff, 0xe0c060][unit]); opp.scale.setScalar(1.25); if (opp.userData.rune) opp.userData.rune.visible = false; }
     else if (kind === 'shade') { opp = wispMesh(); opp.scale.setScalar(2.6); opp.userData.float = 2.6; }
     else if (kind === 'arcade') {
       opp = new THREE.Group();
