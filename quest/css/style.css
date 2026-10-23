@@ -564,3 +564,5 @@ body.in-stage .main > .s3 { pointer-events: none; }
 .countdown.pop { animation: cdpop .6s ease-out forwards; }
 @keyframes cdpop { 0% { transform: scale(2.2); opacity: 0; } 25% { transform: scale(1); opacity: 1; } 80% { opacity: 1; } 100% { transform: scale(.8); opacity: 0; } }
 @media (max-width: 520px) { .wbt-opts { grid-template-columns: 1fr 1fr; } .wbt-opt { padding: 10px 8px; } .wbt-box { padding: 12px; } }
+.cloud-code { font-family: ui-monospace, Menlo, monospace; font-size: 1.05rem; letter-spacing: 1px; background: rgba(0,0,0,.06); padding: 2px 8px; border-radius: 8px; }
+.btn.small { padding: 4px 10px; font-size: .8rem; }

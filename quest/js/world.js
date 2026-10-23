@@ -7,6 +7,7 @@ import { createStage } from './stage.js';
 import { makeFX } from './fx.js';
 import { makeSideQuests } from './sidequests.js';
 import { makeVenues, venueOrder } from './venues.js';
+import { tallyRaiders, raiderMesh, animateRaider } from './raiders.js';
 
 const KG = window.KG, E = KG.engine, U = KG.util;
 const W = KG.world = { ok: false, show() {}, hide() {}, onLessonDone() {} };
@@ -783,12 +784,23 @@ function spawnWisp(w) {
   w.home = new THREE.Vector3(x, 0, z); w.target = null; w.obj.visible = true; w.dead = false;
 }
 function buildWisps() {
+  // a banished shade stays away for a while, even if you close the game
+  const calm = ws().calm || {}, now = Date.now();
   for (let zi = 1; zi < NZ; zi++) for (let k = 0; k < 3; k++) {
     // one elite shade per world hunts your weakest words
     const elite = k === 2;
-    const w = { zone: zi, obj: wispMesh(elite), t: Math.random() * 10, elite };
+    const w = { zone: zi, obj: wispMesh(elite), t: Math.random() * 10, elite, key: `${zi}:${k}` };
     if (elite) w.obj.scale.setScalar(1.45);
     scene.add(w.obj); spawnWisp(w); wisps.push(w);
+    if (calm[w.key] > now) { w.dead = true; w.obj.visible = false; w.respawn = (calm[w.key] - now) / 1000; }
+  }
+  // raiders who came while you were away wait on the road ahead of you
+  const n = Math.min(6, (E.state.raiders || {}).count || 0), z0 = Math.min(-14, ws().z - 18);
+  for (let k = 0; k < n; k++) {
+    const z = Math.max(END_Z + 20, z0 - k * 13), x = pathX(z) + (k % 2 ? 1 : -1) * (3 + (k * 5) % 6);
+    const r = { zone: zoneOf(z), obj: raiderMesh(THREE, mesh, k), t: 0, raider: true };
+    r.obj.position.set(x, groundAt(x, z), z); r.home = new THREE.Vector3(x, 0, z); r.obj.scale.setScalar(1.1);
+    scene.add(r.obj); wisps.push(r);
   }
 }
 
@@ -985,7 +997,8 @@ function refreshMarkers() {
   syncVillains();
   const vs = Object.keys(E.state.villains || {}).map(Number);
   $('wqtext').innerHTML = (t.done ? 'All quests complete! Step into the Hall of Victory.' : `${who}: <b>${esc(t.node.title)}</b>`)
-    + (vs.length ? `<div class="wq-side">😈 Side quest: beat Skulch in ${vs.map(z => esc(ZONES[z].name)).join(', ')}</div>` : '');
+    + (vs.length ? `<div class="wq-side">😈 Side quest: beat Skulch in ${vs.map(z => esc(ZONES[z].name)).join(', ')}</div>` : '')
+    + ((E.state.raiders || {}).count ? `<div class="wq-side">⚔️ ${E.state.raiders.count} Raider${E.state.raiders.count > 1 ? 's' : ''} of Forgetting on the road</div>` : '');
   W.target = tgt;
   updateHUD();
 }
@@ -1142,6 +1155,7 @@ function startChest(e) {
 function shadeItems(w) {
   const studied = Object.keys(E.state.vocab).map(g => E.vocabByGreek[g]).filter(Boolean);
   const pool = studied.length >= 4 ? studied : E.vocabSet(0).concat(E.vocabSet(1));
+  if (w.raider) { const due = E.reviewOrder(pool).slice(0, 8); return U.sample(due.length >= 3 ? due : pool, 3).map(word => ({ word })); }
   if (w.elite) { const weak = E.weakWords(8); return U.sample(weak.length >= 3 ? weak : pool, 3).map(word => ({ word })); }
   const cards = E.dueCards();
   if (cards.length && Math.random() < 0.45) return [{ card: U.pick(cards.slice(0, 4)) }];
@@ -1167,7 +1181,7 @@ function battleQ() {
   battle.done = false;
   const b = $('wbattle');
   const hp = battle.items.length > 1 ? `<div class="wbt-hp">${battle.items.map((_, k) => `<i class="${k < battle.hp ? 'on' : ''}"></i>`).join('')}</div>` : '';
-  b.innerHTML = `<div class="wbt-box ${w.elite ? 'elite' : ''}"><div class="wbt-h">${w.elite ? '🔥 An ELITE Shade! It feeds on your weakest words…' : '👻 A Shade of Forgetting!'}</div>${hp}<div class="muted small">${battle.items.length > 1 ? 'Three right answers in a row banish it.' : it.card ? 'It is made of a use you are starting to forget. Spot it!' : 'Banish it by remembering.'}</div>
+  b.innerHTML = `<div class="wbt-box ${w.elite || w.raider ? 'elite' : ''}"><div class="wbt-h">${w.raider ? '⚔️ A Raider of Forgetting! It came while you were away and carries off the words you haven\'t reviewed…' : w.elite ? '🔥 An ELITE Shade! It feeds on your weakest words…' : '👻 A Shade of Forgetting!'}</div>${hp}<div class="muted small">${battle.items.length > 1 ? 'Three right answers in a row banish it.' : it.card ? 'It is made of a use you are starting to forget. Spot it!' : 'Banish it by remembering.'}</div>
     <div class="wbt-q">${q.prompt}</div><div class="wbt-big gk ${q.small ? 'small' : ''}">${esc(q.big || '')}</div>${q.sub && q.small ? `<div class="muted small">${esc(q.sub)}</div>` : ''}
     <div class="wbt-opts">${q.options.map((o, i) => `<button class="wbt-opt ${q.greekOpts ? 'gk' : ''}" data-bo="${i}"><span class="k">${i + 1}</span>${q.greekOpts ? esc(o) : o}</button>`).join('')}</div><div id="wbtfb"></div></div>`;
   b.classList.add('on');
@@ -1203,17 +1217,23 @@ function answerBattle(i, el) {
     updateHUD(); $('wbtgo').onclick = endBattle; $('wbtgo').focus();
     return;
   }
-  const last = ok && battle.hp <= 1, xp = w.elite ? 16 : 8;
+  const last = ok && battle.hp <= 1, xp = w.raider ? 20 : w.elite ? 16 : 8;
   if (ok) {
     KG.app.sfx('good'); battle.hp--;
-    const core = w.obj.children[0];
-    bolt(w.obj.position, w.elite ? 0xffb040 : 0xffd166, () => {
+    const core = w.raider ? null : w.obj.children[0], base = w.raider ? 1.1 : w.elite ? 1.45 : 1;
+    bolt(w.raider ? w.obj.position.clone().setY(w.obj.position.y + 1.6) : w.obj.position, w.elite || w.raider ? 0xffb040 : 0xffd166, () => {
       KG.app.sfx('hit'); S_SHAKE = 0.2;
-      core.material.emissive.setHex(0xffffff);
-      let f = 0; anims.push(dt => { f += dt / 0.3; w.obj.scale.setScalar((w.elite ? 1.45 : 1) * (1 + Math.sin(Math.min(1, f) * Math.PI) * 0.3)); if (f >= 1) { core.material.emissive.setHex(w.elite ? 0xff3a3a : 0x7a3aff); return false; } });
-      if (last) { w.dead = true; w.obj.visible = false; w.respawn = 40; burst(w.obj.position, 0xb388ff, 60); }
+      if (core) core.material.emissive.setHex(0xffffff);
+      // a shade swells; a raider staggers back
+      let f = 0; anims.push(dt => { f += dt / 0.3; const k = Math.sin(Math.min(1, f) * Math.PI); if (w.raider) w.obj.userData.body.rotation.x = -k * 0.5; else w.obj.scale.setScalar(base * (1 + k * 0.3)); if (f >= 1) { if (core) core.material.emissive.setHex(w.elite ? 0xff3a3a : 0x7a3aff); return false; } });
+      if (last) { w.dead = true; w.obj.visible = false; w.respawn = 90; burst(w.obj.position, w.raider ? 0xffd166 : 0xb388ff, 60); }
     });
-    if (last) { E.gainXP(xp, w.elite ? 3 : 1); ws().wisps++; E.checkAchievements(); E.questProgress('shades'); }
+    if (last) {
+      const W0 = ws();
+      if (w.raider) { const R = E.state.raiders; R.count = Math.max(0, R.count - 1); R.beaten = (R.beaten || 0) + 1; if (!R.count) setTimeout(() => KG.app.toast('🏰 <b>The valley is safe again.</b> Every raider has been driven off!', 'gold'), 1500); }
+      else { W0.wisps++; (W0.calm = W0.calm || {})[w.key] = Date.now() + 90000; }
+      E.gainXP(xp, w.raider ? 5 : w.elite ? 3 : 1); E.checkAchievements(); E.questProgress('shades'); refreshMarkers();
+    }
     else battle.i++;
   } else {
     KG.app.sfx('bad'); P.hearts = Math.max(0, P.hearts - 1); P.hurtT = 1; S_SHAKE = 0.4;
@@ -1468,15 +1488,25 @@ function step(dt) {
 
   // wisps
   for (const wi of wisps) {
-    if (wi.dead) { if ((wi.respawn -= dt) <= 0) spawnWisp(wi); continue; }
+    if (wi.dead) { if (!wi.raider && (wi.respawn -= dt) <= 0) spawnWisp(wi); continue; }
     wi.t += dt; wi.cool = Math.max(0, (wi.cool || 0) - dt);
     const o = wi.obj.position, d = Math.hypot(pos.x - o.x, pos.z - o.z);
     const safe = SQ.active() || ents.some(e => (e.kind === 'mentor' || e.kind === 'side') && Math.hypot(pos.x - e.x, pos.z - e.z) < 9);
     let tx, tz, sp;
-    if (d < 10 && !safe && !busy && wi.cool <= 0) { tx = pos.x; tz = pos.z; sp = 3.6; }
-    else { if (!wi.target || Math.hypot(wi.target.x - o.x, wi.target.z - o.z) < 1) wi.target = { x: wi.home.x + (Math.random() - 0.5) * 16, z: wi.home.z + (Math.random() - 0.5) * 16 }; tx = wi.target.x; tz = wi.target.z; sp = 1.4; }
+    const charge = d < (wi.raider ? 14 : 10) && !safe && !busy && wi.cool <= 0;
+    if (charge) { tx = pos.x; tz = pos.z; sp = wi.raider ? 4.2 : 3.6; }
+    else { if (!wi.target || Math.hypot(wi.target.x - o.x, wi.target.z - o.z) < 1) wi.target = { x: wi.home.x + (Math.random() - 0.5) * 16, z: wi.home.z + (Math.random() - 0.5) * 16 }; tx = wi.target.x; tz = wi.target.z; sp = wi.raider ? 1.1 : 1.4; }
     const dx = tx - o.x, dz = tz - o.z, dl = Math.hypot(dx, dz) || 1;
     o.x += dx / dl * sp * dt; o.z += dz / dl * sp * dt;
+    if (wi.raider) {
+      // raiders stomp along the ground, club raised when they charge
+      o.y = groundAt(o.x, o.z);
+      wi.obj.rotation.y = battle && battle.w === wi ? Math.atan2(pos.x - o.x, pos.z - o.z) : Math.atan2(dx, dz);
+      animateRaider(wi.obj, sp, dt, charge);
+      if (charge && (wi.dustT = (wi.dustT || 0) - dt) <= 0) { wi.dustT = 0.15; DUST.emit(o, { color: 0xb8a888, n: 1, speed: 0.6, up: 0.3, gravity: 0.3, size: 0.4, size1: 1, life: 0.5 }); }
+      if (d < 1.6 && !busy && wi.cool <= 0 && P.hearts > 0) startBattle(wi);
+      continue;
+    }
     o.y = groundAt(o.x, o.z) + 1.3 + Math.sin(wi.t * 3) * 0.25;
     wi.obj.rotation.y = Math.atan2(pos.x - o.x, pos.z - o.z);
     wi.obj.children[0].rotation.x += dt;
@@ -1508,7 +1538,7 @@ function snapCamera() {
   camera.position.set(pos.x + Math.sin(cam.yaw) * ch, pos.y + 1.4 + Math.sin(cam.pitch) * cd, pos.z + Math.cos(cam.yaw) * ch);
   camLook.set(pos.x, pos.y + 1.4, pos.z); camera.lookAt(camLook);
 }
-function savePos() { const w = ws(); w.x = +player.position.x.toFixed(2); w.z = +player.position.z.toFixed(2); w.yaw = +cam.yaw.toFixed(3); E.save(); }
+function savePos() { const w = ws(); w.hearts = P.hearts; w.x = +player.position.x.toFixed(2); w.z = +player.position.z.toFixed(2); w.yaw = +cam.yaw.toFixed(3); E.save(); }
 let mode = 'world', worldShown = false, stage;
 function loop() {
   if (!active) return;
@@ -1591,8 +1621,12 @@ W.debug = { sim: (n, dt = 1 / 60) => { for (let i = 0; i < n; i++) step(dt); }, 
   scatterTrees();
   grass();
   buildCollectibles();
+  // raiders who came while you were away; the hearts you had when you left
+  const raided = tallyRaiders(E, U);
+  if (raided) setTimeout(() => KG.app.toast(`⚔️ <b>While you were away, ${raided} Raider${raided > 1 ? 's' : ''} of Forgetting crept onto the road!</b> Drive them off by remembering your words.`, 'gold'), 2500);
   buildWisps();
   const w = ws();
+  if (typeof w.hearts === 'number') P.hearts = Math.max(1, Math.min(P.maxHearts, w.hearts));
   player.position.set(w.x, groundAt(w.x, w.z), w.z);
   if (typeof w.yaw === 'number') cam.yaw = w.yaw;
   camera.position.set(w.x, groundAt(w.x, w.z) + 5, w.z + 8);

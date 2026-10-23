@@ -20,6 +20,8 @@
     document.body.appendChild(s);
   });
   await load('js/engine.js');
+  KG.cloudGame = 'going-deeper-quest';
+  await load('js/cloud.js');
   // The world module is added first so the UI knows to wait for it; the UI also
   // opens it straight away if it happens to finish loading first.
   load('js/world.js', true).catch(() => document.dispatchEvent(new Event('world-failed')));
