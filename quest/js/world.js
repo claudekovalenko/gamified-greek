@@ -512,6 +512,81 @@ function updateNearGrass(pos) {
   G.next = end;
   G.im.instanceMatrix.needsUpdate = true; G.im.instanceColor.needsUpdate = true;
 }
+function critterMesh(kind) {
+  const g = new THREE.Group(), body = new THREE.Group(); g.add(body);
+  const T = (geo, c, x, y, z) => { const m = mesh(geo, c); m.position.set(x, y, z); body.add(m); return m; };
+  const legs = [];
+  const fourLegs = (c, h, w, l) => { for (const [x, z] of [[-w, -l], [w, -l], [-w, l], [w, l]]) { const leg = T(new THREE.CylinderGeometry(0.05, 0.05, h, 4), c, x, h / 2, z); legs.push(leg); } };
+  if (kind === 'sheep' || kind === 'goat') {
+    const wool = kind === 'sheep' ? 0xf4f0e8 : 0x8a7a6a;
+    T(new THREE.IcosahedronGeometry(0.45, 1), wool, 0, 0.65, 0).scale.set(1, 0.8, 1.3);
+    T(new THREE.SphereGeometry(0.18, 8, 6), kind === 'sheep' ? 0x2a2a2a : 0x6a5a4a, 0, 0.8, 0.55);
+    if (kind === 'goat') for (const s of [-1, 1]) { const h = T(new THREE.ConeGeometry(0.05, 0.3, 5), 0xd8d0c0, s * 0.08, 1.02, 0.5); h.rotation.x = -0.5; }
+    fourLegs(0x2a2a2a, 0.4, 0.18, 0.25);
+  } else if (kind === 'deer') {
+    T(new THREE.CylinderGeometry(0.22, 0.22, 0.9, 8), 0x9a6a3a, 0, 0.9, 0).rotation.x = Math.PI / 2;
+    const n = T(new THREE.CylinderGeometry(0.08, 0.12, 0.6, 6), 0x9a6a3a, 0, 1.25, 0.45); n.rotation.x = 0.5;
+    T(new THREE.SphereGeometry(0.15, 8, 6), 0x9a6a3a, 0, 1.55, 0.6);
+    for (const s of [-1, 1]) { const a = T(new THREE.CylinderGeometry(0.02, 0.02, 0.4, 4), 0xe8dcc0, s * 0.1, 1.8, 0.55); a.rotation.z = s * 0.4; }
+    fourLegs(0x7a5a3a, 0.7, 0.12, 0.32);
+  } else if (kind === 'duck' || kind === 'swan') {
+    const c = kind === 'swan' ? 0xffffff : 0x8a6a4a;
+    T(new THREE.SphereGeometry(0.3, 10, 8), c, 0, 0.15, 0).scale.set(1, 0.6, 1.4);
+    if (kind === 'swan') { const n = T(new THREE.CylinderGeometry(0.05, 0.07, 0.6, 6), c, 0, 0.5, 0.3); n.rotation.x = -0.25; T(new THREE.SphereGeometry(0.09, 8, 6), c, 0, 0.82, 0.38); T(new THREE.ConeGeometry(0.04, 0.14, 5), 0xff8a2a, 0, 0.8, 0.5).rotation.x = Math.PI / 2; }
+    else { T(new THREE.SphereGeometry(0.13, 8, 6), 0x2a6a3a, 0, 0.38, 0.32); T(new THREE.ConeGeometry(0.04, 0.12, 5), 0xffa040, 0, 0.36, 0.48).rotation.x = Math.PI / 2; }
+    g.userData.swim = true;
+  } else if (kind === 'lizard') {
+    T(new THREE.BoxGeometry(0.18, 0.08, 0.5), 0x6a9a3a, 0, 0.05, 0);
+    T(new THREE.ConeGeometry(0.06, 0.5, 5), 0x6a9a3a, 0, 0.05, -0.45).rotation.x = -Math.PI / 2;
+    T(new THREE.SphereGeometry(0.08, 6, 4), 0x6a9a3a, 0, 0.06, 0.3);
+    g.userData.dart = true;
+  } else if (kind === 'dove') {
+    T(new THREE.SphereGeometry(0.16, 8, 6), 0xffffff, 0, 0, 0).scale.z = 1.4;
+    for (const s of [-1, 1]) { const w = T(new THREE.BoxGeometry(0.4, 0.03, 0.18), 0xf0f0f8, s * 0.25, 0.03, 0); w.userData.wing = s; }
+    g.userData.fly = true;
+  }
+  g.userData.body = body; g.userData.legs = legs;
+  return g;
+}
+
+// a few animals in each region (sheep, deer, goats), ducks on the river and swans on the lake;
+// they wander near home and keep their distance from you
+const critters = [];
+function buildCritters() {
+  const kinds = ['sheep', 'deer', 'sheep', 'goat', 'goat', 'goat', 'sheep', 'goat', 'dove'];
+  let k = 7; const rand = () => (k = (k * 16807) % 2147483647) / 2147483647;
+  const add = (kind, x, z, swim) => { const c = { obj: critterMesh(kind), t: rand() * 10, home: { x, z }, swimY: swim }; c.obj.position.set(x, swim ?? height(x, z), z); scene.add(c.obj); critters.push(c); };
+  for (let i = 0; i < NZ; i++) for (let j = 0; j < (LOW ? 2 : 4); j++) {
+    const z = -i * L - 15 - rand() * (L - 40), x = pathX(z) + (rand() < 0.5 ? -1 : 1) * (7 + rand() * 9);
+    if (Math.abs(z - RIVER_Z) < 9 || Math.hypot(x - LAKE.x, z - LAKE.z) < LAKE.r + 3 || keepOut.some(c => Math.hypot(c.x - x, c.z - z) < c.r)) continue;
+    add(kinds[LOOK(i)], x, z);
+  }
+  const ry = height(pathX(RIVER_Z), RIVER_Z) + 0.9, ly = height(LAKE.x, LAKE.z) + 2.6;
+  for (let j = 0; j < 3; j++) add('duck', pathX(RIVER_Z) + 10 + j * 6, RIVER_Z + (rand() - 0.5) * 3, ry);
+  for (let j = 0; j < 2; j++) add('swan', LAKE.x + (rand() - 0.5) * 10, LAKE.z + (rand() - 0.5) * 10, ly);
+}
+function updateCritters(dt, t, pos) {
+  for (const c of critters) {
+    const o = c.obj.position, u = c.obj.userData;
+    if (Math.abs(o.z - pos.z) > 70) continue;
+    c.t += dt;
+    if (u.fly) {
+      const an = c.t * 0.4 + c.home.x; o.set(c.home.x + Math.cos(an) * 10, height(c.home.x, c.home.z) + 8 + Math.sin(c.t) * 1.5, c.home.z + Math.sin(an) * 10);
+      c.obj.rotation.y = -an; for (const ch of u.body.children) if (ch.userData.wing) ch.rotation.z = ch.userData.wing * Math.sin(t * 12) * 0.6;
+      continue;
+    }
+    if (!c.target || (Math.hypot(c.target.x - o.x, c.target.z - o.z) < 0.4 && (c.wait = (c.wait || 0) - dt) <= 0)) {
+      c.target = { x: c.home.x + (Math.random() - 0.5) * (c.swimY !== undefined ? 6 : 10), z: c.home.z + (Math.random() - 0.5) * (c.swimY !== undefined ? 2.5 : 10) }; c.wait = 1 + Math.random() * 4;
+    }
+    const dp = Math.hypot(pos.x - o.x, pos.z - o.z), flee = dp < 3.5 && c.swimY === undefined;
+    const tx = flee ? o.x + (o.x - pos.x) : c.target.x, tz = flee ? o.z + (o.z - pos.z) : c.target.z;
+    const dx = tx - o.x, dz = tz - o.z, dl = Math.hypot(dx, dz) || 1, moving = flee || Math.hypot(c.target.x - o.x, c.target.z - o.z) >= 0.4;
+    const sp = (u.dart ? 3 : flee ? 2.4 : 0.8) * (moving ? 1 : 0);
+    if (moving) { o.x += dx / dl * sp * dt; o.z += dz / dl * sp * dt; c.obj.rotation.y = Math.atan2(dx, dz); }
+    o.y = c.swimY !== undefined ? c.swimY + Math.sin(c.t * 2) * 0.03 : height(o.x, o.z);
+    u.body.position.y = moving && c.swimY === undefined ? Math.abs(Math.sin(c.t * 10)) * 0.06 : 0;
+  }
+}
 // per-world ambience: pollen, leaves, embers, fireflies, snow…
 const AMB = [
   { color: 0xfff0a0, size: 0.12, vy: 0.15, drift: 0.4, n: 160 },   // Hollow: pollen
@@ -1675,7 +1750,7 @@ function step(dt) {
   updateNearGrass(pos);
   CRIT.update(dt, t, pos, groundAt, INDOOR ? 0 : atm.stars < 0.5 ? 1 : 0);
   for (let k = anims.length - 1; k >= 0; k--) if (anims[k](dt, t) === false) anims.splice(k, 1);
-  updateAmbience(dt, t, pos);
+  updateAmbience(dt, t, pos); updateCritters(dt, t, pos);
   SQ.update(dt, t, pos, P.onGround);
   VEN.update(dt, t, pos, P.onGround);
   if (!INDOOR) moodMotes(MOOD, SPK, pos, dt);
@@ -1763,13 +1838,13 @@ W.onLessonDone = (node, r) => {
     if (e) burst(new THREE.Vector3(e.x, groundAt(e.x, e.z) + 2, e.z), 0xffffff);
   });
 };
-W.debug = { BLOOM, BURSTS, ARENA, get moodNow() { return MOOD; }, get indoor() { return !!INDOOR; }, mood: m => { MOOD = m; blendAtmosphere(P.zone < 0 ? 0 : P.zone, 1); }, sim: (n, dt = 1 / 60) => { for (let i = 0; i < n; i++) step(dt); }, colliders, VEN, og: (x, z, r, t) => openGround(x, z, r, t), SQ, scene, startBattle: w => startBattle(w), player, camera, cam, P, ents, wisps, questTarget, teleport: (x, z) => { player.position.set(x, groundAt(x, z), z); snapCamera(); } };
+W.debug = { critters, BLOOM, BURSTS, ARENA, get moodNow() { return MOOD; }, get indoor() { return !!INDOOR; }, mood: m => { MOOD = m; blendAtmosphere(P.zone < 0 ? 0 : P.zone, 1); }, sim: (n, dt = 1 / 60) => { for (let i = 0; i < n; i++) step(dt); }, colliders, VEN, og: (x, z, r, t) => openGround(x, z, r, t), SQ, scene, startBattle: w => startBattle(w), player, camera, cam, P, ents, wisps, questTarget, teleport: (x, z) => { player.position.set(x, groundAt(x, z), z); snapCamera(); } };
 
 // ── build ─────────────────────────────────────────────────────
 (async () => {
   try { await Promise.race([document.fonts.load(`700 40px "Gentium Plus"`), new Promise(r => setTimeout(r, 2500))]); } catch (e) { /* fall back to serif */ }
   buildTerrain();
-  scenery();
+  scenery(); buildCritters();
   buildEntities();
   buildVillains();
   buildChests();
