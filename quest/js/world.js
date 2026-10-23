@@ -891,7 +891,9 @@ function buildEntities() {
   let who = 0;
   KG.units.forEach((u, i) => {
     u.nodes.filter(n => n.type !== 'boss').forEach((n, k) => {
-      const z = stopZ(i, k), side = k % 2 ? -1 : 1;
+      let z = stopZ(i, k); const side = k % 2 ? -1 : 1;
+      // nobody teaches in the river: a stop that falls on the water moves to the near bank
+      if (Math.abs(z - RIVER_Z) < 11) z = RIVER_Z + (z > RIVER_Z ? 11 : -11);
       if (n.type !== 'reading') {
         const P = PEOPLE[who % PEOPLE.length];
         // each person teaches in their own place: a cottage, an island, a garden, a lookout…
