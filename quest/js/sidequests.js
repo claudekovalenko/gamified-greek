@@ -249,7 +249,15 @@ export function makeSideQuests(ctx) {
   function courier({ x, z, look, name }) {
     const p = ctx.person(look);
     p.position.set(x, ctx.groundAt(x, z), z); ctx.add(p);
-    const crate = ctx.mesh(new THREE.BoxGeometry(0.7, 0.6, 0.7), 0xb08850); crate.position.set(0.9, 0.3, 0.3); p.add(crate);
+    // a little handcart beside them, piled with the parcels they need help with
+    const cart = new THREE.Group(); cart.position.set(1.1, 0, 0.2); p.add(cart);
+    const bed = ctx.mesh(new THREE.BoxGeometry(1.1, 0.1, 0.75), 0x8a5a2a); bed.position.y = 0.45; cart.add(bed);
+    for (const [x, z] of [[0, -0.36], [0, 0.36]]) { const sd = ctx.mesh(new THREE.BoxGeometry(1.1, 0.25, 0.05), 0x7a4a20); sd.position.set(x, 0.6, z); cart.add(sd); }
+    for (const z of [-0.42, 0.42]) { const wh = ctx.mesh(new THREE.CylinderGeometry(0.28, 0.28, 0.08, 10), 0x5a3a20); wh.rotation.x = Math.PI / 2; wh.position.set(0.1, 0.28, z); cart.add(wh); }
+    for (const z of [-0.3, 0.3]) { const h = ctx.mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.9, 5), 0x6a4a2a); h.rotation.z = 1.2; h.position.set(-0.85, 0.65, z); cart.add(h); }
+    const crate = ctx.mesh(new THREE.BoxGeometry(0.5, 0.42, 0.5), 0xb08850); crate.position.set(0.15, 0.71, 0); cart.add(crate);
+    const sack = ctx.mesh(new THREE.SphereGeometry(0.24, 8, 6), 0xd8c8a0); sack.scale.y = 0.8; sack.position.set(-0.3, 0.68, 0.05); cart.add(sack);
+    const parcel = ctx.mesh(new THREE.BoxGeometry(0.3, 0.2, 0.3), 0xc9a46a); parcel.position.set(0.12, 1.02, 0.02); parcel.rotation.y = 0.4; cart.add(parcel);
     const e = { kind: 'side', sq: 'courier', obj: p, x, z, label: `📦 ${name}`, name, tagY: 2.7, r: 0.7, person: true };
     spots.push(e);
     return e;
