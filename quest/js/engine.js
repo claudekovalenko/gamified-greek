@@ -240,6 +240,10 @@ window.KG = window.KG || {};
     const options = shuffle(uniq([correct, ...wrongs.filter(w => w !== correct)]).slice(0, 4));
     if (!options.includes(correct)) options[0] = correct;
     const opts = shuffle(options);
+    // a hint must not simply say the answer: any option spelled out in it is blanked
+    if (extra.hint) { const plain = t => String(t).replace(/<[^>]+>/g, '').replace(/[«»“”"]/g, '').trim(); let h = String(extra.hint); for (const o of opts) { const t = plain(o); if (t.length > 1 && h.includes(t)) h = h.split(t).join('…'); } extra = Object.assign({}, extra, { hint: h }); }
+    // and a question that asks for a Greek word must not quote that word in its own wording (some hooks do)
+    if (extra.greekOpts) for (const o of opts) { const t = String(o).replace(/<[^>]+>/g, '').replace(/[«»]/g, '').trim(); if (t.length > 1 && prompt.includes(t)) prompt = prompt.split(t).join('…'); }
     return Object.assign({ type: 'mc', prompt, options: opts, answer: opts.indexOf(correct) }, extra);
   }
   const others = (correct, pool, n = 3) => sample(uniq(pool).filter(x => x !== correct), n);
@@ -264,8 +268,10 @@ window.KG = window.KG || {};
       const rs = Object.values(KG.readings).filter(r => r.uses.includes(w.g));
       if (rs.length) {
         const R = U.pick(rs);
-        return mc('🕵️ Which word is hiding in this sentence?', w.g, others(w.g, pool.map(x => x.g).filter(g => !R.uses.includes(g))),
-          Object.assign({ greekOpts: true, big: sentence(R), sub: R.tr, small: true }, base, { explain: `${explain}<br><i>${esc(R.tr)}</i>` }));
+        // the choices are all words from the sentence itself, so you have to know which one means it (not just spot which is there)
+        const near = pool.map(x => x.g).filter(g => g !== w.g && R.uses.includes(g));
+        if (near.length >= 2) return mc(`🕵️ Which word in this sentence means “<b>${esc(w.en)}</b>”?`, w.g, others(w.g, near),
+          Object.assign({ greekOpts: true, big: sentence(R), small: true }, base, { explain: `${explain}<br><i>${esc(R.tr)}</i>` }));
       }
     }
     return mc('What does this word mean?', w.en, others(w.en, pool.map(x => x.en)), Object.assign({ big: w.g, sub: w.lex !== w.g ? w.lex : '' }, base));

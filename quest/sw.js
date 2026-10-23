@@ -1,7 +1,7 @@
 // Offline support: cache the app shell on install, use the network when it is
 // available and fall back to the cache when offline. Network first, so a new
 // content.json (or a new chapter) shows up as soon as you are online.
-const CACHE = 'going-deeper-quest-v19';
+const CACHE = 'going-deeper-quest-v20';
 const SHELL = [
   './', 'index.html', 'manifest.webmanifest', 'css/style.css', '../data/content.json',
   'js/content.js', 'js/boot.js', 'js/engine.js', 'js/app.js', 'js/world.js', 'js/stage.js', 'js/stagesets.js', 'js/fx.js', 'js/sidequests.js', 'js/venues.js', 'js/raiders.js', 'js/cloud.js', 'js/vendor/three.module.min.js',
