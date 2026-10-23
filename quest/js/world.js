@@ -1685,6 +1685,12 @@ function step(dt) {
     $('wqarrow').dataset.d = Math.round(Math.hypot(W.target.x - pos.x, W.target.z - pos.z)) + 'm';
   }
   if (beacon) beacon.material.opacity = 0.14 + Math.sin(t * 2) * 0.06;
+  // follow the light: golden motes drift ahead of you towards the quest
+  if (beacon && beacon.visible && !LOW && !busy && (P.trailT = (P.trailT || 0) - dt) <= 0) {
+    P.trailT = 0.22;
+    const bx = beacon.position.x - pos.x, bz = beacon.position.z - pos.z, bd = Math.hypot(bx, bz);
+    if (bd > 6) { const k = 2 + Math.random() * Math.min(10, bd - 3), x = pos.x + bx / bd * k, z = pos.z + bz / bd * k; tmp2.set(x, groundAt(x, z) + 0.5, z); SPK.emit(tmp2, { color: 0xffd166, n: 1, speed: 0.4, up: 0.3, gravity: 0.2, drag: 1, size: 0.45, life: 1.8 }); }
+  }
 
   // collectibles
   const w = ws();
