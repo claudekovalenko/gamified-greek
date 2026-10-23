@@ -169,6 +169,59 @@ export function makeFX(THREE, { LOW = false } = {}) {
   }
 
   const cloudShade = { value: 1 }; // how strongly cloud shadows show (the host sets it from the sky)
+  // ── bloom: bright lights (lamps, magic, the sun on water) bleed a soft glow ──
+  // render(scene, camera) draws the frame with the glow; the renderer's tone mapping
+  // and exposure are applied in the final pass. Falls back to a plain render if unsupported.
+  function bloom(renderer, { strength = 0.55, threshold = 0.82 } = {}) {
+    const caps = renderer.capabilities;
+    if (!caps.isWebGL2) return { render: (s, c) => renderer.render(s, c), enabled: false };
+    const mk = (w, h, o = {}) => new THREE.WebGLRenderTarget(w, h, Object.assign({ type: THREE.HalfFloatType, depthBuffer: false }, o));
+    let W = 0, H = 0, main, a, b;
+    const quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2)), qs = new THREE.Scene(), qc = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+    quad.frustumCulled = false; qs.add(quad);
+    const vs = 'varying vec2 vUv; void main() { vUv = uv; gl_Position = vec4(position.xy, 0., 1.); }';
+    const bright = new THREE.ShaderMaterial({ uniforms: { tSrc: { value: null }, uTh: { value: threshold } }, vertexShader: vs, toneMapped: false, depthTest: false,
+      fragmentShader: 'uniform sampler2D tSrc; uniform float uTh; varying vec2 vUv; void main() { vec3 c = texture2D(tSrc, vUv).rgb; float l = dot(c, vec3(.2126, .7152, .0722)); gl_FragColor = vec4(c * smoothstep(uTh, uTh + .5, l), 1.); }' });
+    const blur = new THREE.ShaderMaterial({ uniforms: { tSrc: { value: null }, uDir: { value: new THREE.Vector2() } }, vertexShader: vs, toneMapped: false, depthTest: false,
+      fragmentShader: `uniform sampler2D tSrc; uniform vec2 uDir; varying vec2 vUv;
+        void main() { vec3 c = texture2D(tSrc, vUv).rgb * .227;
+          c += (texture2D(tSrc, vUv + uDir * 1.385).rgb + texture2D(tSrc, vUv - uDir * 1.385).rgb) * .316;
+          c += (texture2D(tSrc, vUv + uDir * 3.231).rgb + texture2D(tSrc, vUv - uDir * 3.231).rgb) * .07;
+          gl_FragColor = vec4(c, 1.); }` });
+    const comp = new THREE.ShaderMaterial({ uniforms: { tSrc: { value: null }, tBloom: { value: null }, uStr: { value: strength } }, vertexShader: vs, depthTest: false,
+      fragmentShader: `uniform sampler2D tSrc, tBloom; uniform float uStr; varying vec2 vUv;
+        void main() { gl_FragColor = vec4(texture2D(tSrc, vUv).rgb + texture2D(tBloom, vUv).rgb * uStr, 1.);
+          #include <tonemapping_fragment>
+          #include <colorspace_fragment>
+        }` });
+    const size = new THREE.Vector2();
+    function fit() {
+      renderer.getDrawingBufferSize(size);
+      if (size.x === W && size.y === H) return;
+      W = size.x; H = size.y;
+      [main, a, b].forEach(t => t && t.dispose());
+      main = mk(W, H, { depthBuffer: true, samples: Math.min(4, caps.maxSamples || 0) });
+      const w4 = Math.max(1, W >> 2), h4 = Math.max(1, H >> 2);
+      a = mk(w4, h4); b = mk(w4, h4);
+    }
+    const pass = (m, target) => { quad.material = m; renderer.setRenderTarget(target); renderer.render(qs, qc); };
+    const api = {
+      enabled: true, strength: comp.uniforms.uStr,
+      render(scene, camera) {
+        if (!api.enabled) { renderer.setRenderTarget(null); return renderer.render(scene, camera); }
+        fit();
+        renderer.setRenderTarget(main); renderer.render(scene, camera);
+        bright.uniforms.tSrc.value = main.texture; pass(bright, a);
+        for (let i = 0; i < 2; i++) {
+          blur.uniforms.tSrc.value = a.texture; blur.uniforms.uDir.value.set(1 / a.width, 0); pass(blur, b);
+          blur.uniforms.tSrc.value = b.texture; blur.uniforms.uDir.value.set(0, 1 / a.height); pass(blur, a);
+        }
+        comp.uniforms.tSrc.value = main.texture; comp.uniforms.tBloom.value = a.texture; pass(comp, null);
+      },
+    };
+    return api;
+  }
+
   // ── rim light: a soft glow along a character's edges so they stand out from the scenery ──
   const rimCol = { value: new THREE.Color(0xfff2d8) }, rimAmt = { value: LOW ? 0 : 0.35 };
   function rim(material) {
@@ -610,5 +663,5 @@ export function makeFX(THREE, { LOW = false } = {}) {
     return { update, group: G };
   }
 
-  return { time, hero, rim, rimCol, rimAmt, setLight, cloudShade, farHills, shootingStars, critters, arena, bursts, pondLife, groundDetail, sky, water, windify, portalMaterial, sparks, glow, blobShadow, heroPose, flyToHUD, tick: t => { time.value = t; } };
+  return { time, hero, bloom, rim, rimCol, rimAmt, setLight, cloudShade, farHills, shootingStars, critters, arena, bursts, pondLife, groundDetail, sky, water, windify, portalMaterial, sparks, glow, blobShadow, heroPose, flyToHUD, tick: t => { time.value = t; } };
 }
