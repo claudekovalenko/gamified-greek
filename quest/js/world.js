@@ -1531,6 +1531,9 @@ function step(dt) {
   for (const c of coins) {
     if (!c.c.visible) continue;
     c.c.rotation.z += dt * 3;
+    // coins bob gently and catch the light now and then
+    c.y0 ??= c.c.position.y; c.c.position.y = c.y0 + Math.sin(t * 2.2 + c.i) * 0.12;
+    if (!LOW && Math.random() < dt * 0.7 && Math.abs(pos.x - c.x) + Math.abs(pos.z - c.z) < 40) SPK.emit(c.c.position, { color: 0xfff4c0, n: 1, speed: 0, up: 0, gravity: 0, size: 0.7, size1: 0, life: 0.35, spread: 0.4 });
     if (Math.hypot(pos.x - c.x, pos.z - c.z) < 1.1 && Math.abs(pos.y + 0.8 - c.c.position.y) < 1.6) {
       c.c.visible = false; w.coins.got.push(c.i); E.state.coins++; KG.app.sfx('coin'); E.questProgress('coins');
       SPK.emit(c.c.position, { color: 0xffd166, n: 10, speed: 2.5, size: 0.3, life: 0.5 });
