@@ -143,6 +143,7 @@ let MOOD = 0, INDOOR = null, DOOR = null, EXPO = 1;
 function paintSky() {
   const M = MOODS[MOOD] || {};
   sky.userData.set(atm);
+  FX.cloudShade.value = Math.min(1, 0.3 + atm.clouds * 1.2) * (atm.stars > 0.5 ? 0.3 : 1);
   waterMat.userData.setColors(...(M.water || [0x1f6a9a, 0x5ac0e0]), atm.mid);
   scene.fog.color.copy(atm.mid); scene.fog.near = atm.near; scene.fog.far = atm.far;
   sun.color.copy(atm.sun); sun.intensity = atm.sunI; hemi.intensity = atm.hemi;

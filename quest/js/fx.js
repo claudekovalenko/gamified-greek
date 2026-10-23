@@ -125,17 +125,22 @@ export function makeFX(THREE, { LOW = false } = {}) {
     return material;
   }
 
+  const cloudShade = { value: 1 }; // how strongly cloud shadows show (the host sets it from the sky)
   // ── ground: painterly patches of light and shade, warmer and cooler, on any vertex-coloured ground ──
   function groundDetail(material, { amt = 1.25 } = {}) {
     material.onBeforeCompile = sh => {
+      sh.uniforms.uTime = time; sh.uniforms.uCloudShade = cloudShade;
       sh.vertexShader = 'varying vec3 vGW;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n vGW = (modelMatrix * vec4(transformed, 1.)).xyz;');
-      sh.fragmentShader = 'varying vec3 vGW;\n' + NOISE.replace(/OCT/g, '3') + '\n' + sh.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>
+      sh.fragmentShader = 'uniform float uTime, uCloudShade;\nvarying vec3 vGW;\n' + NOISE.replace(/OCT/g, '3') + '\n' + sh.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>
         {
           float n1 = vn(vGW.xz * .07), n2 = vn(vGW.xz * .45 + 3.1), n3 = vn(vGW.xz * 2.3 + 7.7);
           float k = ${amt.toFixed(2)};
           diffuseColor.rgb *= 1. + k * (.2 * (n1 - .5) + .1 * (n2 - .5) + .06 * (n3 - .5));
           diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * vec3(1.1, 1.05, .82), k * smoothstep(.55, .85, n1) * .45);
           diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * vec3(.9, 1., 1.08), k * smoothstep(.6, .9, 1. - n1) * .3);
+          // the shadows of clouds drifting over the land
+          float cs = smoothstep(.5, .72, vn(vGW.xz * .018 + uTime * vec2(.018, .011)) * .7 + vn(vGW.xz * .05 + uTime * vec2(.03, .02)) * .3);
+          diffuseColor.rgb *= 1. - cs * .26 * uCloudShade;
         }`);
     };
     material.customProgramCacheKey = () => 'ground' + amt;
@@ -350,5 +355,5 @@ export function makeFX(THREE, { LOW = false } = {}) {
     return { update, group: G };
   }
 
-  return { time, critters, groundDetail, sky, water, windify, portalMaterial, sparks, glow, blobShadow, heroPose, flyToHUD, tick: t => { time.value = t; } };
+  return { time, cloudShade, critters, groundDetail, sky, water, windify, portalMaterial, sparks, glow, blobShadow, heroPose, flyToHUD, tick: t => { time.value = t; } };
 }
