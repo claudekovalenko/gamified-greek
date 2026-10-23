@@ -573,7 +573,7 @@ export function makeFX(THREE, { LOW = false } = {}) {
     for (let i = 0; i < n; i++) { const m = new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ side: THREE.DoubleSide, transparent: true })); m.visible = false; scene.add(m); L.push({ m, t: 0, v: new THREE.Vector3(), spin: new THREE.Vector3() }); }
     let wait = 8;
     return {
-      update(dt, p, colors) {
+      update(dt, p, colors, cam) {
         if (!n) return;
         if ((wait -= dt) <= 0 && colors) {
           wait = 14 + Math.random() * 16;
@@ -589,7 +589,9 @@ export function makeFX(THREE, { LOW = false } = {}) {
           if (l.t <= 0) continue;
           l.t -= dt; l.m.position.addScaledVector(l.v, dt); l.m.position.y += Math.sin(l.t * 5 + l.spin.x) * dt * 0.8;
           l.m.rotation.x += l.spin.x * dt; l.m.rotation.y += l.spin.y * dt; l.m.rotation.z += l.spin.z * dt;
-          l.m.material.opacity = Math.min(1, l.t * 2); if (l.t <= 0) l.m.visible = false;
+          // a leaf that brushes past the lens would fill the screen: thin it out close to the camera
+          const near = cam ? Math.min(1, Math.max(0, (l.m.position.distanceTo(cam) - 1.2) / 2.3)) : 1;
+          l.m.material.opacity = Math.min(1, l.t * 2) * near; if (l.t <= 0) l.m.visible = false;
         }
       },
     };

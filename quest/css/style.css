@@ -651,3 +651,9 @@ body.irisfx::after { content: ''; position: fixed; inset: 0; z-index: 60; pointe
 .wbt-opt { transition: transform .12s, box-shadow .12s; }
 .wbt-opt:hover { transform: translateY(-1px); box-shadow: 0 3px 10px rgba(122,58,255,.18); }
 .wbt-box.elite { background: radial-gradient(120% 80% at 50% 0%, rgba(224,69,58,.10), transparent 60%), var(--card); box-shadow: 0 0 40px rgba(224,69,58,.45), inset 0 0 0 3px var(--card), inset 0 0 0 4px rgba(224,69,58,.4); }
+/* HUD panels: glassy top light and a hairline gold edge; buttons press in */
+.wstat, .wb, .wquest { background: linear-gradient(180deg, rgba(255,255,255,.10), rgba(255,255,255,0) 55%), rgba(20, 28, 40, .55); box-shadow: inset 0 0 0 1px rgba(232,190,100,.28), 0 4px 14px rgba(0,0,0,.18); }
+.wb { transition: transform .1s, box-shadow .15s; }
+.wb:active { transform: scale(.92); box-shadow: inset 0 0 0 1px rgba(232,190,100,.6), 0 1px 4px rgba(0,0,0,.2); }
+.wxp i { background: linear-gradient(180deg, #ffe08a, var(--gold) 60%, #c98a10); box-shadow: 0 0 6px rgba(255,200,80,.7); }
+.wlv b { box-shadow: inset 0 -2px 0 rgba(0,0,0,.2), 0 0 0 2px rgba(255,230,160,.35); }
