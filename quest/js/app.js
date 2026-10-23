@@ -399,6 +399,7 @@
   }
 
   function answer(ok, q) {
+    if (q && q.speakAfter && S().settings.speech) setTimeout(() => speak(q.speakAfter), 300); // the word, said once you've chosen
     P.answered = true;
     const graded = !q.ungraded && !(q.guided && !ok);
     if (q.guided && !ok && (q.tries || 0) >= 2) { sfx('bad'); P.combo = 0; }

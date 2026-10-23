@@ -252,6 +252,8 @@ window.KG = window.KG || {};
     const options = shuffle(uniq([correct, ...wrongs.filter(w => w !== correct)]).slice(0, 4));
     if (!options.includes(correct)) options[0] = correct;
     const opts = shuffle(options);
+    // nor may the 🔊 button: when you're asked to pick the Greek, or to read a word aloud, the voice waits until you've answered
+    if (extra.speak && (extra.greekOpts || /How do you read/.test(prompt))) extra = Object.assign({}, extra, { speakAfter: extra.speak, speak: '' });
     // a hint must not simply say the answer: any option spelled out in it is blanked
     if (extra.hint) { const plain = t => String(t).replace(/<[^>]+>/g, '').replace(/[«»“”"]/g, '').trim(); let h = String(extra.hint); for (const o of opts) { const t = plain(o); if (t.length > 1 && h.includes(t)) h = h.split(t).join('…'); } extra = Object.assign({}, extra, { hint: h }); }
     // and a question that asks for a Greek word must not quote that word in its own wording (some hooks do)
