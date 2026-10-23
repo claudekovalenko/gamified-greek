@@ -24,7 +24,7 @@ export function tallyRaiders(E, U) {
   return Math.max(0, n);
 }
 
-// a raider: a squat brute with tusks, a horned helmet, a club and glowing eyes
+// a raider: a squat brute with tusks, a horned helmet, a club, a torch and glowing eyes
 export function raiderMesh(THREE, mesh, seed = 0) {
   const g = new THREE.Group(), body = new THREE.Group(); g.add(body);
   const skin = [0x6a8a4a, 0x5a7a5a, 0x7a8a50, 0x6a7a62][seed % 4], hide = [0x5a3a24, 0x4a3a30, 0x6a4a2a][seed % 3];
@@ -62,7 +62,16 @@ export function raiderMesh(THREE, mesh, seed = 0) {
   const club = new THREE.Group(); club.position.set(0, -0.9, 0.1); arms[1].add(club);
   add(new THREE.CylinderGeometry(0.06, 0.08, 0.9, 6), 0x5a3a20, 0, 0, 0.35, undefined, club).rotation.x = 1.3;
   add(new THREE.DodecahedronGeometry(0.22, 0), 0x6a4a2a, 0, 0.1, 0.8, undefined, club);
-  Object.assign(g.userData, { body, legs, arms, head, phase: Math.random() * 6 });
+  // a burning torch in the left hand, so you see them coming at dusk
+  const torch = new THREE.Group(); torch.position.set(0, -0.95, 0.15); arms[0].add(torch);
+  add(new THREE.CylinderGeometry(0.05, 0.06, 0.9, 5), 0x4a3020, 0, 0.25, 0.1, undefined, torch).rotation.x = -0.5;
+  const fl = new THREE.Mesh(new THREE.ConeGeometry(0.17, 0.5, 6), new THREE.MeshBasicMaterial({ color: 0xff8a2a }));
+  const fl2 = new THREE.Mesh(new THREE.ConeGeometry(0.09, 0.32, 6), new THREE.MeshBasicMaterial({ color: 0xffe07a }));
+  fl.position.set(0, 0.85, 0.37); fl2.position.set(0, 0.8, 0.37); torch.add(fl, fl2);
+  // muddy war paint and a few iron studs on the belt
+  for (const s of [-1, 1]) add(new THREE.BoxGeometry(0.06, 0.2, 0.02), 0x8a2a1a, s * 0.2, 0.05, 0.4, undefined, head);
+  for (let i = 0; i < 6; i++) { const a = -1.2 + i * 0.48; add(new THREE.SphereGeometry(0.05, 5, 4), 0x9a9aa2, Math.sin(a) * 0.79, 1.0, Math.cos(a) * 0.72, { metalness: 0.7, roughness: 0.4 }); }
+  Object.assign(g.userData, { body, legs, arms, head, flame: [fl, fl2], phase: Math.random() * 6 });
   return g;
 }
 
@@ -78,4 +87,5 @@ export function animateRaider(r, speed, dt, charging) {
   u.body.rotation.z = Math.sin(u.phase) * 0.08 * k;
   u.head.rotation.y = Math.sin(u.phase * 0.3) * 0.3;
   u.flag.rotation.y = Math.sin(u.phase * 0.7) * 0.4;
+  if (u.flame) for (const [i, f] of u.flame.entries()) { const k = 1 + Math.sin(u.phase * 7 + i * 2) * 0.15 + Math.sin(u.phase * 13) * 0.08; f.scale.set(k, 1 + Math.sin(u.phase * 9 + i) * 0.25, k); }
 }

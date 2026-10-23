@@ -1555,6 +1555,7 @@ function step(dt) {
       o.y = groundAt(o.x, o.z);
       wi.obj.rotation.y = battle && battle.w === wi ? Math.atan2(pos.x - o.x, pos.z - o.z) : Math.atan2(dx, dz);
       animateRaider(wi.obj, sp, dt, charge);
+      if (!LOW && (wi.emberT = (wi.emberT || 0) - dt) <= 0 && d < 40) { wi.emberT = 0.15; SPK.emit(wi.obj.userData.flame[0].getWorldPosition(tmp2), { colors: [0xffb04a, 0xff6a2a], n: 1, speed: 0.4, up: 1.2, gravity: 1.2, drag: 0.8, size: 0.2, life: 0.9 }); }
       if (charge && (wi.dustT = (wi.dustT || 0) - dt) <= 0) { wi.dustT = 0.15; DUST.emit(o, { color: 0xb8a888, n: 1, speed: 0.6, up: 0.3, gravity: 0.3, size: 0.4, size1: 1, life: 0.5 }); }
       if (d < 1.6 && !busy && wi.cool <= 0 && P.hearts > 0) startBattle(wi);
       continue;
