@@ -1900,7 +1900,7 @@ W.hide = () => {
 // The 3D trial stage used by every lesson, boss, review and arcade game.
 W.stage = {
   get ok() { return !!stage; },
-  enter(kind, unit) { if (mode === 'world' && worldShown) savePos(); closeDialog(); mode = 'stage'; root.classList.add('on', 'staging'); resize(); stage.enter(kind, unit); startLoop(); },
+  enter(kind, unit) { if (mode === 'world' && worldShown) savePos(); closeDialog(); mode = 'stage'; root.classList.add('on', 'staging'); document.body.classList.remove('irisfx'); void document.body.offsetWidth; document.body.classList.add('irisfx'); setTimeout(() => document.body.classList.remove('irisfx'), 900); resize(); stage.enter(kind, unit); startLoop(); },
   ask: (q, h) => stage.ask(q, h), reveal: (ok, c, r) => stage.reveal(ok, c, r), result: ok => stage.result(ok),
   teach: item => stage.teach(item), trial: foe => stage.trial(foe), mini: (q, done) => stage.mini(q, done), stopMini: () => stage.stopMini(),
   hp: f => stage.hp(f), combo: n => stage.combo(n), celebrate: w => stage.celebrate(w), orderLine: () => stage.orderLine(), lock: () => stage.lock(),

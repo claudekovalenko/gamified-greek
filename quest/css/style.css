@@ -618,3 +618,7 @@ body.in-stage .main > .s3 { pointer-events: none; }
 .wbt-box.elite .wbt-h::before { background: radial-gradient(circle at 40% 40%, #fff 0 12%, #ff8a6a 30%, #8a1a2a 70%, transparent 72%); box-shadow: 0 0 14px #ff5a3a; }
 .wbt-box.riddlebox .wbt-h::before { display: none; }
 @keyframes wbtpulse { 50% { transform: scale(1.12); filter: brightness(1.25); } }
+/* entering a trial: the view opens from a circle of light, like stepping into another place */
+body.irisfx::after { content: ''; position: fixed; inset: 0; z-index: 60; pointer-events: none; background: radial-gradient(circle at 50% 50%, transparent 0, transparent var(--iris, 0%), #10121c calc(var(--iris, 0%) + 2%)); animation: irisfx .85s ease-out forwards; }
+@property --iris { syntax: '<percentage>'; inherits: false; initial-value: 0%; }
+@keyframes irisfx { from { --iris: 0%; } to { --iris: 110%; } }
