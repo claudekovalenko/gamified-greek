@@ -192,6 +192,7 @@ function doorway(v) {
   DOOR = v;
   setTimeout(() => {
     INDOOR = v;
+    P.inT = 0; cam.pitch = v ? 0.45 : 0.42; // level your gaze through the door, and the follow camera's angle again on the way out
     const wasStorm = MOODS[MOOD] && MOODS[MOOD].name === 'storm';
     if (moveOn) MOOD = (MOOD + 1) % MOODS.length;
     if (moveOn && wasStorm) setTimeout(() => { BOW.show([Math.sin(cam.yaw), 0, Math.cos(cam.yaw)]); KG.app.toast('🌈 The storm has passed. Look, a rainbow!'); }, 1200);
@@ -1660,7 +1661,7 @@ function step(dt) {
 
   // camera: follow and gently swing behind the player while walking (more readily on a phone stick)
   cam.auto = Math.max(0, cam.auto - dt);
-  if (mag > 0.3 && cam.auto <= 0 && (f > 0.2 || (input.joy && f > -0.4))) {
+  if (mag > 0.3 && cam.auto <= 0 && !INDOOR && (f > 0.2 || (input.joy && f > -0.4))) {
     let d = (player.rotation.y + Math.PI) - cam.yaw; d = Math.atan2(Math.sin(d), Math.cos(d));
     cam.yaw += d * dt * (input.joy ? 2.2 : 1.2) * Math.min(1, mag);
   }
@@ -1689,14 +1690,30 @@ function step(dt) {
   // talking: an over-the-shoulder shot, the speaker framed above the dialogue box
   const tk = dlgOpen && talkTo && !aim && !INDOOR ? talkTo.obj.position : null;
   if (tk) { const dx = tk.x - pos.x, dz = tk.z - pos.z, dl = Math.hypot(dx, dz) || 1; tmp.set(pos.x - dx / dl * 2.4 + dz / dl * 3.2, pos.y + 2.4, pos.z - dz / dl * 2.4 - dx / dl * 3.2); tmp.y = Math.max(tmp.y, groundAt(tmp.x, tmp.z) + 1); }
-  if (INDOOR && !aim) { INDOOR.roomCam(pos, tmp); let dy = INDOOR.face - cam.yaw; cam.yaw += Math.atan2(Math.sin(dy), Math.cos(dy)) * Math.min(1, dt * 3); }
+  // indoors you see through the hero's eyes: a cottage is too small for a camera behind you.
+  // On the way in you turn to face the room; drag to look round, up and down
+  const fpv = INDOOR && !aim;
+  if (fpv) {
+    if ((P.inT += dt) < 0.9) { let dy = INDOOR.face - cam.yaw; cam.yaw += Math.atan2(Math.sin(dy), Math.cos(dy)) * Math.min(1, dt * 5); }
+    tmp.set(pos.x + Math.sin(cam.yaw) * 0.7, pos.y + 1.75, pos.z + Math.cos(cam.yaw) * 0.7); // just behind the eyes, so a wall you walk up to isn't pressed against the lens
+  }
+  player.visible = !fpv; if (pet) pet.visible = !fpv;
   if (INDOOR) INDOOR.clampCam(tmp);
   camera.position.lerp(tmp, cam.snap ? 1 : Math.min(1, dt * (aim ? 4 : 8))); cam.snap = false;
   if (tk) camLook.lerp(tmp2.set(pos.x + (tk.x - pos.x) * 0.7, pos.y + 0.5, pos.z + (tk.z - pos.z) * 0.7), Math.min(1, dt * 5)); else camLook.lerp(tmp2.set(pos.x, pos.y + 1.4, pos.z).lerp(focus || tmp2, focus ? (foe ? 0.45 : 0.7) : 0).setY(foe && battle.w.raider ? Math.max(pos.y + 1.4, foe.y + 0.4) : tmp2.y), Math.min(1, dt * 6));
+  if (fpv) {
+    // look where you face, or at the teacher while you talk
+    const who = dlgOpen && talkTo ? talkTo.obj.position : null, down = Math.max(-0.45, Math.min(0.8, (cam.pitch - 0.32) * 1.2));
+    // while you talk, the view steps back so the teacher is framed, not filling the screen
+    if (who) { const dx = tmp.x - who.x, dz = tmp.z - who.z, dl = Math.hypot(dx, dz) || 1; if (dl < 2.8) tmp.set(who.x + dx / dl * 2.8, tmp.y, who.z + dz / dl * 2.8); INDOOR.clampCam(tmp); }
+    if (who) camLook.lerp(tmp2.set(who.x, who.y + 1.6, who.z), Math.min(1, dt * 5));
+    else camLook.set(tmp.x - Math.sin(cam.yaw) * Math.cos(down) * 5, tmp.y - Math.sin(down) * 5, tmp.z - Math.cos(cam.yaw) * Math.cos(down) * 5);
+    camera.position.copy(tmp);
+  }
   camera.lookAt(camLook);
   if (S_SHAKE > 0) { S_SHAKE = Math.max(0, S_SHAKE - dt); camera.position.x += (Math.random() - 0.5) * S_SHAKE; camera.position.y += (Math.random() - 0.5) * S_SHAKE; }
-  // running widens the view a touch, for a sense of speed
-  { const hsp = Math.hypot(P.vel.x, P.vel.z), want = (cam.baseFov || 60) + (P.onGround && hsp > 6.5 && !busy ? 5 : 0); if (Math.abs(camera.fov - want) > 0.05) { camera.fov += (want - camera.fov) * Math.min(1, dt * 3); camera.updateProjectionMatrix(); } }
+  // running widens the view a touch, for a sense of speed; indoors the view is wider, so a small room feels roomy
+  { const hsp = Math.hypot(P.vel.x, P.vel.z), want = (cam.baseFov || 60) + (INDOOR ? 14 : 0) + (P.onGround && hsp > 6.5 && !busy ? 5 : 0); if (Math.abs(camera.fov - want) > 0.05) { camera.fov += (want - camera.fov) * Math.min(1, dt * 3); camera.updateProjectionMatrix(); } }
   sun.position.set(pos.x + 30, pos.y + 60, pos.z + 20); sun.target.position.set(pos.x, pos.y, pos.z);
   sky.position.copy(camera.position); HILLS.update(camera.position); BOW.update(dt, camera.position); AUR.update(camera.position);
 

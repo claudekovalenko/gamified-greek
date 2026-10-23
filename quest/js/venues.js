@@ -32,7 +32,7 @@ const OFF = { campfire: 8.5, house: 12.5, stones: 12.5, stall: 5.8, garden: 11, 
 export const MOODS = [
   null,
   { name: 'sunset', say: '🌇 The sun is setting outside.', top: 0x3a2a78, mid: 0xf4a868, bot: 0xffe0b0, sun: 0xffa050, sunI: 1.9, hemi: 0.95, fog: [50, 200], clouds: 0.5, stars: 0.2, sunDir: [-0.4, 0.1, -0.9], water: [0x3a3a6a, 0xe0a070], hemiSky: 0xffc890, hemiGround: 0x5a3a2a, exposure: 0.9, grade: [0xfff0e0, 1.08] },
-  { name: 'night', say: '🌙 Night has fallen while you were inside. Look at the stars!', top: 0x070c26, mid: 0x26346a, bot: 0x5a6898, sun: 0xa8b8ff, sunI: 0.5, hemi: 0.55, fog: [35, 170], clouds: 0.2, stars: 1, sunDir: [0.2, 0.35, -0.9], water: [0x0c1838, 0x3a5a98], hemiSky: 0x7a94e0, hemiGround: 0x1c2440, exposure: 0.72, grade: [0xe8eeff, 0.85] },
+  { name: 'night', say: '🌙 Night has fallen while you were inside. Look at the stars!', top: 0x050a24, mid: 0x1f3070, bot: 0x3a5290, sun: 0x9ab4ff, sunI: 0.95, hemi: 0.6, fog: [55, 210], clouds: 0.2, stars: 1, sunDir: [0.35, 0.5, -0.8], water: [0x0c1838, 0x3a5a98], hemiSky: 0x6f8cff, hemiGround: 0x141c3a, exposure: 0.8, grade: [0xdfe8ff, 1] },
   { name: 'dawn', say: '🌄 Morning mist. A new day!', top: 0x7a86c0, mid: 0xf2c8c4, bot: 0xfff2e4, sun: 0xffd2b8, sunI: 1.6, hemi: 1.1, fog: [14, 95], clouds: 0.6, stars: 0, sunDir: [0.6, 0.12, -0.8], water: [0x5a7aa8, 0xf0c8c8], hemiSky: 0xffe0e8, hemiGround: 0x6a6a5a, exposure: 1.05, grade: [0xfff4f4, 0.95] },
   { name: 'storm', say: '⛈️ Storm clouds rolled in!', top: 0x2e3440, mid: 0x7e8894, bot: 0xaab2bc, sun: 0xd8e0ff, sunI: 0.7, hemi: 0.9, fog: [22, 130], clouds: 1, stars: 0, water: [0x1e2a36, 0x6a7a88], hemiSky: 0xa8b4c8, hemiGround: 0x2a3430, exposure: 0.78, grade: [0xf0f4f8, 0.75] },
 ];

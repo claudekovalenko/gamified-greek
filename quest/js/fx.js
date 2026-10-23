@@ -822,7 +822,7 @@ export function makeFX(THREE, { LOW = false } = {}) {
       x.fillStyle = g; x.fillRect(0, 0, 64, 64); haloTex = new THREE.CanvasTexture(c);
     }
     const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: haloTex, color, transparent: true, opacity, depthWrite: false, blending: THREE.AdditiveBlending }));
-    s.scale.setScalar(size * (1 + nightK * 0.6)); s.material.opacity = Math.min(1, opacity * (1 + nightK * 0.7));
+    s.scale.setScalar(size * (1 + nightK * 0.25)); s.material.opacity = Math.min(1, opacity * (1 + nightK * 0.4));
     s.userData.glow = { size, opacity }; glows.push(s);
     return s;
   }
@@ -869,7 +869,7 @@ export function makeFX(THREE, { LOW = false } = {}) {
       const s = glows[i];
       if (!s.parent) { glows.splice(i, 1); continue; }
       if (s.userData.pool) { s.material.opacity = k * 0.45; s.visible = k > 0.05; continue; }
-      const g = s.userData.glow; s.scale.setScalar(g.size * (1 + k * 0.6)); s.material.opacity = Math.min(1, g.opacity * (1 + k * 0.7));
+      const g = s.userData.glow; s.scale.setScalar(g.size * (1 + k * 0.25)); s.material.opacity = Math.min(1, g.opacity * (1 + k * 0.4)); // a touch bigger and brighter at night, not blobs
     }
   }
 
