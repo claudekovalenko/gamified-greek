@@ -819,6 +819,11 @@ function wispMesh(elite = false) {
   const halo = new THREE.Sprite(new THREE.SpriteMaterial({ map: t, depthWrite: false, blending: THREE.AdditiveBlending }));
   halo.scale.set(2.4, 2.4, 1); g.add(halo);
   for (const s of [-1, 1]) { const e = new THREE.Mesh(new THREE.SphereGeometry(0.07, 6, 6), new THREE.MeshBasicMaterial({ color: 0xffffff })); e.position.set(s * 0.15, 0.08, 0.4); g.add(e); }
+  // a ghostly tail that streams out behind and below, and a sad little mouth
+  const tail = new THREE.Mesh(new THREE.ConeGeometry(0.4, 1.4, 10, 1, true), new THREE.MeshBasicMaterial({ color: elite ? 0xff5a5a : 0x9a6aff, transparent: true, opacity: 0.4, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide }));
+  tail.rotation.x = Math.PI * 0.82; tail.position.set(0, -0.45, -0.35); g.add(tail);
+  const mouth = new THREE.Mesh(new THREE.TorusGeometry(0.07, 0.018, 4, 8, Math.PI), new THREE.MeshBasicMaterial({ color: 0xffffff })); mouth.position.set(0, -0.12, 0.42); g.add(mouth);
+  g.userData.tail = tail;
   return g;
 }
 function spawnWisp(w) {
@@ -1566,6 +1571,7 @@ function step(dt) {
     o.y = groundAt(o.x, o.z) + 1.3 + Math.sin(wi.t * 3) * 0.25;
     wi.obj.rotation.y = Math.atan2(pos.x - o.x, pos.z - o.z);
     wi.obj.children[0].rotation.x += dt;
+    if (wi.obj.userData.tail) { const tl = wi.obj.userData.tail; tl.rotation.z = Math.sin(wi.t * 4) * 0.25; tl.scale.set(1 + Math.sin(wi.t * 6) * 0.1, 1 + Math.sin(wi.t * 5) * 0.15, 1); }
     if (!LOW && (wi.trailT = (wi.trailT || 0) - dt) <= 0) { wi.trailT = 0.09; SPK.emit(o, { color: wi.elite ? 0xff5a5a : 0x9a6aff, n: 1, speed: 0.4, up: 0.6, gravity: 0.6, size: wi.elite ? 0.5 : 0.35, life: 0.9 }); }
     if (d < 1.3 && !busy && wi.cool <= 0 && P.hearts > 0) startBattle(wi);
   }
