@@ -612,3 +612,9 @@ body.in-stage .main > .s3 { pointer-events: none; }
 @keyframes wm2pulse { 50% { box-shadow: 0 0 0 9px rgba(224, 165, 38, .12), 0 3px 0 #b07a10; } }
 @keyframes wm2bob { to { transform: translate(-50%, -4px); } }
 .whud:has(.wbattle.on) .wbanner, .whud:has(.wdlg.on) .wbanner { opacity: 0 !important; } /* the region banner steps aside for battles and conversations */
+/* the foe's sigil pulses beside the battle title */
+.wbt-h { display: flex; align-items: center; gap: 8px; }
+.wbt-box .wbt-h::before { content: ''; flex: none; width: 34px; height: 34px; border-radius: 50%; background: radial-gradient(circle at 40% 40%, #fff 0 12%, #b388ff 30%, #5a2a8a 70%, transparent 72%); box-shadow: 0 0 14px #9a6aff; animation: wbtpulse 1.4s ease-in-out infinite; }
+.wbt-box.elite .wbt-h::before { background: radial-gradient(circle at 40% 40%, #fff 0 12%, #ff8a6a 30%, #8a1a2a 70%, transparent 72%); box-shadow: 0 0 14px #ff5a3a; }
+.wbt-box.riddlebox .wbt-h::before { display: none; }
+@keyframes wbtpulse { 50% { transform: scale(1.12); filter: brightness(1.25); } }
