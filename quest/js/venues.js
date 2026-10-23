@@ -370,8 +370,11 @@ export function makeVenues(ctx) {
       const a = (i + 0.5) * step;
       if (Math.abs(Math.atan2(Math.sin(a), Math.cos(a))) < gapA) continue;
       const [x, z] = P(R, a), y = B.rawL(x, z);
-      const h = B.add(new THREE.BoxGeometry(2 * R * Math.sin(step / 2) + 0.15, 1.5, 0.9), 0x3f7a35, x, y + 0.65, z); h.rotation.y = a;
-      if (i % 2) B.add(new THREE.SphereGeometry(0.12, 6, 5), [0xff8fab, 0xffe066, 0xffffff][i % 3], x, y + 1.45, z);
+      // clipped box hedging with a rounded top, two greens taking turns
+      const len = 2 * R * Math.sin(step / 2) + 0.15, hc = i % 2 ? 0x3f7a35 : 0x48853b;
+      const h = B.add(new THREE.BoxGeometry(len, 1.1, 0.9), hc, x, y + 0.45, z); h.rotation.y = a;
+      const top = B.add(new THREE.CylinderGeometry(0.45, 0.45, len, 8, 1, false, 0, Math.PI), hc, x, y + 1, z); top.rotation.set(0, a, Math.PI / 2);
+      if (i % 2) B.add(new THREE.SphereGeometry(0.12, 6, 5), [0xff8fab, 0xffe066, 0xffffff][i % 3], x, y + 1.47, z);
     }
     for (let a = gapA; a < Math.PI * 2 - gapA + 1e-6; a += 0.6 / R) { const [x, z] = P(R, a); B.col(x, z, 0.5); }
     const [px, pz] = P(R, gapA), gz = pz, gy = B.rawL(0, gz);
