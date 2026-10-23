@@ -68,7 +68,7 @@ export function makeFX(THREE, { LOW = false } = {}) {
     const u = Object.assign({
       uTime: time, uDeep: { value: new THREE.Color(opts.deep || 0x1f6a9a) }, uShallow: { value: new THREE.Color(opts.shallow || 0x5ac0e0) },
       uSkyCol: { value: new THREE.Color(opts.sky || 0xbfe4ff) }, uSunDir: { value: new THREE.Vector3(0.35, 0.42, -0.84).normalize() },
-      uOpacity: { value: opts.opacity ?? 0.86 },
+      uOpacity: { value: opts.opacity ?? 0.86 }, uSpec: { value: new THREE.Color(1, 0.96, 0.85) },
     }, THREE.UniformsLib.fog);
     const m = new THREE.ShaderMaterial({
       uniforms: u, defines, transparent: true, fog: true, depthWrite: false,
@@ -83,7 +83,7 @@ export function makeFX(THREE, { LOW = false } = {}) {
           gl_Position = projectionMatrix * mvPosition;
           #include <fog_vertex>
         }`,
-      fragmentShader: `uniform float uTime, uOpacity; uniform vec3 uDeep, uShallow, uSkyCol, uSunDir; varying vec3 vW; varying vec2 vUv; ${NOISE}
+      fragmentShader: `uniform float uTime, uOpacity; uniform vec3 uDeep, uShallow, uSkyCol, uSunDir, uSpec; varying vec3 vW; varying vec2 vUv; ${NOISE}
         #include <fog_pars_fragment>
         void main() {
           vec2 p = vW.xz;
@@ -100,7 +100,7 @@ export function makeFX(THREE, { LOW = false } = {}) {
           float ca = smoothstep(.55, .8, vn(p * 2.2 + vec2(uTime * .3, -uTime * .2)) * vn(p * 1.7 - vec2(uTime * .25, uTime * .15)) * 2.);
           col += uShallow * ca * .18;
           float sp = pow(max(dot(reflect(-uSunDir, n), v), 0.), 90.);
-          col += vec3(1., .96, .85) * sp * 1.6;
+          col += uSpec * sp * 1.6;
           float gl = step(.985, vn(p * 6. + uTime * 1.5)) * .9;
           col += gl * vec3(1.);
           gl_FragColor = vec4(col, uOpacity + fr * .1);
@@ -109,6 +109,8 @@ export function makeFX(THREE, { LOW = false } = {}) {
           #include <fog_fragment>
         }`,
     });
+    // the glint follows the sun (or the moon) and takes its colour
+    m.userData.setSun = (dir, color = 0xfff4d8) => { if (dir) u.uSunDir.value.set(...dir).normalize(); u.uSpec.value.set(color); };
     m.userData.setColors = (deep, shallow, skyc) => { u.uDeep.value.set(deep); u.uShallow.value.set(shallow); if (skyc !== undefined) u.uSkyCol.value.set(skyc); };
     return m;
   }
