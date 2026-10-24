@@ -483,14 +483,14 @@
       const won = P.hearts > 0, graded = res.correct + res.wrong;
       if (won) E.defeatVillain(P.villain); else E.gainXP(res.xp, 0);
       r = { xp: won ? res.xp + 40 : res.xp, coins: won ? 15 : 0, acc: graded ? res.correct / graded : 1, passed: won, perfect: !res.wrong };
-      title = won ? '😈 Skulch is beaten!' : '😈 Skulch got away…';
-      extra = won ? '<p>“Nooo! Our lovely words!” He drops them all and scuttles off into the dark. <b>+40 XP, +15 🪙</b></p>'
-        : `<p>“Sss, it fails again! Skulch keeps them!” He is still waiting in <b>${esc(KG.units[P.villain].place)}</b>. Learn the hooks in the Codex and try again.</p>`;
+      title = won ? '🐦 Pica is caught!' : '🐦 Pica flew off…';
+      extra = won ? '<p>“Caw! Fine, fine, take your shinies!” Pica drops every word and flaps off, sulking. <b>+40 XP, +15 🪙</b></p>'
+        : `<p>“Caw-caw! Mine, all mine!” Pica is still perched in <b>${esc(KG.units[P.villain].place)}</b>. Learn the hooks in the Codex and try again.</p>`;
     } else if (P.node) {
       r = E.finishLesson(P.node, res);
       if (!r.passed) {
         villain = E.spawnVillain(P.node.unit, P.missed || []);
-        extra += `<div class="villain-note">😈 <b>Skulch the Riddle-Creep</b> snatched the ${villain.qs.length || ''} question${villain.qs.length === 1 ? '' : 's'} you missed and scuttled off into <b>${esc(KG.units[P.node.unit].place)}</b>. Beat his riddles in a side quest to win them back!</div>`;
+        extra += `<div class="villain-note">🐦 <b>Pica the Magpie Thief</b> swooped down and snatched the ${villain.qs.length || ''} question${villain.qs.length === 1 ? '' : 's'} you missed and flew off to <b>${esc(KG.units[P.node.unit].place)}</b>. Catch Pica in a side quest to win them back!</div>`;
       }
       if (P.mode === 'boss') title = r.passed ? '⚔ Boss defeated!' : '💀 The boss won this time';
       else title = r.passed ? (r.perfect ? '💎 Flawless!' : 'Lesson complete!') : 'Almost there!';
@@ -523,8 +523,8 @@
       ${extra}
       <div class="col-btns">
         ${home !== 'world' && node && r.passed && E.nodes[node.index + 1] ? `<button class="btn primary wide" data-act="start" data-arg="${E.nodes[node.index + 1].id}">Next: ${esc(E.nodes[node.index + 1].title)} ▶</button>` : ''}
- ${villain && home !== 'world' ? `<button class="btn primary wide" data-act="villain" data-arg="${node.unit}">😈 Chase Skulch now</button>` : ''}
-        ${vMode && !r.passed ? `<button class="btn primary wide" data-act="villain" data-arg="${vMode}">😈 Riddle me again</button>` : ''}
+ ${villain && home !== 'world' ? `<button class="btn primary wide" data-act="villain" data-arg="${node.unit}">🐦 Chase Pica now</button>` : ''}
+        ${vMode && !r.passed ? `<button class="btn primary wide" data-act="villain" data-arg="${vMode}">🐦 Riddle me again</button>` : ''}
         ${home === 'world' ? `<button class="btn primary wide" data-act="go" data-arg="world">🏞 ${node && r.passed && E.nodes[node.index + 1] ? 'Walk on to the next person' : 'Return to the adventure'}</button>` : ''}
         ${node ? `<button class="btn ghost wide" data-act="start" data-arg="${node.id}">${r.passed ? 'Practice again' : 'Try again'}</button>` : ''}
         ${home === 'world' ? '' : `<button class="btn ghost wide" data-act="go" data-arg="${node ? 'path' : 'review'}">Back</button>`}</div></div>`;
@@ -563,7 +563,7 @@
   function startVillain(unit) {
     closeSheet();
     const qs = E.villainQuestions(unit);
-    if (!qs.length) return toast('Skulch is nowhere to be seen. 🕳');
+    if (!qs.length) return toast('Pica is nowhere to be seen. 🪶');
     begin({ qs, mode: 'villain', villain: unit });
   }
   function startReview(kind) {

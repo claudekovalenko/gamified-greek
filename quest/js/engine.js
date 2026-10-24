@@ -601,7 +601,7 @@ window.KG = window.KG || {};
     return { xp, coins, acc, perfect, passed, stars: rec.stars, firstClear, boosted, spell, chest };
   };
 
-  // ── Skulch the Riddle-Creep: fail a lesson and he steals what you missed ──
+  // ── Pica the Magpie Thief: fail a lesson and the questions you missed get stolen ──
   const KEEP = ['prompt', 'big', 'sub', 'small', 'options', 'answer', 'explain', 'greekOpts', 'vkey', 'cid', 'hint', 'speak'];
   E.spawnVillain = (unit, missed = []) => {
     const V = E.state.villains || (E.state.villains = {});

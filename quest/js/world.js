@@ -413,21 +413,21 @@ function scatterTrees() {
   scene.add(fl);
 }
 
-// a round-doored hill house, Hobbit style
+// a first-century Galilean house: whitewashed stone, a flat roof with a parapet,
+// an outside stair up to the roof, a cloth awning over the door, a water jar
 function hillHouse(x, z, door = 0x2f6a3a, face = 0) {
-  const g = new THREE.Group();
-  const hill = mesh(new THREE.SphereGeometry(4.2, 16, 10, 0, Math.PI * 2, 0, Math.PI / 2), 0x5f9a45);
-  hill.scale.set(1, 0.7, 1); g.add(hill);
-  const frame = mesh(new THREE.TorusGeometry(1.15, 0.18, 6, 20), 0x7a5a3a);
-  frame.position.set(0, 1.1, 3.75); g.add(frame);
-  const d = mesh(new THREE.CircleGeometry(1.05, 20), door); d.position.set(0, 1.1, 3.8); g.add(d);
-  const knob = mesh(new THREE.SphereGeometry(0.1, 6, 6), 0xffd166, { metalness: 0.8, roughness: 0.3 }); knob.position.set(0, 1.1, 3.88); g.add(knob);
-  for (const s of [-1, 1]) {
-    const w = mesh(new THREE.CircleGeometry(0.5, 14), 0xffe9a8, { emissive: 0x6a5020 }); w.position.set(s * 2.2, 1.3, 3.25); w.rotation.y = s * 0.45; g.add(w);
-  }
-  const chim = mesh(new THREE.CylinderGeometry(0.3, 0.35, 1.4, 6), 0x8a7a6a); chim.position.set(1.4, 3, -0.8); g.add(chim);
+  const g = new THREE.Group(), wall = 0xe9e1cf, stone = 0xcfc4ac;
+  const body = mesh(new THREE.BoxGeometry(6, 3.2, 5), wall); body.position.y = 1.6; g.add(body);
+  const parapet = mesh(new THREE.BoxGeometry(6.3, 0.35, 5.3), stone); parapet.position.y = 3.35; g.add(parapet);
+  for (let i = 0; i < 4; i++) { const beam = mesh(new THREE.CylinderGeometry(0.1, 0.1, 0.6, 6), 0x7a5a3a); beam.rotation.x = Math.PI / 2; beam.position.set(-2.2 + i * 1.45, 2.95, 2.75); g.add(beam); }
+  const d = mesh(new THREE.BoxGeometry(1.05, 1.95, 0.14), door); d.position.set(-1.25, 0.98, 2.53); g.add(d);
+  const lintel = mesh(new THREE.BoxGeometry(1.5, 0.22, 0.3), 0x7a5a3a); lintel.position.set(-1.25, 2.05, 2.55); g.add(lintel);
+  const awning = mesh(new THREE.BoxGeometry(1.9, 0.06, 1.1), door); awning.position.set(-1.25, 2.35, 3.0); awning.rotation.x = 0.35; g.add(awning);
+  const win = mesh(new THREE.BoxGeometry(0.75, 0.6, 0.12), 0xffe2a0, { emissive: 0x5a4020 }); win.position.set(1.45, 2.0, 2.53); g.add(win);
+  for (let k = 0; k < 5; k++) { const st = mesh(new THREE.BoxGeometry(1, 0.32, 0.9), stone); st.position.set(3.5, 0.16 + k * 0.64, 1.6 - k * 0.85); st.scale.y = 1 + k * 2; st.position.y = (0.32 * (1 + k * 2)) / 2; g.add(st); }
+  const jar = mesh(new THREE.CylinderGeometry(0.28, 0.2, 0.75, 10), 0xb06a3a); jar.position.set(0.1, 0.38, 2.9); g.add(jar);
   g.rotation.y = face;
-  put(g, x, z, -0.3);
+  put(g, x, z, -0.1);
   colliders.push({ x, z, r: 4.2 });
   return g;
 }
@@ -680,7 +680,7 @@ function updateAmbience(dt, t, pos) {
   if (A.blink) amb.pts.material.opacity = 0.55 + Math.sin(t * 3) * 0.35;
 }
 function scenery() {
-  // Region 1: the village of round doors
+  // Region 1: a Galilean village of flat-roofed stone houses
   const homes = [[-14, 12, 0x2f6a3a], [16, 20, 0xc9452b], [-17, 34, 0x2f5f8f], [15, 46, 0xe0a526], [-15, 58, 0x8f3f5f]];
   for (const [dx, dz, col] of homes) { const z = -dz, x = pathX(z) + dx; hillHouse(x, z, col, Math.atan2(pathX(z) - x, 0) > 0 ? Math.PI / 2 : -Math.PI / 2); }
   for (let z = -6; z > -L + 10; z -= 16) lampPost(pathX(z) + 3, z);
@@ -780,33 +780,36 @@ function animatePerson(p, speed, dt) {
     if (u.blink <= -0.13) u.blink = 2 + Math.random() * 4;
   }
 }
-// Skulch the Riddle-Creep: pale, crouched, all eyes. He steals the questions you miss.
+// Pica the Magpie Thief: magpies steal shiny things, and Pica steals the shiny words
+// you dropped (the questions you missed). Black and white, a long blue-green tail,
+// a red bandit's mask and a little sack of loot.
 function creep() {
   const g = new THREE.Group(), body = new THREE.Group(); g.add(body);
-  const skin = 0xc9c7a8, dark = 0x8a8670;
-  const torso = tmesh(new THREE.SphereGeometry(0.42, 14, 12), skin); torso.scale.set(0.9, 1.15, 0.75); torso.position.set(0, 0.95, -0.05); torso.rotation.x = 0.5; body.add(torso);
-  for (let k = 0; k < 4; k++) { const rib = tmesh(new THREE.TorusGeometry(0.3 - k * 0.02, 0.012, 4, 14, Math.PI), dark, {}, 0); rib.position.set(0, 1.05 - k * 0.1, 0.2); rib.rotation.set(0.4, 0, Math.PI); body.add(rib); }
-  const cloth = tmesh(new THREE.CylinderGeometry(0.34, 0.3, 0.2, 12), 0x5a4a3a, {}, 0); cloth.position.y = 0.6; body.add(cloth);
-  const head = tmesh(new THREE.SphereGeometry(0.42, 18, 14), skin); head.scale.set(1.05, 0.95, 0.95); head.position.set(0, 1.62, 0.2); body.add(head);
+  const black = 0x1c1f2a, white = 0xf2f2ee, sheen = 0x2f7a8a;
+  const torso = tmesh(new THREE.SphereGeometry(0.55, 16, 12), black); torso.scale.set(0.85, 1, 1.25); torso.position.set(0, 1.15, 0); body.add(torso);
+  const belly = tmesh(new THREE.SphereGeometry(0.5, 14, 10), white, {}, 0); belly.scale.set(0.8, 0.85, 0.9); belly.position.set(0, 1.05, 0.22); body.add(belly);
+  const head = tmesh(new THREE.SphereGeometry(0.36, 16, 12), black); head.position.set(0, 1.85, 0.42); body.add(head);
+  // the bandit's mask: a red band across the eyes, knotted at the back
+  const mask = tmesh(new THREE.CylinderGeometry(0.375, 0.375, 0.17, 18, 1, true), 0xc9302c, { side: THREE.DoubleSide }, 0); mask.position.set(0, 1.93, 0.42); body.add(mask);
+  for (const sd of [-1, 1]) { const knot = tmesh(new THREE.BoxGeometry(0.06, 0.14, 0.32), 0xc9302c, {}, 0); knot.position.set(sd * 0.08, 1.88, 0.0); knot.rotation.x = 0.5 * sd; body.add(knot); }
+  const beak = tmesh(new THREE.ConeGeometry(0.1, 0.42, 8), 0x2a2a2a, {}, 0); beak.rotation.x = Math.PI / 2; beak.position.set(0, 1.8, 0.88); body.add(beak);
   for (const sd of [-1, 1]) {
-    const eye = tmesh(new THREE.SphereGeometry(0.15, 14, 12), 0xf2f6ff, {}, 0); eye.position.set(sd * 0.16, 1.68, 0.52); body.add(eye);
-    const iris = new THREE.Mesh(new THREE.SphereGeometry(0.085, 10, 8), new THREE.MeshBasicMaterial({ color: 0x4a8acf })); iris.position.set(sd * 0.16, 1.68, 0.64); body.add(iris);
-    const pupil = new THREE.Mesh(new THREE.SphereGeometry(0.045, 8, 6), new THREE.MeshBasicMaterial({ color: 0x050505 })); pupil.position.set(sd * 0.16, 1.68, 0.71); body.add(pupil);
-    const ear = tmesh(new THREE.ConeGeometry(0.1, 0.32, 6), skin, {}, 0); ear.position.set(sd * 0.44, 1.66, 0.15); ear.rotation.z = sd * -1.2; body.add(ear);
+    const eye = tmesh(new THREE.SphereGeometry(0.09, 10, 8), 0xffffff, {}, 0); eye.position.set(sd * 0.2, 1.93, 0.68); body.add(eye);
+    const pupil = new THREE.Mesh(new THREE.SphereGeometry(0.05, 8, 6), new THREE.MeshBasicMaterial({ color: 0x050505 })); pupil.position.set(sd * 0.2, 1.93, 0.76); body.add(pupil);
+    const patch = tmesh(new THREE.SphereGeometry(0.3, 10, 8), white, {}, 0); patch.scale.set(0.35, 0.8, 1); patch.position.set(sd * 0.47, 1.25, 0.05); body.add(patch);
   }
-  for (const hx of [-0.08, 0.02, 0.1]) { const hair = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.006, 0.35, 3), new THREE.MeshBasicMaterial({ color: 0x3a3a2a })); hair.position.set(hx, 2.08, 0.16); hair.rotation.z = hx * 3; body.add(hair); }
-  const mouth = new THREE.Mesh(new THREE.TorusGeometry(0.11, 0.018, 4, 10, Math.PI), new THREE.MeshBasicMaterial({ color: 0x2a1a1a })); mouth.position.set(0, 1.46, 0.55); body.add(mouth);
-  const tooth = tmesh(new THREE.BoxGeometry(0.04, 0.05, 0.02), 0xf0e8c0, {}, 0); tooth.position.set(0.03, 1.44, 0.57); body.add(tooth);
+  const tail = tmesh(new THREE.BoxGeometry(0.28, 0.08, 1.5), sheen, { emissive: 0x0a3a40, emissiveIntensity: 0.4 }); tail.position.set(0, 0.85, -1.15); tail.rotation.x = -0.35; body.add(tail);
+  const sack = tmesh(new THREE.SphereGeometry(0.28, 10, 8), 0xc8a878); sack.position.set(0.55, 0.55, 0.35); body.add(sack);
+  const shine = new THREE.Mesh(new THREE.OctahedronGeometry(0.1), new THREE.MeshBasicMaterial({ color: 0xffd166 })); shine.position.set(0.55, 0.88, 0.35); body.add(shine);
   const legs = [], arms = [];
   for (const sd of [-1, 1]) {
     const hip = new THREE.Group(); hip.position.set(sd * 0.2, 0.62, 0);
-    const thigh = tmesh(new THREE.CylinderGeometry(0.06, 0.08, 0.45, 6), skin, {}, 0); thigh.position.set(0, -0.12, 0.18); thigh.rotation.x = -1.1; hip.add(thigh);
-    const shin = tmesh(new THREE.CylinderGeometry(0.05, 0.06, 0.45, 6), skin, {}, 0); shin.position.set(0, -0.36, 0.3); shin.rotation.x = 0.5; hip.add(shin);
-    const foot = tmesh(new THREE.BoxGeometry(0.14, 0.05, 0.34), skin, {}, 0); foot.position.set(0, -0.58, 0.36); hip.add(foot);
+    const leg = tmesh(new THREE.CylinderGeometry(0.035, 0.035, 0.6, 5), 0x3a3a3a, {}, 0); leg.position.y = -0.3; hip.add(leg);
+    const foot = tmesh(new THREE.BoxGeometry(0.22, 0.04, 0.3), 0x3a3a3a, {}, 0); foot.position.set(0, -0.6, 0.08); hip.add(foot);
     g.add(hip); legs.push(hip);
-    const sh = new THREE.Group(); sh.position.set(sd * 0.36, 1.18, 0.12);
-    const arm = tmesh(new THREE.CylinderGeometry(0.045, 0.055, 0.8, 6), skin, {}, 0); arm.position.y = -0.38; arm.rotation.x = -0.5; sh.add(arm);
-    for (let f = 0; f < 3; f++) { const fin = tmesh(new THREE.CylinderGeometry(0.012, 0.016, 0.16, 4), skin, {}, 0); fin.position.set((f - 1) * 0.04, -0.8, 0.26); fin.rotation.x = -0.9; sh.add(fin); }
+    const sh = new THREE.Group(); sh.position.set(sd * 0.48, 1.4, 0);
+    const wing = tmesh(new THREE.BoxGeometry(0.1, 0.55, 1.1), black); wing.position.set(sd * 0.04, -0.2, -0.1); wing.rotation.z = sd * 0.15; sh.add(wing);
+    const tip = tmesh(new THREE.BoxGeometry(0.11, 0.3, 0.5), white, {}, 0); tip.position.set(sd * 0.04, -0.05, 0.25); sh.add(tip);
     body.add(sh); arms.push(sh);
   }
   g.userData = { body, legs, arms, phase: 0, creep: true };
@@ -1278,7 +1281,7 @@ function refreshMarkers() {
   syncVillains();
   const vs = Object.keys(E.state.villains || {}).map(Number);
   $('wqtext').innerHTML = (t.done ? 'All quests complete! Step into the Hall of Victory.' : `${who}: <b>${esc(t.node.title)}</b>`)
-    + (vs.length ? `<div class="wq-side">😈 Side quest: beat Skulch in ${vs.map(z => esc(ZONES[z].name)).join(', ')}</div>` : '')
+    + (vs.length ? `<div class="wq-side">🐦 Side quest: catch Pica in ${vs.map(z => esc(ZONES[z].name)).join(', ')}</div>` : '')
     + ((E.state.raiders || {}).count ? `<div class="wq-side">⚔️ ${E.state.raiders.count} Raider${E.state.raiders.count > 1 ? 's' : ''} of Forgetting on the road</div>` : '');
   W.target = tgt;
   updateHUD();
@@ -1324,13 +1327,13 @@ let talkTo = null; // the one you're talking with: the camera frames the two of 
 function closeDialog() { dlgOpen = false; talkTo = null; $('wdlg').classList.remove('on'); $('wdlg').innerHTML = ''; }
 function launch(id) { savePos(); closeDialog(); KG.app.startNode(id); }
 
-// Skulch hides in a region after you fail a lesson there; one creature per region
+// Pica hides in a region after you fail a lesson there; one thief per region
 const villains = [];
 function buildVillains() {
   KG.units.forEach((u, i) => {
     const z = -i * L - 14, x = pathX(z) + (i % 2 ? 4.5 : -4.5);
     const o = creep(); o.scale.setScalar(1.25); put(o, x, z);
-    const e = addEnt({ kind: 'villain', zone: i, obj: o, x, z, label: 'Skulch the Riddle-Creep', tagY: 2.9 });
+    const e = addEnt({ kind: 'villain', zone: i, obj: o, x, z, label: 'Pica the Magpie Thief', tagY: 2.9 });
     e.col = colliders[colliders.length - 1];
     e.mark.visible = true; e.mark.material = marker('!', '#ff5a4a').material;
     villains.push(e);
@@ -1376,7 +1379,7 @@ function talk(e) {
   } else if (e.kind === 'villain') {
     const v = (E.state.villains || {})[e.zone];
     if (!v) return;
-    dialog('😈 Skulch the Riddle-Creep', `<p><b>“Sss! It wants its words back, does it? Skulch took them, yesss, ${v.qs.length} lovely little words and uses it got wrong. Answer Skulch's riddles, then, and maybe it gets them. Miss three and Skulch keeps them, yesss, forever.”</b></p><p class="muted small">Side quest: ${Math.max(6, Math.min(10, v.qs.length + 3))} riddles from the questions you missed, 3 hearts. Win for +40 XP and 15 🪙.</p>`,
+    dialog('🐦 Pica the Magpie Thief', `<p><b>“Caw! Shiny, shiny words! Pica found ${v.qs.length} of them on the road, all the ones you dropped. Want them back? Answer Pica's riddles! Miss three and they go in Pica's nest. Caw-caw!”</b></p><p class="muted small">Side quest: ${Math.max(6, Math.min(10, v.qs.length + 3))} riddles from the questions you missed, 3 hearts. Win for +40 XP and 15 🪙.</p>`,
       [{ label: 'Riddle me ⚔', cls: 'primary', fn: () => { savePos(); closeDialog(); KG.app.startVillain(e.zone); } }, { label: 'Not now' }]);
   } else if (e.kind === 'guardian') {
     const n = e.node;

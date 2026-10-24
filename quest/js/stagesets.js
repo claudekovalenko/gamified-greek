@@ -89,12 +89,14 @@ export function makeSets(THREE, { LOW, golem, FX }) {
       if (snow) g.add(at(new THREE.Mesh(new THREE.ConeGeometry(w * 0.32, h * 0.32, 6), M(0xf4f8fb)), Math.cos(a) * r, h - 4 - h * 0.16, Math.sin(a) * r));
     }
   }
+  // a first-century Galilean house: whitewashed stone, flat roof, outside stair
   function hillHouse(g, x, z, door) {
-    const h = new THREE.Group();
-    const hill = mk(new THREE.SphereGeometry(4, 16, 10, 0, Math.PI * 2, 0, Math.PI / 2), 0x5f9a45); hill.scale.y = 0.7; h.add(hill);
-    h.add(at(mk(new THREE.TorusGeometry(1.1, 0.17, 6, 20), 0x7a5a3a), 0, 1.1, 3.6));
-    h.add(at(mk(new THREE.CircleGeometry(1, 20), door), 0, 1.1, 3.65));
-    for (const s of [-1, 1]) h.add(at(mk(new THREE.CircleGeometry(0.45, 14), 0xffe9a8, { emissive: 0x6a5020 }), s * 2.1, 1.3, 3.15));
+    const h = new THREE.Group(), wall = 0xe9e1cf, stone = 0xcfc4ac;
+    h.add(at(box(6, 3.2, 5, wall), 0, 1.6, 0));
+    h.add(at(box(6.3, 0.35, 5.3, stone), 0, 3.35, 0));
+    h.add(at(box(1.05, 1.95, 0.14, door), -1.25, 0.98, 2.53));
+    h.add(at(box(0.75, 0.6, 0.12, 0xffe2a0, { emissive: 0x5a4020 }), 1.45, 2.0, 2.53));
+    for (let k = 0; k < 5; k++) { const hgt = 0.32 * (1 + k * 2); h.add(at(box(1, hgt, 0.9, stone), 3.5, hgt / 2, 1.6 - k * 0.85)); }
     h.position.set(x, 0, z); h.rotation.y = Math.atan2(-x, 12 - z); g.add(h);
   }
   function dais(g, kind) {
