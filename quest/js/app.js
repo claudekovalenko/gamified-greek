@@ -825,7 +825,7 @@
     const s = S(), lv = E.levelInfo(), st = s.stats;
     const days = Array.from({ length: 7 }, (_, i) => U.addDays(U.day(), i - 6));
     const maxD = Math.max(s.dailyGoal, ...days.map(d => s.history[d] || 0));
-    main.innerHTML = `<h1 class="vh">Profile</h1>${questsCard()}
+    main.innerHTML = `<h1 class="vh">Profile</h1>${KG.cloud ? KG.cloud.card() : ''}${questsCard()}
       <div class="card lvcard"><div class="lvbig">${lv.level}</div><div class="grow"><div class="muted">Level ${lv.level}</div><h3>${lv.title}</h3>
         <div class="xpbar"><i style="width:${(lv.cur / lv.need) * 100}%"></i></div><div class="muted small">${lv.cur} / ${lv.need} XP to level ${lv.level + 1} · ${s.xp} XP total</div></div></div>
       <div class="statgrid">
@@ -840,7 +840,6 @@
       <div class="card"><h3>Shop <span class="muted small">you have ${s.coins} 🪙</span></h3>
         <div class="shop"><div><b>🧊 Streak freeze</b><p class="muted small">Protects your streak for one missed day (max 2).</p><button class="btn primary" data-act="buy" data-arg="freeze">50 🪙</button></div>
         <div><b>🚀 XP boost</b><p class="muted small">Double XP on your next 3 lessons${s.boost ? ` (${s.boost} left)` : ''}.</p><button class="btn primary" data-act="buy" data-arg="boost">80 🪙</button></div></div></div>
-      ${KG.cloud ? KG.cloud.card() : ''}
       ${wardrobeCard()}
       <div class="card"><h3>🏆 Trophy room <span class="muted small">${Object.keys(s.ach).length}/${KG.achievements.length}</span></h3>
         <div class="achs">${KG.achievements.map(a => `<div class="ach ${s.ach[a.id] ? 'got' : ''}" title="${esc(a.desc)}"><div class="ai">${a.icon}</div><b>${esc(a.name)}</b><span>${esc(a.desc)}</span></div>`).join('')}</div></div>

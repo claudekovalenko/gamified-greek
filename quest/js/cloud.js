@@ -58,16 +58,36 @@
   addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') push(true); else pull(); });
   addEventListener('online', () => pull());
   setInterval(() => { if (document.visibilityState === 'visible') pull(); }, 120000);
-  pull();
+
+  // a link from another device (…?sync=code) joins this device to it: no code to type
+  const linkCode = (() => { try { const u = new URL(location.href), c = u.searchParams.get('sync') || (u.hash.match(/sync=([a-z0-9-]+)/i) || [])[1]; if (!c) return ''; u.searchParams.delete('sync'); history.replaceState(null, '', u.pathname + u.search + u.hash.replace(/[&#]?sync=[a-z0-9-]+/i, '')); return clean(c); } catch (e) { return ''; } })();
+  const say = (h, c) => setTimeout(() => KG.app && KG.app.toast && KG.app.toast(h, c), 1500); // the app may still be starting
+  const OFF_KEY = 'greek-games-sync-off', isOff = () => { try { return localStorage.getItem(OFF_KEY) === '1'; } catch (e) { return false; } };
+  function join(c, quiet) {
+    try { localStorage.removeItem(OFF_KEY); } catch (e) { /* storage off */ }
+    return rpc('game_load', { p_code: c, p_game: GAME }).then(rows => {
+      const r = rows && rows[0], mine = E.state.xp || 0;
+      if (r && mine > (r.data.xp || 0) && (E.state.savedAt || 0) > r.saved_at && !confirm(`This device has more progress (${mine} XP) than your other device (${r.data.xp || 0} XP). Bring over the other device's progress anyway? Cancel keeps this device's progress and sends it to the other one.`)) { set(c); return push(); }
+      set(c);
+      if (r && (r.data.xp || 0) >= mine) apply(r.data); else { E.save(); push(); if (!quiet) say('☁️ <b>Linked.</b> This device now saves to the same place as your other one.', 'gold'); }
+    }).catch(() => say('Could not reach the cloud to link this device. Check your connection and open the link again.'));
+  }
+  if (linkCode && linkCode.length >= 15 && linkCode !== get()) join(linkCode);
+  // cloud save is on from the start, so progress is backed up even before you link a second device
+  else if (!get() && !isOff()) { set(newCode()); E.save(); push(); }
+  else pull();
+  const linkURL = () => { const u = new URL(location.href); u.hash = ''; u.search = ''; u.searchParams.set('sync', get()); return u.toString(); };
 
   // ── the Profile card ──
   function card() {
     const code = get(), ago = st.last ? Math.max(0, Math.round((Date.now() - st.last) / 60000)) : -1;
-    return `<div class="card cloud"><h3>☁️ Save across devices</h3>${code ? `
+    return `<div class="card cloud"><h3>☁️ Your progress on every device</h3>${code ? `
       <p>Your sync code: <b class="cloud-code">${esc(code)}</b> <button class="btn ghost small" data-cloud="copy">Copy</button></p>
-      <p class="muted small">On your other device open Profile → Save across devices → <b>I have a code</b> and type it in. Keep it private: it is the key to your progress.
+      <p><b>Link your phone or computer:</b> open this link on it and it joins straight away.</p>
+      <div class="row"><button class="btn primary" data-cloud="share">Send the link</button><button class="btn ghost" data-cloud="copylink">Copy link</button></div>
+      <p class="muted small">Or type the code on the other device: Profile → <b>I have a code</b>. Keep the link and code private: they are the key to your progress.
       ${st.err ? '⚠️ Offline: your progress will sync when you are back online.' : ago >= 0 ? `Synced ${ago ? ago + ' min ago' : 'just now'}.` : ''}</p>
-      <div class="row"><button class="btn primary" data-cloud="sync">Sync now</button><button class="btn ghost" data-cloud="off">Stop syncing this device</button></div>` : `
+      <div class="row"><button class="btn primary" data-cloud="sync">Sync now</button><button class="btn ghost" data-cloud="enter">I have a code</button><button class="btn ghost" data-cloud="off">Stop syncing</button></div>` : `
       <p>Keep your progress on your phone, tablet and computer. Turn it on here, then type the code on your other device.</p>
       <div class="row"><button class="btn primary" data-cloud="on">Turn on cloud save</button><button class="btn ghost" data-cloud="enter">I have a code</button></div>`}</div>`;
   }
@@ -77,7 +97,7 @@
     const b = ev.target.closest('[data-cloud]'); if (!b) return;
     ev.preventDefault();
     const a = b.dataset.cloud;
-    if (a === 'on') { set(newCode()); E.save(); push().then(() => { toast('☁️ <b>Cloud save is on.</b> Type your code on your other device.', 'gold'); refresh(); }); }
+    if (a === 'on') { try { localStorage.removeItem(OFF_KEY); } catch (e) { /* storage off */ } set(newCode()); E.save(); push().then(() => { toast('☁️ <b>Cloud save is on.</b> Type your code on your other device.', 'gold'); refresh(); }); }
     else if (a === 'enter') {
       const c = clean(prompt('Type the sync code from your other device:') || '');
       if (c.length < 15) { if (c) toast('That code looks too short. It is 16 letters and numbers.'); return; }
@@ -89,8 +109,10 @@
       }).catch(() => toast('Could not reach the cloud. Check your connection and try again.'));
     }
     else if (a === 'sync') pull().then(() => push()).then(() => { toast('☁️ Synced.'); refresh(); });
+    else if (a === 'share') { const url = linkURL(); if (navigator.share) navigator.share({ title: 'My Greek game progress', text: 'Open this on my other device to sync my progress:', url }).catch(() => {}); else (navigator.clipboard ? navigator.clipboard.writeText(url) : Promise.reject()).then(() => toast('Link copied. Send it to your other device and open it there.'), () => prompt('Open this link on your other device:', url)); }
+    else if (a === 'copylink') { const url = linkURL(); (navigator.clipboard ? navigator.clipboard.writeText(url) : Promise.reject()).then(() => toast('Link copied. Open it on your other device.'), () => prompt('Open this link on your other device:', url)); }
     else if (a === 'copy') { (navigator.clipboard ? navigator.clipboard.writeText(get()) : Promise.reject()).then(() => toast('Code copied.'), () => toast(get())); }
-    else if (a === 'off') { if (confirm('Stop syncing on this device? Your progress stays here and in the cloud.')) { set(''); refresh(); } }
+    else if (a === 'off') { if (confirm('Stop syncing on this device? Your progress stays here and in the cloud.')) { set(''); try { localStorage.setItem(OFF_KEY, '1'); } catch (e) { /* storage off */ } refresh(); } }
   });
   KG.cloud = { card, push, pull, get code() { return get(); } };
 })();
