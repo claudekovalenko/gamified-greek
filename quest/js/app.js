@@ -104,7 +104,7 @@
       <button class="chip" data-act="go" data-arg="profile" title="Drachmas (coins)">🪙 <b>${s.coins}</b></button>`;
   }
   let view = 'path';
-  let home = 'path'; // where lessons return to: the 3D world or the path map
+  let home = 'world'; // where lessons return to: the 3D world or the path map
   const hasWorld = () => !!(KG.world && KG.world.ok);
   // Every learning game is played on the 3D stage when the device supports it.
   const use3D = () => hasWorld() && KG.world.stage && KG.world.stage.ok && S().settings.mode3d !== false;
@@ -981,13 +981,14 @@
   // The 3D world loads as a module after this script; open it once it reports ready,
   // and fall back to the path map if WebGL is unavailable.
   const worldIncluded = !!document.querySelector('script[data-world]');
-  const first = location.hash.slice(1) || (worldIncluded ? 'world' : 'path');
+  // the game always opens on the world (the last page you looked at isn't kept); the path map is there if the world can't run
+  const first = worldIncluded ? 'world' : (location.hash.slice(1) || 'path');
   if (first === 'world' && KG.world && KG.world.ok) go('world');
   else if (first === 'world' && worldIncluded) {
     main.innerHTML = '<div class="loading">Loading the world…</div>';
     document.addEventListener('world-ready', () => { if (main.querySelector('.loading')) go('world'); });
     document.addEventListener('world-failed', () => go('path'));
-    setTimeout(() => { if (main.querySelector('.loading')) go('path'); }, 15000);
+    setTimeout(() => { if (main.querySelector('.loading')) go('path'); }, 30000); // a slow phone gets time to build the world
   } else go(first);
   window.addEventListener('hashchange', () => {
     const h = location.hash.slice(1);
