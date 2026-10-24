@@ -1,0 +1,22 @@
+{
+  "name": "going-deeper-quest-app",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Going Deeper Quest as a phone app: the 3D game from ../quest, wrapped with Capacitor for Android and iOS.",
+  "scripts": {
+    "build": "node scripts/build-www.mjs",
+    "sync": "node scripts/build-www.mjs && npx cap sync",
+    "android": "node scripts/build-www.mjs && npx cap sync android && npx cap open android",
+    "ios": "node scripts/build-www.mjs && npx cap sync ios && npx cap open ios",
+    "icons": "npx @capacitor/assets generate --iconBackgroundColor '#1f3b5c' --iconBackgroundColorDark '#1f3b5c' --splashBackgroundColor '#1f3b5c' --splashBackgroundColorDark '#1f3b5c'"
+  },
+  "dependencies": {
+    "@capacitor/android": "^8.5.3",
+    "@capacitor/core": "^8.5.3",
+    "@capacitor/ios": "^8.5.3"
+  },
+  "devDependencies": {
+    "@capacitor/assets": "^3.0.5",
+    "@capacitor/cli": "^8.5.3"
+  }
+}

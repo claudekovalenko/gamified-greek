@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2a5d9a"/><stop offset="0.62" stop-color="#7fb4e0"/><stop offset="0.62" stop-color="#4f9a4a"/><stop offset="1" stop-color="#2f6a3a"/></linearGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffe08a"/><stop offset="1" stop-color="#e0a526"/></linearGradient>
+  </defs>
+  <rect width="1024" height="1024" fill="url(#sky)"/>
+  <path d="M470 1024 C 470 900, 610 860, 560 780 C 520 716, 470 700, 500 636 L 524 636 C 500 690, 560 716, 600 780 C 660 870, 560 930, 640 1024 Z" fill="#d8b878"/>
+  <circle cx="790" cy="230" r="70" fill="#fff4c8" opacity=".9"/>
+  <text x="512" y="560" text-anchor="middle" font-family="Gentium Plus, Georgia, serif" font-size="470" font-weight="700" fill="url(#gold)" stroke="#5a3a10" stroke-width="14" paint-order="stroke">Ω</text>
+</svg>

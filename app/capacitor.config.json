@@ -1,0 +1,8 @@
+{
+  "appId": "io.github.claudekovalenko.goingdeeperquest",
+  "appName": "Going Deeper Quest",
+  "webDir": "www",
+  "backgroundColor": "#1f3b5c",
+  "android": { "allowMixedContent": false },
+  "ios": { "contentInset": "never" }
+}

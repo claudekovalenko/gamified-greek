@@ -1,0 +1,105 @@
+name: Phone app
+
+# Builds Going Deeper Quest as a phone app from quest/ and data/content.json
+# (app/ holds the Capacitor wrapper; see app/README.md).
+#
+#   - Android: an installable APK, published as the "app-latest" release so the
+#     website's download link always gets the newest one. If the Play Store
+#     upload key is set up as secrets, also a signed bundle (.aab) for Google Play.
+#   - iOS: checks the iPhone project still compiles (installing it on a phone
+#     needs an Apple Developer account; see app/README.md).
+
+on:
+  push:
+    paths: ['app/**', 'quest/**', 'icons/**', '.github/workflows/app.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: phone-app
+  cancel-in-progress: true
+
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    env:
+      HAS_PLAY_KEY: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' }}
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - run: npm ci
+      - run: npm run build
+      - run: npx cap sync android
+      - name: Build the APK
+        working-directory: app/android
+        env:
+          APP_VERSION_CODE: ${{ github.run_number }}
+          APP_VERSION_NAME: 1.0.${{ github.run_number }}
+        run: ./gradlew --no-daemon assembleDebug
+      - run: cp android/app/build/outputs/apk/debug/app-debug.apk going-deeper-quest.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: going-deeper-quest-apk
+          path: app/going-deeper-quest.apk
+      - name: Google Play bundle (only with the upload key in secrets)
+        if: env.HAS_PLAY_KEY == 'true'
+        working-directory: app/android
+        env:
+          KEYSTORE: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          APP_VERSION_CODE: ${{ github.run_number }}
+          APP_VERSION_NAME: 1.0.${{ github.run_number }}
+        run: |
+          echo "$KEYSTORE" | base64 -d > "$RUNNER_TEMP/upload.keystore"
+          ANDROID_KEYSTORE_FILE="$RUNNER_TEMP/upload.keystore" ./gradlew --no-daemon bundleRelease
+          cp app/build/outputs/bundle/release/app-release.aab ../going-deeper-quest.aab
+      - uses: actions/upload-artifact@v4
+        if: ${{ hashFiles('app/going-deeper-quest.aab') != '' }}
+        with:
+          name: going-deeper-quest-aab
+          path: app/going-deeper-quest.aab
+      - name: Publish the download
+        if: github.ref_name == github.event.repository.default_branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete app-latest --yes --cleanup-tag || true
+          gh release create app-latest going-deeper-quest.apk \
+            --target "$GITHUB_SHA" \
+            --title "Going Deeper Quest for Android (build ${{ github.run_number }})" \
+            --notes "Install: download going-deeper-quest.apk on your Android phone and open it. Each new build installs over the last one and keeps your progress."
+
+  ios:
+    runs-on: macos-latest
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+      - run: npm ci
+      - run: npm run build
+      - run: npx cap sync ios
+      - name: Compile for the iPhone simulator (no signing needed)
+        working-directory: app/ios/App
+        shell: bash
+        run: xcodebuild -project App.xcodeproj -scheme App -configuration Debug -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO build | tail -20

@@ -33,6 +33,11 @@ Nothing is typed in here. The content is pulled from those two repos, so a chapt
 
 Every day brings three **quests** (earn 150 XP, climb three ladders, spot ten uses…) worth bonus XP. A right answer raises an item's mastery and schedules it further out; a wrong one drops it and brings it straight back. Weak and due items are asked first.
 
+## Website and phone app (`site/`, `app/`)
+
+- **Website**: https://claudekovalenko.github.io/gamified-greek/site/: home page, install guide and privacy page for the 3D Quest. See `site/README.md`.
+- **Phone app**: `app/` wraps `quest/` with Capacitor. Every change builds an Android APK, downloadable from the website, and checks the iPhone project compiles. See `app/README.md` for Google Play and the App Store.
+
 ## 3D Quest (`quest/`)
 
 The [Koine Quest](https://github.com/claudekovalenko/gamefied-greek) 3D adventure, carrying only this content. Live at **https://claudekovalenko.github.io/gamified-greek/quest/**, and from the gold button on the Journey screen.
