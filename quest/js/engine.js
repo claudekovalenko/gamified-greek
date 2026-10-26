@@ -249,7 +249,7 @@ window.KG = window.KG || {};
   // ── question builders ───────────────────────────────────────
   // mc(prompt, correct, wrongs, extra) → shuffled multiple choice with exactly one right answer
   function mc(prompt, correct, wrongs, extra = {}) {
-    const options = shuffle(uniq([correct, ...wrongs.filter(w => w !== correct)]).slice(0, 4));
+    const options = shuffle(uniq([correct, ...wrongs.filter(w => w !== correct)]).slice(0, extra.n || 4));
     if (!options.includes(correct)) options[0] = correct;
     const opts = shuffle(options);
     // nor may the 🔊 button: when you're asked to pick the Greek, or to read a word aloud, the voice waits until you've answered
@@ -274,7 +274,13 @@ window.KG = window.KG || {};
   E.soundOf = soundOf;
   const wordExplain = w => `${esc(w.icon)} ${gk(w.lex)}: <b>${esc(w.en)}</b>${w.mn ? `<br><span class="muted">🪝 ${esc(w.mn)}</span>` : ''}`;
   E.vocabQ = (w, pool, dir) => vocabQ(w, pool, dir);
+  // wrong options of the same kind (verbs against verbs, the rest against the rest) are harder to rule out
+  const kindOf = w => (/^(I|it) /.test(w.en) ? 'v' : 'n');
+  const sameKind = (w, pool) => { const k = pool.filter(x => kindOf(x) === kindOf(w)); return k.length >= 6 ? k : pool; };
   function vocabQ(w, pool, dir) {
+    if (dir === 'type') return typeQ(w);
+    if (dir === 'spell') return spellQ(w);
+    pool = sameKind(w, pool);
     const explain = wordExplain(w), base = { vkey: w.g, speak: w.g, explain, hint: dir === 'hook' ? '' : soundOf(w.mn) };
     if (dir === 'e2g') return mc(`Which word means "<b>${esc(w.en)}</b>"?`, w.g, others(w.g, pool.map(x => x.g)), Object.assign({ greekOpts: true }, base));
     if (dir === 'hook' && w.mn) return mc(`🪝 Whose hook is this? “${esc(w.mn)}”`, w.g, others(w.g, pool.map(x => x.g)), Object.assign({ greekOpts: true }, base));
@@ -290,12 +296,57 @@ window.KG = window.KG || {};
     }
     return mc('What does this word mean?', w.en, others(w.en, pool.map(x => x.en)), Object.assign({ big: w.g, sub: w.lex !== w.g ? w.lex : '' }, base));
   }
-  const WORD_MIX = ['g2e', 'g2e', 'e2g', 'hook', 'sleuth'];
+  // ── recall: the answer is not on the screen ──────────────────
+  // Recognising the right one of four is the easy half of knowing a word; producing it is what
+  // makes it stick. Typed meanings forgive spelling slips; Greek is built from letter tiles.
+  const normEn = s => String(s).toLowerCase().replace(/[^a-z' ]/g, ' ').replace(/\b(i|it|to|a|an|the|am|is|are|be|one's|oneself|myself)\b/g, ' ').replace(/\s+/g, ' ').trim();
+  const senses = en => uniq(String(en).replace(/\([^)]*\)/g, ' ').split(/[,;/]|\bor\b/).map(normEn).filter(Boolean));
+  function lev(a, b) {
+    const d = Array.from({ length: a.length + 1 }, (_, i) => [i]);
+    for (let j = 1; j <= b.length; j++) d[0][j] = j;
+    for (let i = 1; i <= a.length; i++) for (let j = 1; j <= b.length; j++) d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+    return d[a.length][b.length];
+  }
+  // right if it is one of the senses, give or take a slip (one letter in a short word, two in a long one)
+  E.checkMeaning = (typed, q) => {
+    const t = normEn(typed); if (!t) return false;
+    return q.answers.some(a => a === t || lev(a, t) <= (a.length >= 9 ? 2 : a.length >= 4 ? 1 : 0) || (a.split(' ').length > 1 && a.split(' ').some(w => w.length >= 5 && w === t)));
+  };
+  const greekLetters = s => U.bare(s).replace(/[^α-ω]/g, '');
+  E.greekLetters = greekLetters;
+  function typeQ(w) {
+    return { type: 'type', prompt: '✍️ Type what it means', big: w.g, sub: w.lex !== w.g ? w.lex : '', answers: senses(w.en), display: w.en,
+      vkey: w.g, speak: w.g, explain: wordExplain(w), hint: soundOf(w.mn) };
+  }
+  function spellQ(w, extra = {}) {
+    const target = greekLetters(w.g);
+    if (target.length < 2 || target.length > 12) return typeQ(w);
+    const decoys = sample([...'αβγδεζηθικλμνξοπρστυφχψω'].filter(c => !target.includes(c)), Math.min(4, Math.max(2, Math.round(target.length / 3))));
+    return Object.assign({ type: 'spell', prompt: `🔤 Spell the Greek for “<b>${esc(w.en)}</b>”`, target, tiles: shuffle([...target, ...decoys]), display: w.g,
+      vkey: w.g, speakAfter: w.g, explain: wordExplain(w), hint: soundOf(w.mn) }, extra);
+  }
+  // a practice sentence with one of its words taken out: spell the missing word's dictionary form
+  function clozeQ(R, w) {
+    const i = R.words.findIndex(t => t.lemma === w.g);
+    if (i < 0) return spellQ(w);
+    const gap = R.words.map((t, k) => (k === i ? '＿＿＿' : t.w) + t.p).join(' ');
+    return spellQ(w, { prompt: `🧩 Fill the gap: spell the missing word (dictionary form)`, big: gap, small: true, sub: R.tr, explain: `${wordExplain(w)}<br><i>${esc(R.tr)}</i>` });
+  }
+  // the learning engine decides: new words are recognised first; once the review boxes say you know
+  // a word, it has to be recalled (typed), and once it's solid, produced (spelled)
+  E.recallQ = (w, pool = chapterWords(w)) => {
+    const box = (E.state.vocab[w.g] || {}).box || 0;
+    if (box >= 4) return U.pick([spellQ, typeQ, spellQ])(w);
+    if (box >= 2) return U.pick([typeQ, typeQ, spellQ, w2 => vocabQ(w2, pool, 'e2g')])(w);
+    return U.pick([typeQ, w2 => vocabQ(w2, pool, 'g2e'), w2 => vocabQ(w2, pool, 'hook')])(w);
+  };
+  E.spellQ = spellQ; E.typeQ = typeQ;
+  const WORD_MIX = ['g2e', 'type', 'e2g', 'hook', 'sleuth', 'spell'];
   E.vocabQuestions = (words, pool = KG.vocab, n = 12) => {
     const near = pool.length >= 8 ? pool : KG.vocab;
     let qs = [];
     for (const w of shuffle(words)) qs.push(vocabQ(w, near, 'g2e'));
-    for (const w of sample(words, Math.max(0, n - words.length - 1))) qs.push(vocabQ(w, near, U.pick(WORD_MIX.slice(2))));
+    for (const w of sample(words, Math.max(0, n - words.length - 1))) qs.push(vocabQ(w, near, U.pick(WORD_MIX.slice(1))));
     const hasMatch = words.length >= 4;
     qs = shuffle(qs).slice(0, hasMatch ? n - 1 : n);
     if (hasMatch) qs.splice(Math.floor(qs.length / 2), 0, matchWords(words));
@@ -311,7 +362,7 @@ window.KG = window.KG || {};
     const qs = E.vocabQuestions(words, pool, 8);
     // interleave an earlier word for spaced retrieval
     const earlier = pool.filter(w => w.set < set);
-    for (const w of sample(earlier, 1)) qs.push(vocabQ(w, pool, U.pick(WORD_MIX)));
+    for (const w of sample(earlier, 1)) qs.push(E.recallQ(w, pool));
     return qs;
   }
 
@@ -344,8 +395,10 @@ window.KG = window.KG || {};
     const en = KG.plain(e.english || ''), low = s => String(s || '').toLowerCase().replace(/[^a-z ]/g, '').trim();
     const gives = [c.name, c.short, c.gist, c.tile].some(x => low(x) && (low(x) === low(en) || low(x).includes(low(en)) && low(en).length > 1));
     const ref = e.ref && !/^the /i.test(e.ref) ? e.ref : '';
-    return mc(`🔍 Which use is this?${ref ? ` <span class="muted">(${esc(ref)})</span>` : ''}`, cardName(c), cardOthers(c, pool),
-      { big: e.greek ? KG.guillemet(e.greek) : en, sub: e.greek && !gives ? en : '', explain: cardExplain(c, e.note), cid: c.id, small: true, hint: groupHint(c) });
+    // once you've got a use right, it comes back among six choices, not four
+    const known = ((E.state.cards || {})[c.id] || {}).right > 0, n = known ? 6 : 4;
+    return mc(`🔍 Which use is this?${ref ? ` <span class="muted">(${esc(ref)})</span>` : ''}`, cardName(c), cardOthers(c, pool, n - 1),
+      { n, big: e.greek ? KG.guillemet(e.greek) : en, sub: e.greek && !gives ? en : '', explain: cardExplain(c, e.note), cid: c.id, small: true, hint: groupHint(c) });
   }
   function hookQ(c, pool) {
     if (!c.mnemonic) return plainQ(c, pool);
@@ -419,6 +472,9 @@ window.KG = window.KG || {};
     }
     const rivals = Object.values(KG.readings).filter(x => x !== R).map(x => x.tr);
     qs.push(mc('What does it say?', R.tr, others(R.tr, rivals), { big: S, small: true, speak: S, explain: esc(R.note) }));
+    // and one word taken out of the sentence: put it back from memory
+    const gapWord = U.pick(words.filter(w => R.words.some(t => t.lemma === w.g)));
+    if (gapWord) qs.push(clozeQ(R, gapWord));
     const out = shuffle(qs);
     const order = { type: 'order', prompt: 'Build the translation', reading: id, chunks: R.chunks, extras: R.extras };
     out.push(R.chunks.length >= 3 ? { type: 'mini', game: 'race', title: 'Sentence Race', reading: id, chunks: R.chunks, extras: R.extras, fallback: [order] } : order);
@@ -432,7 +488,10 @@ window.KG = window.KG || {};
     const units = node.final ? KG.units.filter(u => u.chapter === ch) : [KG.units[node.unit]];
     const nodes = units.flatMap(u => u.nodes).filter(n => n.type !== 'boss');
     let qs = [];
-    for (const n of nodes) qs = qs.concat(sample(E.questionsFor(n).filter(q => q.type === 'mc'), node.final ? 2 : 3));
+    // guardians ask for recall too, not only recognition
+    const graded = q => q.type === 'mc' || q.type === 'type' || q.type === 'spell';
+    for (const n of nodes) qs = qs.concat(sample(E.questionsFor(n).filter(graded), node.final ? 2 : 3));
+    for (const w of sample(nodes.filter(n => n.type === 'vocab').flatMap(n => E.vocabSet(n.set)), node.final ? 5 : 3)) qs.push(E.recallQ(w));
     return sample(qs, node.final ? 20 : 15);
   }
 
@@ -548,9 +607,11 @@ window.KG = window.KG || {};
       plan.push(trial(node));
       plan.push(miniFor(node));
       if (words.length >= 3) plan.push(matchWords(sample(words, 5)));
-      for (const w of sample(words, 2)) plan.push(vocabQ(w, pool, U.pick(['e2g', 'e2g', 'hook', 'sleuth'])));
+      // straight after the games: recall them, not just recognise them
+      const [t1, t2, t3] = sample(words, 3);
+      plan.push(typeQ(t1), spellQ(t2 || t1), vocabQ(t3 || t1, pool, U.pick(['e2g', 'hook', 'sleuth'])));
       const earlier = pool.filter(w => w.set < node.set);
-      for (const w of sample(earlier, 1)) plan.push(vocabQ(w, pool, 'g2e'));
+      for (const w of sample(earlier, 1)) plan.push(E.recallQ(w, pool));
       return plan;
     }
     if (node.type === 'reading') {

@@ -545,6 +545,8 @@ export function createStage(ctx) {
     else if (q.type === 'match') askMatch(q);
     else if (q.type === 'order') askOrder(q, q.reading ? KG.readings[q.reading] : null);
     else if (q.type === 'free') askFree(KG.readings[q.reading]);
+    // recall: the question and its word on the stage, the answer typed or built below; no tablets to pick from
+    else if (q.type === 'type' || q.type === 'spell') askMC(Object.assign({}, q, { options: [] }));
   };
   // glowing demonstration text: [bracketed] parts shine gold
   function demoTexture(demo, W, H) {

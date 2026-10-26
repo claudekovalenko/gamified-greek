@@ -336,6 +336,7 @@
     if (q.type === 'order') foot = `<div class="muted center small s3help">${q.reading ? 'Tap the word-stones in order to build the bridge.' : 'Tap the stones in the order of the hook.'} Tap a placed stone to take it back.</div><button class="btn primary wide" data-act="checkOrder" id="checkbtn" disabled>Check</button>`;
     else if (q.type === 'free') foot = `<div class="s3free"><div class="s3q">${q.prompt}</div><textarea id="freetr" rows="3" placeholder="Type your translation…"></textarea><button class="btn primary wide" data-act="compare">Compare with a model translation</button></div>`;
     else if (q.type === 'match') foot = `<div class="muted center s3help">Tap a stone, then its partner</div>`;
+    else if (q.type === 'type' || q.type === 'spell') foot = `<div class="s3recall">${recallInput(q)}</div>`;
     else foot = `<div class="muted center s3help">Tap a tablet${matchMedia('(pointer: fine)').matches ? ' or press 1–4' : ''}</div>`;
     main.innerHTML = `<div class="s3">${header()}<div class="s3tools">${tools}</div><div class="foot s3foot" id="foot">${foot}</div></div>`;
     ST().combo(P.combo);
@@ -345,6 +346,7 @@
       orderChange: line => { const b = $('#checkbtn'); if (b) b.disabled = !line.length; },
     });
     if (q.type === 'mc' && q.speak && q.big && S().settings.speech) speak(q.speak);
+    if (q.type === 'type' || q.type === 'spell') wireRecall(q);
   }
   function renderQ() {
     const q = P.qs[P.i]; P.answered = false; P.q = q;
@@ -375,6 +377,8 @@
         <div id="wordinfo" class="wordinfo small muted">Stuck? Tap a Greek word for help.</div>
         <div class="line" id="line"></div><div class="bank" id="bank"></div>` :
         `<div class="prompt">${q.prompt}</div><p class="verse">${esc(q.verse)}</p><div class="line" id="line"></div><div class="bank" id="bank"></div>`;
+    } else if (q.type === 'type' || q.type === 'spell') {
+      const r = recallBody(q); body = r.top + r.input;
     } else if (q.type === 'free') {
       const R = KG.readings[q.reading]; readerReading = R;
       body = `<div class="prompt">${q.prompt} <span class="muted">(${esc(R.ref)})</span></div>${verseHTML(R, 'big')}
@@ -383,12 +387,42 @@
     }
     main.innerHTML = `<div class="player">${header()}<div class="qbody">${body}</div><div class="foot" id="foot">${footFor(q)}</div></div>`;
     if (q.type === 'order') renderOrder();
+    if (q.type === 'type' || q.type === 'spell') wireRecall(q);
     if (q.type === 'mc' && q.speak && q.big && S().settings.speech) speak(q.speak);
+  }
+  // ── recall answers: a typed meaning, or a Greek word built from letter tiles ──
+  function recallBody(q) {
+    const top = `<div class="prompt">${q.prompt}</div>
+      ${q.big ? `<div class="bigword ${q.small ? 'small' : ''}"><span class="gk">${esc(q.big)}</span>${q.speak ? `<button class="say" data-act="say" data-arg="${esc(q.speak)}" aria-label="Listen">🔊</button>` : ''}</div>` : ''}
+      ${q.sub ? `<div class="subword ${q.small ? '' : 'gk'}">${esc(q.sub)}</div>` : ''}
+      ${q.hint ? `<div class="hintrow"><button class="hintbtn" data-act="hook">🪝 Hint</button><div id="hintbox" class="hintbox" hidden></div></div>` : ''}`;
+    return { top, input: recallInput(q) };
+  }
+  function recallInput(q) {
+    if (q.type === 'type') return `<div class="recall"><input id="typein" class="typein" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="done" placeholder="Type the meaning in English…"><button class="btn primary" data-act="checkType" id="checkbtn" disabled>Check</button></div>`;
+    return `<div class="recall"><div class="spline gk" id="spline"></div><div class="spbank gk" id="spbank"></div>
+      <div class="row"><button class="btn ghost" data-act="spBack">⌫</button><button class="btn primary" data-act="checkSpell" id="checkbtn" disabled>Check</button></div></div>`;
+  }
+  function wireRecall(q) {
+    if (q.type === 'type') {
+      const inp = $('#typein'), b = $('#checkbtn');
+      inp.addEventListener('input', () => { b.disabled = !inp.value.trim(); });
+      inp.addEventListener('keydown', e => { if (e.key === 'Enter' && inp.value.trim()) { e.preventDefault(); ACT.checkType(); } });
+      setTimeout(() => inp.focus(), 60);
+    } else { P.spell = { bank: q.tiles.map((t, i) => ({ t, i })), line: [] }; renderSpell(); }
+  }
+  function renderSpell() {
+    const o = P.spell;
+    $('#spline').innerHTML = o.line.length ? o.line.map((c, k) => `<button class="sptile" data-act="spOut" data-arg="${k}">${esc(c.t)}</button>`).join('') : '<span class="muted small">Tap the letters in order…</span>';
+    $('#spbank').innerHTML = o.bank.map((c, k) => `<button class="sptile" data-act="spIn" data-arg="${k}">${esc(c.t)}</button>`).join('');
+    const b = $('#checkbtn'); if (b) b.disabled = !o.line.length;
   }
   function footFor(q) {
     if (q.type === 'order') return `<button class="btn primary wide" data-act="checkOrder" id="checkbtn" disabled>Check</button>`;
     if (q.type === 'free') return `<button class="btn primary wide" data-act="compare">Compare with a model translation</button>`;
     if (q.type === 'match') return `<div class="muted center">Tap a pair to match them</div>`;
+    if (q.type === 'type') return `<div class="muted center">Type it from memory: no choices this time</div>`;
+    if (q.type === 'spell') return `<div class="muted center">Build it from memory, letter by letter</div>`;
     return `<div class="muted center">Choose an answer</div>`;
   }
   function renderOrder() {
@@ -439,7 +473,7 @@
       ST().combo(P.combo);
       if (hearts() || P.mode === 'review' || P.mode === 'mistakes') ST().hp(1 - P.correct / Math.max(1, P.qs.filter(x => !x.retry).length));
       else if (P.trial) ST().hp(1 - P.trial.correct / Math.max(1, P.qs.slice(P.trial.start).filter(x => !x.retry && x.type !== 'teach').length));
-      if (q.type === 'match' || q.type === 'order') ST().result(ok);
+      if (['match', 'order', 'type', 'spell'].includes(q.type)) ST().result(ok);
     }
     const head = ok ? U.pick(['Excellent!', 'Correct!', 'Well done!', 'Καλῶς!', 'Nice!', 'Great!']) : q.guided ? 'Not yet. Read this, then try again' : (q.type === 'mc' ? 'Not quite' : 'Keep practicing');
     let detail = q.explain || '';
@@ -575,12 +609,13 @@
     if (kind === 'weakc') return begin({ qs: E.weakCards(10).map(c => E.conceptQ(c)), mode: 'review' });
     if (kind === 'cram') {
       const nodes = E.nodes.filter(n => n.type !== 'boss');
-      qs = shuffle(nodes.flatMap(n => sample(E.questionsFor(n).filter(q => q.type === 'mc'), 2))).slice(0, 15);
+      qs = shuffle(nodes.flatMap(n => sample(E.questionsFor(n).filter(q => ['mc', 'type', 'spell'].includes(q.type)), 2))).slice(0, 15);
       return begin({ qs, mode: 'review' });
     }
     words = kind === 'review' ? E.reviewOrder(E.dueWords()).slice(0, 15) : E.weakWords(10);
     const studied = Object.keys(S().vocab).map(g => E.vocabByGreek[g]).filter(Boolean);
-    qs = words.map(w => E.vocabQ(w, studied.length > 8 ? studied : KG.vocab, (S().vocab[w.g] || {}).box >= 3 ? 'e2g' : U.pick(['g2e', 'g2e', 'hook'])));
+    // what the review boxes say you know comes back as recall: typed, then spelled
+    qs = words.map(w => E.recallQ(w, studied.length > 8 ? studied : KG.vocab));
     // uses that have come due are woven in among the words
     if (kind === 'review') for (const c of E.dueCards().slice(0, 8)) qs.splice(Math.floor(Math.random() * (qs.length + 1)), 0, E.conceptQ(c));
     begin({ qs, mode: 'review' });
@@ -923,6 +958,22 @@
       next();
     },
     next: () => next(),
+    checkType() {
+      if (!P || P.answered || P.q.type !== 'type') return;
+      const q = P.q, v = ($('#typein').value || '').trim(); if (!v) return;
+      $('#typein').disabled = true;
+      const ok = E.checkMeaning(v, q);
+      answer(ok, Object.assign({}, q, { explain: `${ok ? '' : `You wrote “${esc(v)}”. It means <b>${esc(q.display)}</b>.<br>`}${q.explain}` }));
+    },
+    spIn(k) { if (!P || P.answered) return; const o = P.spell; o.line.push(o.bank.splice(+k, 1)[0]); sfx('tap'); renderSpell(); },
+    spOut(k) { if (!P || P.answered) return; const o = P.spell; o.bank.push(o.line.splice(+k, 1)[0]); renderSpell(); },
+    spBack() { if (!P || P.answered || !P.spell.line.length) return; P.spell.bank.push(P.spell.line.pop()); renderSpell(); },
+    checkSpell() {
+      if (!P || P.answered || P.q.type !== 'spell') return;
+      const q = P.q, got = P.spell.line.map(c => c.t).join(''), ok = got === q.target;
+      document.querySelectorAll('.sptile').forEach(b => { b.disabled = true; });
+      answer(ok, Object.assign({}, q, { explain: `${ok ? '' : `You built <b class="gk">${esc(got)}</b>. It's <b class="gk">${esc(q.display)}</b>.<br>`}${q.explain}` }));
+    },
     // a hook as a hint: half XP for that answer, no combo bonus
     hook() {
       if (!P || P.answered || !P.q.hint) return;

@@ -689,3 +689,15 @@ body.irisfx::after { content: ''; position: fixed; inset: 0; z-index: 60; pointe
 .chbtn.on { border-color: var(--gold); background: color-mix(in srgb, var(--gold) 18%, var(--card)); }
 /* side-quest panels: the quiet button matches the parchment instead of plain white */
 .sq-panel .btn.ghost { background: #f3e3c0; border: 2px solid #b8935a; color: #5a3a1a; box-shadow: 0 2px 0 rgba(120,80,30,.25); }
+
+/* recall: typing a meaning, building a Greek word from tiles */
+.recall { display: grid; gap: 10px; margin-top: 10px; }
+.recall .row { display: flex; gap: 8px; justify-content: center; }
+.typein { width: 100%; font: inherit; font-size: 1.15rem; padding: 12px 14px; border-radius: 12px; border: 2px solid var(--line); background: var(--card); color: inherit; }
+.recall:has(.typein) { grid-template-columns: 1fr auto; align-items: center; }
+.spline { min-height: 54px; display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; align-items: center; padding: 8px; border-radius: 12px; border: 2px dashed var(--gold); }
+.spbank { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+.sptile { min-width: 44px; height: 48px; padding: 0 10px; font: 1.6rem/1 var(--gk, 'Gentium Plus', serif); border-radius: 10px; border: 2px solid #b8935a; background: #f3e7c8; color: #2a1d0c; cursor: pointer; box-shadow: 0 3px 0 #b8935a; }
+.sptile:active { transform: translateY(2px); box-shadow: 0 1px 0 #b8935a; }
+.s3recall { background: rgba(255, 250, 238, .94); color: #2a1d0c; border-radius: 16px; padding: 10px; box-shadow: 0 6px 20px rgba(0, 0, 0, .25); }
+.s3recall .typein { background: #fff; color: #2a1d0c; }

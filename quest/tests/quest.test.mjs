@@ -39,6 +39,12 @@ function checkQuestion(q, where) {
     q.fallback.forEach(f => checkQuestion(f, where + ' fallback'));
     if (q.game === 'defense') for (const s of q.stones) assert.ok(s.cases.every(c => q.gates.includes(c)), `${where}: stone ${s.form} has a gate`);
     if (q.game === 'rain') assert.ok(q.targets.every(t => q.pool.includes(t.g)), `${where}: rain targets in pool`);
+  } else if (q.type === 'type') {
+    assert.ok(q.answers.length && q.answers.every(a => a.trim()), `${where}: typed question has answers (${q.big})`);
+    assert.ok(KG.engine.checkMeaning(q.display.replace(/\([^)]*\)/g, '').split(/[,;]/)[0], q), `${where}: its own first meaning is accepted (${q.display})`);
+  } else if (q.type === 'spell') {
+    const bank = [...q.tiles];
+    for (const ch of q.target) { const i = bank.indexOf(ch); assert.ok(i >= 0, `${where}: tiles can spell ${q.target}`); bank.splice(i, 1); }
   } else if (q.type === 'teach') {
     assert.ok(q.say || q.words || q.reading, `${where}: teach has content`);
   }
@@ -93,4 +99,16 @@ test('spacing: a missed word is due again today, then relearned; uses get their 
   assert.equal(E.state.cards[c.id].box, 2);
   assert.ok(!E.dueCards().some(x => x.id === c.id));
   for (const card of KG.cards) checkQuestion(E.conceptQ(card), `review ${card.id}`);
+});
+
+test('typed meanings: right ones pass, other words fail', () => {
+  let wrongPass = 0;
+  for (const w of KG.vocab) {
+    const q = E.typeQ(w);
+    for (const sense of w.en.replace(/\([^)]*\)/g, '').split(/[,;]/)) if (sense.trim()) assert.ok(E.checkMeaning(sense, q), `"${sense}" for ${w.g} (${w.en})`);
+    assert.ok(!E.checkMeaning('', q) && !E.checkMeaning('xyz', q));
+    const other = KG.vocab.find(x => x !== w && x.short.toLowerCase() !== w.short.toLowerCase());
+    if (E.checkMeaning(other.short, q)) wrongPass++;
+  }
+  assert.ok(wrongPass <= 2, `${wrongPass} words accept another word's meaning`);
 });
