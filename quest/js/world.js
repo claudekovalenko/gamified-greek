@@ -56,9 +56,13 @@ const smooth = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a
 const RIVER_Z = -3 * L - 45;                   // Verb River crosses region 4
 const LAKE = { x: 0, z: -(NZ > 7 ? 6 : 1) * L - 45, r: 16 }; // Mirror Lake beside region 7's road (region 2 on a shorter road, so it is always in the world)
 LAKE.x = pathX(LAKE.z) + 25;
+// the road rises and falls along its length: long, walkable swells (never steeper than about 1 in 7)
+const roll = z => (vnoise(z * 0.018, 3.7) - 0.5) * 6 + (vnoise(z * 0.047 + 11, 1.3) - 0.5) * 1.8;
 function height(x, z) {
   const d = Math.abs(x - pathX(z));
   let h = (fbm(x, z) - 0.75) * 2;
+  // rolling mounds and hollows beside the road, growing from a few steps off it (calmer by the river)
+  h += (fbm(x * 0.7 + 40, z * 0.7 - 20) - 0.78) * 6.5 * smooth(4, 16, d) * (1 - Math.max(0, 1 - Math.abs(z - RIVER_Z) / 14));
   const wall = smooth(11, 44, d);
   h += wall * wall * 30 + wall * fbm(x * 2, z * 2) * 7;
   if (zoneOf(z) === 7) h += wall * 10;                 // taller peaks
@@ -68,7 +72,13 @@ function height(x, z) {
   const lr = Math.hypot(x - LAKE.x, z - LAKE.z);
   h += (0.6 - h) * smooth(LAKE.r * 1.9, LAKE.r * 1.15, lr); // a level shelf for the lake, so no edge floats over a slope
   h -= 4 * smooth(LAKE.r, LAKE.r * 0.4, lr);
-  return h;
+  return h + roll(z);
+}
+// the lowest ground under a footprint, so a building on a slope digs into the hill instead of floating
+function footLow(x, z, r) {
+  let lo = 1e9;
+  for (const [a, b] of [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1], [0.7, 0.7], [-0.7, 0.7], [0.7, -0.7], [-0.7, -0.7]]) lo = Math.min(lo, height(x + a * r, z + b * r));
+  return lo;
 }
 const BRIDGE = { z: RIVER_Z, half: 7, w: 2.6 };
 function groundBase(x, z) {
@@ -427,7 +437,7 @@ function hillHouse(x, z, door = 0x2f6a3a, face = 0) {
   for (let k = 0; k < 5; k++) { const st = mesh(new THREE.BoxGeometry(1, 0.32, 0.9), stone); st.position.set(3.5, 0.16 + k * 0.64, 1.6 - k * 0.85); st.scale.y = 1 + k * 2; st.position.y = (0.32 * (1 + k * 2)) / 2; g.add(st); }
   const jar = mesh(new THREE.CylinderGeometry(0.28, 0.2, 0.75, 10), 0xb06a3a); jar.position.set(0.1, 0.38, 2.9); g.add(jar);
   g.rotation.y = face;
-  put(g, x, z, -0.1);
+  put(g, x, z, footLow(x, z, 3.4) - groundAt(x, z) - 0.1);
   colliders.push({ x, z, r: 4.2 });
   return g;
 }
@@ -448,7 +458,7 @@ function temple(x, z, s = 1, face = 0, ruined = false) {
     for (let i = 0; i < 4; i++) { const b = mesh(new THREE.CylinderGeometry(0.4, 0.4, 1.4, 8), stone); b.rotation.z = Math.PI / 2; b.position.set(-4 + Math.random() * 8, 1.1, -4 + Math.random() * 8); g.add(b); }
   }
   g.scale.setScalar(s); g.rotation.y = face;
-  put(g, x, z, -0.2);
+  put(g, x, z, footLow(x, z, 4.4 * s) - groundAt(x, z) - 0.2);
   colliders.push({ x, z, r: 4.8 * s });
   return g;
 }
