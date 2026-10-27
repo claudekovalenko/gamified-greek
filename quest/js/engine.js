@@ -487,6 +487,8 @@ window.KG = window.KG || {};
     const gapWord = U.pick(words.filter(w => R.words.some(t => t.lemma === w.g)));
     if (gapWord) qs.push(clozeQ(R, gapWord));
     const out = shuffle(qs);
+    // a Quick Judge on the sentence's words, halfway through
+    if (words.length >= 3) out.splice(Math.ceil(out.length / 2), 0, { type: 'mini', game: 'judge', title: 'Quick Judge', items: judgeWords(words, chapterWords(words[0])).slice(0, 6), seconds: 6, fallback: [vocabQ(words[0], chapterWords(words[0]), 'g2e')] });
     const order = { type: 'order', prompt: 'Build the translation', reading: id, chunks: R.chunks, extras: R.extras };
     out.push(R.chunks.length >= 3 ? { type: 'mini', game: 'race', title: 'Sentence Race', reading: id, chunks: R.chunks, extras: R.extras, fallback: [order] } : order);
     out.push({ type: 'free', prompt: 'Now translate it in your own words', reading: id });
@@ -503,7 +505,15 @@ window.KG = window.KG || {};
     const graded = q => q.type === 'mc' || q.type === 'type' || q.type === 'spell';
     for (const n of nodes) qs = qs.concat(sample(E.questionsFor(n).filter(graded), node.final ? 2 : 3));
     for (const w of sample(nodes.filter(n => n.type === 'vocab').flatMap(n => E.vocabSet(n.set)), node.final ? 5 : 3)) qs.push(E.recallQ(w));
-    return sample(qs, node.final ? 20 : 15);
+    qs = sample(qs, node.final ? 18 : 13);
+    // and two games in the middle of the exam: a Quick Judge of words and uses, then Word Rain
+    const words = nodes.filter(n => n.type === 'vocab').flatMap(n => E.vocabSet(n.set)), cards = uniq(nodes.filter(n => n.type === 'grammar').flatMap(n => KG.grammar[n.lesson].cards));
+    if (words.length >= 4) {
+      const pool = chapterWords(words[0]), items = shuffle(judgeWords(sample(words, 4), pool).slice(0, 4).concat(cards.length ? judgeCards(sample(cards, 4), chapterCards(ch)).slice(0, 4) : []));
+      qs.splice(Math.floor(qs.length / 3), 0, { type: 'mini', game: 'judge', title: 'Quick Judge', items, seconds: 7, fallback: sample(words, 2).map(w => vocabQ(w, pool, 'g2e')) });
+      qs.splice(Math.floor(qs.length * 2 / 3), 0, { type: 'mini', game: 'rain', title: 'Word Rain', targets: sample(words, 6).map(w => ({ g: w.g, en: w.short })), pool: pool.map(w => w.g), fallback: sample(words, 2).map(w => vocabQ(w, pool, 'e2g')) });
+    }
+    return qs;
   }
 
   E.questionsFor = node => {
@@ -560,18 +570,19 @@ window.KG = window.KG || {};
   }
   // …and for uses: a real line, and a use that is or isn't the one it shows
   function judgeCards(cards, pool) {
-    const lines = shuffle(cards.flatMap(c => examplesOf(c).filter(e => e.greek).slice(0, 2).map(e => ({ c, e })))).slice(0, 7);
+    const lines = shuffle(cards.flatMap(c => examplesOf(c).filter(e => e.greek).slice(0, 3).map(e => ({ c, e })))).slice(0, 7);
     return lines.map(({ c, e }, k) => {
       const rivals = pool.filter(x => x !== c && x.set === c.set && x.short !== c.short), other = (KG.partners[c.id] || []).map(id => KG.cardById[id]).filter(Boolean)[0] || U.pick(rivals);
       const said = k % 2 === 0 || !other ? c : other;
       return { big: KG.guillemet(e.greek), claim: `is ${said.pic} ${said.short}`, ok: said === c, why: `It's ${c.pic} ${c.name}` };
     });
   }
-  function miniFor(node) {
+  // shift picks the next game in the rotation, so one lesson can hold two different games
+  function miniFor(node, shift = 0) {
     if (node.type === 'vocab') {
       const words = E.vocabSet(node.set), pool = chapterWords(words[0]);
       // a different game for each pack, in turn: Word Rain, Memory Flip, Quick Judge
-      const turn = node.set % 3;
+      const turn = (node.set + shift) % 3;
       if (turn === 1 && words.length >= 4) return { type: 'mini', game: 'flip', title: 'Memory Flip', pairs: sample(words, Math.min(6, words.length)).map(w => ({ a: w.g, b: w.short })),
         fallback: [matchWords(words)] };
       if (turn === 2) return { type: 'mini', game: 'judge', title: 'Quick Judge', items: judgeWords(words, pool), seconds: 6,
@@ -580,24 +591,40 @@ window.KG = window.KG || {};
         fallback: sample(words, 3).map(w => vocabQ(w, pool, 'g2e')) };
     }
     if (node.type === 'grammar') {
-      const L = KG.grammar[node.lesson];
-      if (L.duels) return null;
-      const pool = chapterCards(L.chapter);
+      const L = KG.grammar[node.lesson], pool = chapterCards(L.chapter);
+      // a small lesson borrows its neighbours from the same family of uses, for review
+      const fam = L.cards.concat(shuffle(pool.filter(c => c.set === L.cards[0].set && !L.cards.includes(c))));
+      const k = Object.keys(KG.grammar).indexOf(node.lesson) + shift;
+      let judge = judgeCards(L.cards, pool); if (judge.length < 5) judge = judgeCards(fam.slice(0, Math.max(L.cards.length, 5)), pool);
+      const judgeMini = () => ({ type: 'mini', game: 'judge', title: 'Quick Judge', items: judge, seconds: 8, fallback: sample(L.cards, 3).map(c => spotQ(c, pool)) });
+      // Memory Flip for uses: a short Greek line and the use it shows
+      const flipMini = () => {
+        const pairs = uniq(shuffle(L.cards).concat(L.cards.length < 4 ? fam : [])).map(c => { const e = examplesOf(c).filter(x => x.greek).sort((a, b) => a.greek.length - b.greek.length)[0]; return e && { a: KG.guillemet(e.greek), b: `${c.pic} ${c.short}` }; })
+          .filter(p => p && p.a.length <= 60);
+        const ok = pairs.filter((p, i) => pairs.findIndex(x => x.a === p.a || x.b === p.b) === i).slice(0, 5);
+        return ok.length >= 3 && { type: 'mini', game: 'flip', title: 'Memory Flip', pairs: ok, fallback: sample(L.cards, 2).map(c => spotQ(c, pool)) };
+      };
+      if (L.duels) return (k % 2 === 0 || judge.length < 4 ? flipMini() : null) || (judge.length >= 4 ? judgeMini() : null);
       // one gate per use when they fit, else one per group
       const byCard = L.cards.length <= 6;
       const gateOf = c => byCard ? c.short : L.groups.find(g => g.id === c.group).name.split(/\s+[—–-]\s+/)[0];
       const stones = shuffle(L.cards.flatMap(c => examplesOf(c).filter(e => e.greek).map(e => ({ form: KG.guillemet(e.greek), cases: [gateOf(c)] })))).slice(0, 8);
-      // every other concept lesson plays Quick Judge instead of the Sorting Spell
-      const k = Object.keys(KG.grammar).indexOf(node.lesson);
-      if ((k % 2 === 1 || stones.length < 4) && judgeCards(L.cards, pool).length >= 4)
-        return { type: 'mini', game: 'judge', title: 'Quick Judge', items: judgeCards(L.cards, pool), seconds: 8, fallback: sample(L.cards, 3).map(c => spotQ(c, pool)) };
-      if (stones.length < 4) return null;
+      // the concept lessons take turns: Quick Judge, Sorting Spell, Memory Flip
+      const order = [judge.length >= 4 && judgeMini, stones.length >= 4 && 'defense', flipMini].filter(Boolean);
+      const pick = order[k % order.length];
+      if (pick !== 'defense') return pick() || (stones.length >= 4 ? miniFor(node, shift + 1) : null);
       return { type: 'mini', game: 'defense', title: 'Sorting Spell', banner: 'Sorting Spell! Strike each line with its use', gates: uniq(L.cards.map(gateOf)), stones,
         fallback: sample(L.cards, 3).map(c => spotQ(c, pool)) };
     }
     return null;
   }
   E.miniFor = miniFor;
+  // two different games for one lesson (just one when the lesson only has one that fits)
+  function minisFor(node) {
+    const a = miniFor(node), b = miniFor(node, 1);
+    return [a].concat(b && (!a || b.game !== a.game) ? [b] : []).filter(Boolean);
+  }
+  E.minisFor = minisFor;
 
   // Endless versions of the mini-games for the Arcade, from what the learner has met
   E.arcadeMini = game => {
@@ -632,22 +659,27 @@ window.KG = window.KG || {};
         if (b.duel) plan.push(guided(duelQ(b.duel)));
       });
       plan.push(trial(node));
-      const mg = miniFor(node);
-      return plan.concat(mg ? [mg] : [], conceptQuestions(node.lesson, first ? 5 : 8));
+      // a game, a few questions, another game, a last few: never a long run of the same thing
+      const [g1, g2] = minisFor(node), qs = conceptQuestions(node.lesson, first ? 5 : 7), cut = Math.ceil(qs.length / 2);
+      return plan.concat(g1 ? [g1] : [], qs.slice(0, cut), g2 ? [g2] : [], qs.slice(cut));
     }
     if (node.type === 'vocab') {
       const words = E.vocabSet(node.set), pool = chapterWords(words[0]);
-      if (!first) return [trial(node), miniFor(node)].concat(vocabLessonQuestions(node.set));
+      const [g1, g2] = minisFor(node);
+      if (!first) {
+        const qs = vocabLessonQuestions(node.set).slice(0, 5), [r1, r2] = sample(words, 2);
+        return [trial(node), g1].concat(qs.slice(0, 3), [g2, typeQ(r1)], qs.slice(3), [spellQ(r2 || r1)]).filter(Boolean);
+      }
       for (const c of chunks(U.shuffle(words), [3, 3])) {
         plan.push(teach({ words: c.map(w => ({ g: w.g, lex: w.lex, en: w.en, f: w.f, icon: w.icon, mn: w.mn })) }));
         for (const w of c) plan.push(guided(vocabQ(w, pool, 'g2e')));
       }
       plan.push(trial(node));
-      plan.push(miniFor(node));
-      if (words.length >= 3) plan.push(matchWords(sample(words, 5)));
-      // straight after the games: recall them, not just recognise them
+      // two different games with recall between them: type one, spell one
       const [t1, t2, t3] = sample(words, 3);
-      plan.push(typeQ(t1), spellQ(t2 || t1), vocabQ(t3 || t1, pool, U.pick(['e2g', 'hook', 'sleuth'])));
+      plan.push(g1, typeQ(t1));
+      if (g2) plan.push(g2); else if (words.length >= 3) plan.push(matchWords(sample(words, 5)));
+      plan.push(spellQ(t2 || t1), vocabQ(t3 || t1, pool, U.pick(['e2g', 'hook', 'sleuth'])));
       const earlier = pool.filter(w => w.set < node.set);
       for (const w of sample(earlier, 1)) plan.push(E.recallQ(w, pool));
       return plan;
