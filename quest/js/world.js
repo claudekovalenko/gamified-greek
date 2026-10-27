@@ -434,7 +434,8 @@ function hillHouse(x, z, door = 0x2f6a3a, face = 0) {
   const lintel = mesh(new THREE.BoxGeometry(1.5, 0.22, 0.3), 0x7a5a3a); lintel.position.set(-1.25, 2.05, 2.55); g.add(lintel);
   const awning = mesh(new THREE.BoxGeometry(1.9, 0.06, 1.1), door); awning.position.set(-1.25, 2.35, 3.0); awning.rotation.x = 0.35; g.add(awning);
   const win = mesh(new THREE.BoxGeometry(0.75, 0.6, 0.12), 0xffe2a0, { emissive: 0x5a4020 }); win.position.set(1.45, 2.0, 2.53); g.add(win);
-  for (let k = 0; k < 5; k++) { const st = mesh(new THREE.BoxGeometry(1, 0.32, 0.9), stone); st.position.set(3.5, 0.16 + k * 0.64, 1.6 - k * 0.85); st.scale.y = 1 + k * 2; st.position.y = (0.32 * (1 + k * 2)) / 2; g.add(st); }
+  // a solid stone stair up the side to the roof
+  for (let k = 0; k < 8; k++) { const top = 0.4 * (k + 1), st = mesh(new THREE.BoxGeometry(1, top + 2, 0.56), stone); st.position.set(3.5, top / 2 - 1, 2.15 - k * 0.55); g.add(st); }
   const jar = mesh(new THREE.CylinderGeometry(0.28, 0.2, 0.75, 10), 0xb06a3a); jar.position.set(0.1, 0.38, 2.9); g.add(jar);
   g.rotation.y = face;
   put(g, x, z, footLow(x, z, 3.4) - groundAt(x, z) - 0.1);

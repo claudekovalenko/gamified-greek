@@ -96,7 +96,7 @@ export function makeSets(THREE, { LOW, golem, FX }) {
     h.add(at(box(6.3, 0.35, 5.3, stone), 0, 3.35, 0));
     h.add(at(box(1.05, 1.95, 0.14, door), -1.25, 0.98, 2.53));
     h.add(at(box(0.75, 0.6, 0.12, 0xffe2a0, { emissive: 0x5a4020 }), 1.45, 2.0, 2.53));
-    for (let k = 0; k < 5; k++) { const hgt = 0.32 * (1 + k * 2); h.add(at(box(1, hgt, 0.9, stone), 3.5, hgt / 2, 1.6 - k * 0.85)); }
+    for (let k = 0; k < 8; k++) { const hgt = 0.4 * (k + 1); h.add(at(box(1, hgt, 0.56, stone), 3.5, hgt / 2, 2.15 - k * 0.55)); }
     h.position.set(x, 0, z); h.rotation.y = Math.atan2(-x, 12 - z); g.add(h);
   }
   function dais(g, kind) {
