@@ -315,6 +315,8 @@
     defense: 'Tap the use that matches each falling Greek line before it lands!',
     forge: 'Tap the tense, then the person and number.',
     race: 'Tap the next piece of the translation. Wrong picks cost time!',
+    flip: 'Tap two stones to turn them over. Find each Greek word and its meaning!',
+    judge: 'Is the pairing right? Tap ✓ or ✗ before the bar runs out!',
   };
   function renderMini(q) {
     main.innerHTML = `<div class="s3">${header()}<div class="s3center"><div class="minititle">🎮 ${esc(q.title)}</div></div><div class="foot s3foot" id="foot"><div class="muted center s3help">${MINI_HELP[q.game]}</div></div></div>`;

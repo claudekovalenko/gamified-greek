@@ -441,7 +441,18 @@ window.KG = window.KG || {};
       chunks: l.cards.map(c => c.short), extras: [], tr: l.cards.map(c => `${c.tile} — ${c.short}`).join(' · '),
     };
   }
-  const CONCEPT_MIX = [spotQ, spotQ, spotQ, hookQ, plainQ, exampleQ];
+  // Odd one out: three lines from one group of uses, one from another; which doesn't belong?
+  function oddQ(c, pool) {
+    const g = KG.groupById[c.group];
+    const mine = shuffle(pool.filter(x => x.group === c.group).flatMap(x => examplesOf(x).filter(e => e.greek).slice(0, 1)));
+    const odd = U.pick(pool.filter(x => x.set === c.set && x.group !== c.group && examplesOf(x).some(e => e.greek)));
+    if (!g || mine.length < 3 || !odd) return spotQ(c, pool);
+    const oe = examplesOf(odd).find(e => e.greek), line = e => KG.guillemet(e.greek);
+    const og = KG.groupById[odd.group];
+    return mc(`🧐 Odd one out: three of these are <b>${esc(g.name.split(/\s+[—–-]\s+/)[0])}</b>. Which isn't?`, line(oe), mine.slice(0, 3).map(line),
+      { greekOpts: true, cid: odd.id, explain: `${cardExplain(odd, oe.note)}<br><span class="muted">That one is ${esc(og ? og.name : odd.name)}; the rest are ${esc(g.name)}.</span>`, hint: groupHint(c) });
+  }
+  const CONCEPT_MIX = [spotQ, spotQ, spotQ, hookQ, plainQ, exampleQ, oddQ];
   E.spotQ = spotQ; E.hookQ = hookQ; E.duelQ = duelQ; E.examplesOf = examplesOf;
   E.conceptQ = (c, pool = chapterCards(c.chapter)) => U.pick(CONCEPT_MIX)(c, pool);
   function conceptQuestions(key, n = 8) {
@@ -539,9 +550,32 @@ window.KG = window.KG || {};
   }
   const chunks = (a, sizes) => { const out = []; let i = 0; for (const n of sizes) { if (i < a.length) out.push(a.slice(i, i + n)); i += n; } if (i < a.length) out.push(a.slice(i)); return out; };
   // ── mini-games (3D); each carries a plain-question fallback for 2D ──
+  // Quick Judge for words: half the pairings are right, half borrow a near word's meaning
+  function judgeWords(words, pool) {
+    return shuffle(words.concat(sample(words, Math.max(0, 8 - words.length))).slice(0, 8).map((w, k) => {
+      const truth = k % 2 === 0, near = sameKind(w, pool).filter(x => x !== w && x.short !== w.short);
+      const claim = truth || !near.length ? w.short : U.pick(near).short;
+      return { big: w.g, claim: `means “${claim}”`, ok: claim === w.short, why: `${w.g} = ${w.short}`, vkey: w.g };
+    }));
+  }
+  // …and for uses: a real line, and a use that is or isn't the one it shows
+  function judgeCards(cards, pool) {
+    const lines = shuffle(cards.flatMap(c => examplesOf(c).filter(e => e.greek).slice(0, 2).map(e => ({ c, e })))).slice(0, 7);
+    return lines.map(({ c, e }, k) => {
+      const rivals = pool.filter(x => x !== c && x.set === c.set && x.short !== c.short), other = (KG.partners[c.id] || []).map(id => KG.cardById[id]).filter(Boolean)[0] || U.pick(rivals);
+      const said = k % 2 === 0 || !other ? c : other;
+      return { big: KG.guillemet(e.greek), claim: `is ${said.pic} ${said.short}`, ok: said === c, why: `It's ${c.pic} ${c.name}` };
+    });
+  }
   function miniFor(node) {
     if (node.type === 'vocab') {
       const words = E.vocabSet(node.set), pool = chapterWords(words[0]);
+      // a different game for each pack, in turn: Word Rain, Memory Flip, Quick Judge
+      const turn = node.set % 3;
+      if (turn === 1 && words.length >= 4) return { type: 'mini', game: 'flip', title: 'Memory Flip', pairs: sample(words, Math.min(6, words.length)).map(w => ({ a: w.g, b: w.short })),
+        fallback: [matchWords(words)] };
+      if (turn === 2) return { type: 'mini', game: 'judge', title: 'Quick Judge', items: judgeWords(words, pool), seconds: 6,
+        fallback: sample(words, 3).map(w => vocabQ(w, pool, 'e2g')) };
       return { type: 'mini', game: 'rain', title: 'Word Rain', targets: sample(words, 5).map(w => ({ g: w.g, en: w.short })), pool: pool.map(w => w.g),
         fallback: sample(words, 3).map(w => vocabQ(w, pool, 'g2e')) };
     }
@@ -553,6 +587,10 @@ window.KG = window.KG || {};
       const byCard = L.cards.length <= 6;
       const gateOf = c => byCard ? c.short : L.groups.find(g => g.id === c.group).name.split(/\s+[—–-]\s+/)[0];
       const stones = shuffle(L.cards.flatMap(c => examplesOf(c).filter(e => e.greek).map(e => ({ form: KG.guillemet(e.greek), cases: [gateOf(c)] })))).slice(0, 8);
+      // every other concept lesson plays Quick Judge instead of the Sorting Spell
+      const k = Object.keys(KG.grammar).indexOf(node.lesson);
+      if ((k % 2 === 1 || stones.length < 4) && judgeCards(L.cards, pool).length >= 4)
+        return { type: 'mini', game: 'judge', title: 'Quick Judge', items: judgeCards(L.cards, pool), seconds: 8, fallback: sample(L.cards, 3).map(c => spotQ(c, pool)) };
       if (stones.length < 4) return null;
       return { type: 'mini', game: 'defense', title: 'Sorting Spell', banner: 'Sorting Spell! Strike each line with its use', gates: uniq(L.cards.map(gateOf)), stones,
         fallback: sample(L.cards, 3).map(c => spotQ(c, pool)) };

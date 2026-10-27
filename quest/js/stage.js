@@ -489,6 +489,8 @@ export function createStage(ctx) {
       else if (MG.q.game === 'defense') { if (p.gate) defenseTap(g); }
       else if (MG.q.game === 'forge') forgeTap(g);
       else if (MG.q.game === 'race') raceTap(g);
+      else if (MG.q.game === 'flip') flipTap(g);
+      else if (MG.q.game === 'judge') { if (p.judge !== undefined) judgeTap(g); }
     }
     else if (p.type === 'mt') pickMatch(g);
     else if (p.type === 'stone') {
@@ -622,7 +624,7 @@ export function createStage(ctx) {
   S.mini = (q, done) => {
     clearUI(); S.q = q; S.answered = false; S.locked = false;
     MG = { q, done, hits: 0, total: 0, t: 0, over: false, items: [] };
-    ({ rain: rainStart, defense: defenseStart, forge: forgeStart, race: raceStart })[q.game]();
+    ({ rain: rainStart, defense: defenseStart, forge: forgeStart, race: raceStart, flip: flipStart, judge: judgeStart })[q.game]();
   };
 
   // Word Rain: catch the Greek word that means the English target
@@ -760,6 +762,83 @@ export function createStage(ctx) {
     }
   }
 
+  // Memory Flip: stones lie face down; turn two at a time to pair each Greek word with its meaning
+  function flipStart() {
+    const { hh, hw, portrait } = frame();
+    miniBanner('Memory Flip! Find each word and its meaning');
+    const cards = U.shuffle(MG.q.pairs.flatMap((p, i) => [{ i, t: p.a, greek: true }, { i, t: p.b, greek: false }]));
+    const cols = portrait ? 3 : 4, rows = Math.ceil(cards.length / cols), gap = hw * 0.04;
+    const tw = (hw * 1.9 - gap * (cols - 1)) / cols, th = Math.min(hh * 0.26, (hh * 1.25 - gap * (rows - 1)) / rows);
+    MG.total = MG.q.pairs.length; MG.open = []; MG.miss = 0; MG.found = 0; MG.cards = [];
+    cards.forEach((c, k) => {
+      const r = Math.floor(k / cols), col = k % cols, g = new THREE.Group();
+      const back = slab('?', tw, th, { face: '#2f5f8f', color: '#ffe08a' }), front = slab(c.t, tw, th, { greek: c.greek, face: c.greek ? '#e9f0f8' : '#f3e7c8' });
+      front.visible = false; g.add(back, front);
+      g.userData = { base: new THREE.Vector3(), front: back.userData.front, w: tw, h: th, card: c, back, face: front, pick: { type: 'mini' } };
+      place(g, -hw * 0.95 + tw / 2 + col * (tw + gap), hh * 0.52 - th / 2 - r * (th + gap));
+      introAnim(g, k * 0.04);
+      S.picks.push(g); MG.cards.push(g);
+    });
+  }
+  function flipTurn(g, up) {
+    tween(0.12, t => { g.scale.x = Math.max(0.01, 1 - t); }, () => { g.userData.back.visible = !up; g.userData.face.visible = up; tween(0.12, t => { g.scale.x = Math.max(0.01, t); }); });
+  }
+  function flipTap(g) {
+    const u = g.userData;
+    if (MG.lock || u.up || u.done) return;
+    u.up = true; flipTurn(g, true); KG.app.sfx('tap');
+    MG.open.push(g);
+    if (MG.open.length < 2) return;
+    const [a, b] = MG.open; MG.open = [];
+    if (a.userData.card.i === b.userData.card.i) {
+      a.userData.done = b.userData.done = true; MG.hits++; MG.found++;
+      setTimeout(() => { KG.app.sfx('good'); glow(a.userData.face); glow(b.userData.face); oppReact(true); }, 260);
+      if (MG.found === MG.total) setTimeout(() => miniEnd(MG.miss <= MG.total, `All ${MG.total} pairs found with ${MG.miss} wrong turn${MG.miss === 1 ? '' : 's'}.`), 900);
+    } else {
+      MG.miss++; MG.lock = true;
+      setTimeout(() => { KG.app.sfx('bad'); flipTurn(a, false); flipTurn(b, false); a.userData.up = b.userData.up = false; MG.lock = false; }, 900);
+    }
+  }
+
+  // Quick Judge: a word and a meaning (or a line and a use) flash up; right or wrong? Beat the clock
+  function judgeStart() { MG.total = MG.q.items.length; MG.idx = 0; MG.hits = 0; judgeNext(); }
+  function judgeNext() {
+    for (const g of MG.items) removePick(g);
+    MG.items = []; if (MG.bigQ) { drop(MG.bigQ); MG.bigQ = null; } if (MG.bar) { drop(MG.bar); MG.bar = null; }
+    if (MG.idx >= MG.q.items.length) return miniEnd(MG.hits >= MG.total - 2, `You judged ${MG.hits} of ${MG.total} right.`);
+    const it = MG.q.items[MG.idx++], { hh, hw } = frame();
+    miniBanner(`Quick Judge ${MG.idx}/${MG.total}: right or wrong?`);
+    const big = slab(it.big, Math.min(hw * 1.8, 12), hh * 0.24, { greek: true, face: '#f3e7c8' }); place(big, 0, hh * 0.3); introAnim(big, 0); MG.bigQ = big;
+    const claim = slab(it.claim, Math.min(hw * 1.8, 12), hh * 0.14, { face: '#e9f0f8' }); place(claim, 0, hh * 0.06); introAnim(claim, 0.05); MG.items.push(claim);
+    const tw = hw * 0.85, th = hh * 0.17;
+    [['✓ Right', true, '#dff3df'], ['✗ Wrong', false, '#f6dede']].forEach(([label, v, face], k) => {
+      const g = slab(label, tw, th, { face }); place(g, (k ? 1 : -1) * hw * 0.48, -hh * 0.55); introAnim(g, 0.1);
+      g.userData.pick = { type: 'mini', judge: v }; S.picks.push(g); MG.items.push(g);
+    });
+    const bar = new THREE.Mesh(new THREE.BoxGeometry(hw * 1.8, hh * 0.03, 0.1), new THREE.MeshBasicMaterial({ color: 0xffd166 }));
+    place(bar, 0, -hh * 0.3); MG.bar = bar; MG.barW = hw * 1.8;
+    MG.cur = it; MG.left = MG.limit = MG.q.seconds || 6; MG.lock = false;
+  }
+  function judgeUpdate(dt) {
+    if (MG.lock || !MG.bar) return;
+    MG.left -= dt; const f = Math.max(0, MG.left / MG.limit);
+    MG.bar.scale.x = Math.max(0.001, f); MG.bar.position.x = -MG.barW / 2 * (1 - f); MG.bar.material.color.setHex(f > 0.35 ? 0xffd166 : 0xe0453a);
+    if (MG.left <= 0) judgeSay(false, `⏱ Too slow! ${MG.cur.why}`);
+  }
+  function judgeTap(g) {
+    if (MG.lock || !MG.cur) return;
+    const ok = g.userData.pick.judge === MG.cur.ok;
+    heroCast();
+    if (ok) orb(heroHand(), worldPos(g), 0xffd166, () => glow(g)); else shatter(g);
+    judgeSay(ok, `${ok ? '✓' : '✗'} ${MG.cur.why}`);
+  }
+  function judgeSay(ok, text) {
+    MG.lock = true;
+    if (ok) { MG.hits++; KG.app.sfx('good'); oppReact(true); } else { KG.app.sfx('bad'); oppReact(false); }
+    miniBanner(text);
+    setTimeout(judgeNext, ok ? 900 : 1800);
+  }
+
   // Verse Race: pick the next piece of the translation before time runs out
   function raceStart() {
     const R = KG.readings[MG.q.reading];
@@ -806,6 +885,7 @@ export function createStage(ctx) {
   }
 
   S.debugMini = () => MG; // used by the browser tests
+  S.debugChoose = g => choose(g);
   S.debugScene = () => scene;
   S.orderLine = () => (S.order ? S.order.line.map(c => c.t) : []);
   S.lock = () => { S.locked = true; };
@@ -891,7 +971,7 @@ export function createStage(ctx) {
     aura.scale.setScalar(1 + Math.sin(t * 4) * 0.08 + (S.comboN || 0) * 0.02); aura.rotation.z += dt;
     if (S.big) S.big.position.y = S.big.userData.base.y + Math.sin(t * 2) * 0.06;
     for (const p of S.picks) if (p.visible && p.userData.base && !(S.sel === p)) p.rotation.y = Math.sin(t * 1.3 + p.userData.base.x) * 0.04;
-    if (MG && !MG.over) { MG.t += dt; ({ rain: rainUpdate, defense: defenseUpdate, race: raceUpdate }[MG.q.game] || (() => {}))(dt); }
+    if (MG && !MG.over) { MG.t += dt; ({ rain: rainUpdate, defense: defenseUpdate, race: raceUpdate, judge: judgeUpdate }[MG.q.game] || (() => {}))(dt); }
     else if (!MG) hero.position.z += (5.2 - hero.position.z) * Math.min(1, dt * 4);
     // run this frame's animations; any started by one of them (a hit's damage number, shock ring, knockback) join the list instead of being lost
     const run = S.anims; S.anims = []; S.anims = run.filter(fn => fn(dt) !== false).concat(S.anims);
