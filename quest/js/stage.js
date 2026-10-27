@@ -880,11 +880,11 @@ export function createStage(ctx) {
 
   // Lane Run: the hero runs down a road and gates come at you in three lanes, a word on each.
   // Tap a lane (or ←/→) to be in the right one when they arrive.
-  const LANES = [-3, 0, 3];
   function runStart() {
     const g = enter3D();
     if (SET) SET.group.visible = false;
-    MG.total = MG.q.rounds.length; MG.idx = 0; MG.lane = 1; MG.speed = 8; MG.running = true; MG.side = []; MG.waves = [];
+    MG.total = MG.q.rounds.length; MG.idx = 0; MG.running = true; MG.side = []; MG.waves = [];
+    MG.tier = MG.q.tier ?? 2; MG.lanes = MG.q.rounds[0].options.length === 2 ? [-2, 2] : [-3, 0, 3]; MG.lane = MG.lanes.length === 2 ? 0 : 1;
     // a road through the fields, lane lines, and trees and columns that rush past
     const field = new THREE.Mesh(new THREE.PlaneGeometry(140, 240), M(0x6fae4f)); field.rotation.x = -Math.PI / 2; field.position.set(0, -0.02, -80); field.receiveShadow = true; g.add(field);
     const road = new THREE.Mesh(new THREE.PlaneGeometry(9.6, 240), M(0xcdb88f)); road.rotation.x = -Math.PI / 2; road.position.set(0, 0, -80); road.receiveShadow = true; g.add(road);
@@ -898,7 +898,7 @@ export function createStage(ctx) {
       p.traverse(o => { o.castShadow = true; }); p.position.set(sx, 0, z); g.add(p); MG.side.push(p);
     }
     // invisible pads along each lane: tap anywhere on a lane to move there
-    LANES.forEach((x, i) => {
+    MG.lanes.forEach((x, i) => {
       const pad = new THREE.Mesh(new THREE.BoxGeometry(3, 0.2, 60), new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false }));
       pad.position.set(x, 0.1, -22); pad.userData.pick = { type: 'mini', lane: i }; g.add(pad); S.picks.push(pad);
     });
@@ -908,7 +908,7 @@ export function createStage(ctx) {
   }
   function runLane(i) {
     if (!MG || MG.over) return;
-    const l = Math.max(0, Math.min(2, i));
+    const l = Math.max(0, Math.min(MG.lanes.length - 1, i));
     if (l !== MG.lane) { MG.lane = l; KG.app.sfx('tap'); }
   }
   function runWave() {
@@ -922,16 +922,16 @@ export function createStage(ctx) {
       const lintel = new THREE.Mesh(new THREE.BoxGeometry(3, 0.3, 0.4), top); lintel.position.y = 3.6; a.add(lintel);
       const b = board(t, 2.8, r.greek ? 1.15 : 1.35, r.greek); b.position.set(0, 4.5, 0.05); a.add(b);
       b.userData.pick = { type: 'mini', lane: i }; S.picks.push(b);
-      a.position.x = LANES[i]; a.userData.board = b; wave.add(a);
+      a.position.x = MG.lanes[i]; a.userData.board = b; wave.add(a);
     });
     // the gates wait a moment far off, so there's time to read before they come
-    wave.position.z = -48; wave.userData.r = r; wave.userData.wait = 1.4; MG.world.add(wave); MG.waves.push(wave);
-    MG.speed = Math.min(11, 8 + MG.idx * 0.6);
+    wave.position.z = -48; wave.userData.r = r; wave.userData.wait = [2.4, 1.8, 1.4][MG.tier]; MG.world.add(wave); MG.waves.push(wave);
+    MG.speed = Math.min(10, [5.5, 7, 8][MG.tier] + MG.idx * 0.4); MG.roundT = MG.t; MG.hinted = false; MG.hint = () => wave.children[r.answer].userData.board;
   }
   function runUpdate(dt) {
     const v = MG.speed * dt;
-    hero.position.x += (LANES[MG.lane] - hero.position.x) * Math.min(1, dt * 10);
-    hero.rotation.z = (hero.position.x - LANES[MG.lane]) * 0.08; aura.position.x = hero.position.x;
+    hero.position.x += (MG.lanes[MG.lane] - hero.position.x) * Math.min(1, dt * 10);
+    hero.rotation.z = (hero.position.x - MG.lanes[MG.lane]) * 0.08; aura.position.x = hero.position.x;
     MG.cam.pos.x += (hero.position.x * 0.45 - MG.cam.pos.x) * Math.min(1, dt * 4); MG.cam.look.x = MG.cam.pos.x * 0.6;
     for (const o of MG.side) { o.position.z += v; if (o.position.z > 14) o.position.z -= 120; }
     for (const w of MG.waves) {
@@ -970,13 +970,13 @@ export function createStage(ctx) {
     for (const j of MG.jars) { MG.world.remove(j); S.picks = S.picks.filter(p => p !== j); dispose(j); }
     MG.jars = [];
     if (MG.idx >= MG.q.rounds.length) return miniEnd(MG.hits >= Math.ceil(MG.total * 0.6), `You hit ${MG.hits} of ${MG.total} jars first time.`);
-    const r = MG.cur = MG.q.rounds[MG.idx++]; MG.slip = false; MG.lock = false;
+    const r = MG.cur = MG.q.rounds[MG.idx++]; MG.slip = false; MG.lock = false; MG.roundT = MG.t; MG.hinted = false; MG.hint = null;
     miniBanner(r.promptGreek ? `Which use? ${r.prompt}` : `Hit the jar for ${r.prompt}`);
     const clay = [0xb06a3a, 0xc27a45, 0x9a5a32, 0xb8804a], { portrait } = frame(); MG.narrow = portrait;
     r.options.forEach((t, i) => {
       // a row of four on a wide screen; on a phone two near and two further back, their boards higher
-      const j = new THREE.Group(), far = i >= 2;
-      const x = portrait ? (i % 2 ? 1 : -1) * (far ? 2.5 : 1.8) : -5.4 + i * 3.6, z = portrait ? (far ? -4.5 : 2.5) : -1 - ((i * 7 + MG.idx * 3) % 4) * 1.6;
+      const n = r.options.length, j = new THREE.Group(), far = i >= 2, solo = far && n === 3;
+      const x = portrait ? (solo ? 0 : (i % 2 ? 1 : -1) * (far ? 2.5 : 1.8)) : (i - (n - 1) / 2) * 3.6, z = portrait ? (far ? -4.5 : 2.5) : -1 - ((i * 7 + MG.idx * 3) % 4) * 1.6;
       const postM = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.18, 1.6, 8), M(0x7a5232)); postM.position.y = 0.8; j.add(postM);
       const pot = new THREE.Group(); pot.position.y = 1.6; j.add(pot);
       const body = new THREE.Mesh(new THREE.SphereGeometry(0.62, 14, 10), M(clay[i % 4], { flatShading: false })); body.scale.y = 0.95; body.position.y = 0.55; pot.add(body);
@@ -995,7 +995,7 @@ export function createStage(ctx) {
   }
   function tossUpdate() {
     // the jars sway further and faster each round
-    const amp = (0.25 + MG.idx * 0.06) * (MG.narrow ? 0.5 : 1), sp = 0.5 + MG.idx * 0.08;
+    const amp = (0.25 + MG.idx * 0.06) * (MG.narrow ? 0.5 : 1) * [0, 0.5, 1][MG.q.tier ?? 2], sp = 0.5 + MG.idx * 0.08;
     for (const j of MG.jars) if (j.visible && !j.userData.hit) { j.position.x = j.userData.x0 + Math.sin(MG.t * sp + j.userData.ph) * amp; j.userData.pot.rotation.z = Math.sin(MG.t * sp * 2 + j.userData.ph) * 0.12; }
   }
   function tossTap(j) {
@@ -1063,7 +1063,7 @@ export function createStage(ctx) {
       // over the last stretch to the far bank
       return hopTo(0, MG.farZ - 1.5, 0, () => { particles(hero.position.clone().add(new THREE.Vector3(0, 1, 0)), 0xffd166, 50, 6); miniEnd(MG.hits >= Math.ceil(MG.total * 0.6), `You crossed the river: ${MG.hits} of ${MG.total} stones right first time.`); });
     }
-    const r = MG.cur = MG.q.rounds[MG.idx++], z = MG.z - HOP, { portrait } = frame(), gap = portrait ? 2.6 : 3.2;
+    const r = MG.cur = MG.q.rounds[MG.idx++], z = MG.z - HOP, { portrait } = frame(), gap = portrait ? 2.6 : 3.2; MG.roundT = MG.t; MG.hinted = false; MG.hint = null;
     MG.slip = false; MG.lock = false;
     miniBanner(r.promptGreek ? `Which use? ${r.prompt}` : `Jump to the stone for ${r.prompt}`);
     const rock = M(0x8a8378);
@@ -1071,7 +1071,7 @@ export function createStage(ctx) {
       const st = new THREE.Group(), stone = new THREE.Mesh(new THREE.CylinderGeometry(1.05, 1.25, 0.6, 9), rock); stone.position.y = -0.15; stone.castShadow = stone.receiveShadow = true; st.add(stone);
       const b = board(t, portrait ? 2.45 : 2.9, r.greek ? 1.0 : 1.2, r.greek); b.position.set(0, 1.7, 0); b.rotation.x = -0.2; st.add(b);
       const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 1.2, 5), M(0x6a4a2a)); pole.position.y = 0.7; st.add(pole);
-      st.position.set(MG.x * 0.3 + (i - 1) * gap, -2, z); st.userData = { pick: { type: 'mini', i }, ph: Math.random() * 6, board: b, front: b.userData.front, w: 2.9, h: 1.2 };
+      st.position.set(MG.x * 0.3 + (i - (r.options.length - 1) / 2) * gap, -2, z); st.userData = { pick: { type: 'mini', i }, ph: Math.random() * 6, board: b, front: b.userData.front, w: 2.9, h: 1.2 };
       tween(0.6, k => { st.position.y = -2 + ease(k) * 2; });
       MG.world.add(st); S.picks.push(st); MG.jars.push(st);
     });
@@ -1137,11 +1137,11 @@ export function createStage(ctx) {
     for (const s of MG.jars) { S.picks = S.picks.filter(p => p !== s); if (!s.userData.gone) { MG.world.remove(s); dispose(s); } }
     MG.jars = [];
     if (MG.idx >= MG.q.rounds.length) return miniEnd(MG.hits >= Math.ceil(MG.total * 0.6), `You rounded up ${MG.hits} of ${MG.total} sheep first time.`);
-    const r = MG.cur = MG.q.rounds[MG.idx++], portrait = MG.narrow; MG.slip = false; MG.lock = false;
+    const r = MG.cur = MG.q.rounds[MG.idx++], portrait = MG.narrow; MG.slip = false; MG.lock = false; MG.roundT = MG.t; MG.hinted = false; MG.hint = null;
     miniBanner(r.promptGreek ? `Which use? ${r.prompt}` : `Tap the sheep for ${r.prompt}`);
     r.options.forEach((t, i) => {
-      const far = i >= 2, s = sheep();
-      const x = portrait ? (i % 2 ? 1 : -1) * (far ? 2.4 : 1.55) : -5.4 + i * 3.6, z = portrait ? (far ? -4.8 : 2.8) : -1 - (i % 2) * 2.5, y = portrait && far ? 1.6 : 0;
+      const n = r.options.length, far = i >= 2, s = sheep(), solo = far && n === 3;
+      const x = portrait ? (solo ? 0 : (i % 2 ? 1 : -1) * (far ? 2.4 : 1.55)) : (i - (n - 1) / 2) * 3.6, z = portrait ? (far ? -4.8 : 2.8) : -1 - (i % 2) * 2.5, y = portrait && far ? 1.6 : 0;
       s.userData.k = portrait && !far ? 0.8 : 1; s.userData.model.scale.setScalar(s.userData.k);
       const b = board(t, portrait ? (far ? 3.0 : 2.7) : 3.0, r.greek ? 1.0 : 1.25, r.greek); b.position.set(0, portrait ? (far ? 2.7 : 1.95) : 2.9, 0); s.add(b);
       if (portrait && !far) b.position.y = 2.3;
@@ -1156,7 +1156,7 @@ export function createStage(ctx) {
     for (const s of MG.jars) {
       const u = s.userData; if (u.gone) continue;
       // amble a little about their spot, turning the way they walk
-      const dx = Math.sin(MG.t * 0.5 + u.ph) * 0.35, vx = Math.cos(MG.t * 0.5 + u.ph);
+      const dx = Math.sin(MG.t * 0.5 + u.ph) * 0.35 * (MG.q.tier === 0 ? 0.4 : 1), vx = Math.cos(MG.t * 0.5 + u.ph);
       if (!u.walk) { s.position.x = u.x0 + dx; s.position.z = u.z0 + Math.sin(MG.t * 0.35 + u.ph * 2) * 0.2; }
       u.model.scale.x += ((vx > 0 ? 1 : -1) * u.k - u.model.scale.x) * Math.min(1, dt * 6);
       const sw = Math.sin(MG.t * 6 + u.ph) * (u.walk > 0 ? 0.6 : 0.25);
@@ -1321,6 +1321,8 @@ export function createStage(ctx) {
     aura.scale.setScalar(1 + Math.sin(t * 4) * 0.08 + (S.comboN || 0) * 0.02); aura.rotation.z += dt;
     if (S.big) S.big.position.y = S.big.userData.base.y + Math.sin(t * 2) * 0.06;
     for (const p of S.picks) if (p.visible && p.userData.base && !(S.sel === p)) p.rotation.y = Math.sin(t * 1.3 + p.userData.base.x) * 0.04;
+    // a first try at a game: wait a while and the right answer glows
+    if (MG && !MG.over && MG.q.tier === 0 && MG.cur && !MG.hinted && MG.t - (MG.roundT || 0) > 5) { MG.hinted = true; const b = MG.hint ? MG.hint() : MG.jars && MG.jars[MG.cur.answer] && MG.jars[MG.cur.answer].userData.board; if (b && b.userData.front) { b.userData.front.emissive.setHex(0xffd166); tween(1.6, t => { b.userData.front.emissiveIntensity = 0.6 * Math.abs(Math.sin(t * Math.PI * 2)); }); } }
     if (MG && !MG.over) { MG.t += dt; ({ rain: rainUpdate, defense: defenseUpdate, race: raceUpdate, judge: judgeUpdate, run: runUpdate, toss: tossUpdate, hop: hopUpdate, herd: herdUpdate }[MG.q.game] || (() => {}))(dt); }
     else if (!MG) hero.position.z += (5.2 - hero.position.z) * Math.min(1, dt * 4);
     // run this frame's animations; any started by one of them (a hit's damage number, shock ring, knockback) join the list instead of being lost

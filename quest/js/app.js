@@ -328,6 +328,7 @@
     q.onWord = (g, ok) => { if (S().vocab[g]) E.srsAnswer(g, ok); };
     ST().mini(q, res => {
       if (!P || P.q !== q) return;
+      if (res.ok && q.rounds) E.won3D(q.game);
       P.xp += res.hits * 3;
       answer(res.ok, Object.assign({}, q, { explain: res.text, retry: true }));
     });

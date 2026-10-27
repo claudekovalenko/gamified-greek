@@ -640,7 +640,9 @@ window.KG = window.KG || {};
   }
   const GAME3D = { run: ['Lane Run', 3], toss: ['Jar Toss', 4], hop: ['Stepping Stones', 3], herd: ['Sheep Round-up', 4] }, ORDER3D = ['run', 'hop', 'toss', 'herd'];
   function world3D(node, shift = 0) {
-    const idx = (node.index || 0) + (node.set || 0) + shift, game = ORDER3D[idx % 4], [title, n] = GAME3D[game];
+    const idx = (node.index || 0) + (node.set || 0) + shift, game = ORDER3D[idx % 4], [title] = GAME3D[game];
+    // each game grows with you: two choices and three rounds at first, the full game once you've won it a few times
+    const tier = E.tier3D(game), n = [2, 3, GAME3D[game][1]][tier];
     let rounds = [], fallback = [];
     if (node.type === 'vocab' || node.type === 'reading') {
       const words = node.type === 'vocab' ? E.vocabSet(node.set) : KG.readings[node.reading].uses.map(g => E.vocabByGreek[g]).filter(Boolean);
@@ -655,9 +657,11 @@ window.KG = window.KG || {};
       fallback = sample(L.cards, 2).map(c => spotQ(c, pool));
     }
     if (rounds.length < 3) return null;
-    return { type: 'mini', game, title, rounds: rounds.slice(0, 5), fallback };
+    return { type: 'mini', game, title, tier, rounds: rounds.slice(0, [3, 4, 5][tier]), fallback };
   }
   E.world3D = world3D;
+  E.tier3D = game => { const w = (E.state.wins3d || {})[game] || 0; return w < 1 ? 0 : w < 3 ? 1 : 2; };
+  E.won3D = game => { const W = E.state.wins3d || (E.state.wins3d = {}); W[game] = (W[game] || 0) + 1; E.save(); };
   // two different games for one lesson: one out in the 3D place, one with tablets
   // mostly games out in the 3D place: two of them, and a tablet game every third lesson
   function minisFor(node) {

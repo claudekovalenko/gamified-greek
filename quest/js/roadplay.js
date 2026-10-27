@@ -114,7 +114,9 @@ export function makeRoadPlay(ctx) {
       const m = ctx.mesh(new THREE.BoxGeometry(0.12, 0.45, 0.1), 0x2a1a08); m.position.set(0, 1.95, 0.05); g.add(m); return g; })();
     ch.rocks = lanes.map((v, k) => {
       const r = ctx.mesh(new THREE.DodecahedronGeometry(0.75, 1), 0x8a8070, { flatShading: true }); ctx.add(r);
-      return { r, v, dir: k % 2 ? -1 : 1, u: -width - 2 + k * 5, speed: 4.2 + k * 0.6, wait: 0 };
+      // slow in the first regions, quicker further on
+      const zone = parseInt(o.id) || 0;
+      return { r, v, dir: k % 2 ? -1 : 1, u: -width - 2 + k * 5, speed: Math.min(5.5, 2.8 + zone * 0.5 + k * 0.4), wait: 0 };
     });
     lanes.concat([4.8, -4.8]).forEach((v, k) => { const p = F.w(0, v); coin(ch, k, p.x, ctx.groundAt(p.x, p.z) + 0.9, p.z); });
     ch.update = (dt, t, pos) => {
