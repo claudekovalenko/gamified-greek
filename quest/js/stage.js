@@ -337,18 +337,18 @@ export function createStage(ctx) {
     if (!opp) return;
     if (hit) {
       oppHit();
-      tween(0.4, t => { opp.position.z = oppPos.z - Math.sin(t * Math.PI) * 0.8; opp.rotation.x = -Math.sin(t * Math.PI) * 0.15; });
+      const o = opp; tween(0.4, t => { o.position.z = oppPos.z - Math.sin(t * Math.PI) * 0.8; o.rotation.x = -Math.sin(t * Math.PI) * 0.15; });
     } else {
       // opponent strikes back
-      tween(0.25, t => { opp.position.z = oppPos.z + Math.sin(t * Math.PI) * 1.2; }, () => {
-        orb(worldPos(opp).add(new THREE.Vector3(0, 2.5, 0)), worldPos(hero).add(new THREE.Vector3(0, 1.2, 0)), S.oppKind === 'mentor' || S.oppKind === 'scroll' ? 0xff9f6a : 0x8a3aff, () => {
+      const o = opp; tween(0.25, t => { o.position.z = oppPos.z + Math.sin(t * Math.PI) * 1.2; }, () => {
+        orb(worldPos(o).add(new THREE.Vector3(0, 2.5, 0)), worldPos(hero).add(new THREE.Vector3(0, 1.2, 0)), S.oppKind === 'mentor' || S.oppKind === 'scroll' ? 0xff9f6a : 0x8a3aff, () => {
           S.shake = 0.35; heroFlinch();
         }, 0.4);
       });
     }
   }
-  function heroFlinch() { tween(0.4, t => { hero.rotation.x = Math.sin(t * Math.PI) * 0.3; hero.position.z = 5.2 + Math.sin(t * Math.PI) * 0.5; }); }
-  function nod() { if (!opp || !opp.userData.body) return; tween(0.5, t => { opp.userData.body.rotation.x = Math.sin(t * Math.PI * 2) * 0.12; }); }
+  function heroFlinch() { const z0 = MG && MG.running ? hero.position.z : 5.2; tween(0.4, t => { hero.rotation.x = Math.sin(t * Math.PI) * 0.3; hero.position.z = z0 + Math.sin(t * Math.PI) * 0.5; }); }
+  function nod() { const b = opp && opp.userData.body; if (!b) return; tween(0.5, t => { b.rotation.x = Math.sin(t * Math.PI * 2) * 0.12; }); }
 
   // ── questions ──────────────────────────────────────────────
   function place(g, x, y, z = 0) { g.position.set(x, y, -D + z); (g.userData.base || (g.userData.base = new THREE.Vector3())).set(x, y, -D + z); ui.add(g); }
@@ -491,6 +491,8 @@ export function createStage(ctx) {
       else if (MG.q.game === 'race') raceTap(g);
       else if (MG.q.game === 'flip') flipTap(g);
       else if (MG.q.game === 'judge') { if (p.judge !== undefined) judgeTap(g); }
+      else if (MG.q.game === 'run') runLane(p.lane);
+      else if (MG.q.game === 'toss') tossTap(g);
     }
     else if (p.type === 'mt') pickMatch(g);
     else if (p.type === 'stone') {
@@ -613,18 +615,18 @@ export function createStage(ctx) {
   }
   function miniEnd(ok, text) {
     if (!MG || MG.over) return;
-    MG.over = true; const cb = MG.done, hits = MG.hits, total = MG.total;
-    setTimeout(() => { MG = null; cb({ ok, hits, total, text }); }, 500);
+    MG.over = true; const cb = MG.done, hits = MG.hits, total = MG.total, m = MG;
+    setTimeout(() => { leave3D(m); MG = null; cb({ ok, hits, total, text }); }, m.world ? 1100 : 500);
   }
   function removePick(g) { drop(g); S.picks = S.picks.filter(x => x !== g); }
   // the arcade counts every hit and miss as it happens
   const hit = (n = 1) => { if (MG && MG.q.onHit) MG.q.onHit(n); };
   const miss = () => { if (MG && MG.q.onMiss) MG.q.onMiss(); };
-  S.stopMini = () => { MG = null; clearUI(); };
+  S.stopMini = () => { leave3D(MG); MG = null; clearUI(); };
   S.mini = (q, done) => {
     clearUI(); S.q = q; S.answered = false; S.locked = false;
     MG = { q, done, hits: 0, total: 0, t: 0, over: false, items: [] };
-    ({ rain: rainStart, defense: defenseStart, forge: forgeStart, race: raceStart, flip: flipStart, judge: judgeStart })[q.game]();
+    ({ rain: rainStart, defense: defenseStart, forge: forgeStart, race: raceStart, flip: flipStart, judge: judgeStart, run: runStart, toss: tossStart })[q.game]();
   };
 
   // Word Rain: catch the Greek word that means the English target
@@ -839,6 +841,181 @@ export function createStage(ctx) {
     setTimeout(judgeNext, ok ? 900 : 1800);
   }
 
+  // ── games out in the place itself, not on tablets ──────────
+  // They build their own props in the 3D scene, and put everything back when they end.
+  function enter3D() {
+    const g = new THREE.Group(); scene.add(g);
+    MG.world = g; MG.saved = { opp: opp ? opp.visible : null };
+    if (opp) opp.visible = false; if (hpBar) hpBar.visible = false;
+    return g;
+  }
+  function leave3D(m) {
+    if (!m || !m.world) return;
+    scene.remove(m.world); dispose(m.world); m.world = null; m.cam = null; m.running = false;
+    if (opp && m.saved.opp !== null) opp.visible = m.saved.opp; if (hpBar) hpBar.visible = true;
+    if (SET) SET.group.visible = true;
+    hero.position.set(HERO_X, 0, 5.2); hero.rotation.set(0, HERO_R, 0); aura.position.x = HERO_X;
+  }
+  // a word painted on a wooden board, standing in the world
+  function board(text, w, h, greek) {
+    const tex = textCanvas(text, { W: 512, H: Math.max(96, Math.round(512 * h / w)), greek, bg: '#f3e7c8', border: '#8a5a2a', maxSize: greek ? 120 : 76, minSize: 18, pad: 22 });
+    const front = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.8, emissive: 0x000000 }), wood = M(0x7a5232);
+    const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, 0.14), [wood, wood, wood, wood, front, wood]);
+    m.castShadow = true; m.userData.front = front;
+    return m;
+  }
+  // pieces of a broken thing fly off in the world and fall
+  function burst(pos, color, n = 10, size = 0.35) {
+    const mat = M(color);
+    for (let i = 0; i < n; i++) {
+      const f = new THREE.Mesh(shardGeo, mat); f.scale.set(size, size * 0.8, size * 2); f.position.copy(pos); f.userData.fx = true; scene.add(f);
+      const v = new THREE.Vector3((Math.random() - 0.5) * 7, 3 + Math.random() * 4, (Math.random() - 0.5) * 5), r = Math.random() * 8;
+      let life = 1.3;
+      anim(dt => { life -= dt; v.y -= 16 * dt; f.position.addScaledVector(v, dt); if (f.position.y < 0.1) { f.position.y = 0.1; v.set(v.x * 0.5, -v.y * 0.3, v.z * 0.5); } f.rotation.x += r * dt; f.rotation.z += r * dt * 0.7; if (life <= 0) { scene.remove(f); return false; } return true; });
+    }
+    setTimeout(() => mat.dispose(), 1500);
+  }
+
+  // Lane Run: the hero runs down a road and gates come at you in three lanes, a word on each.
+  // Tap a lane (or ←/→) to be in the right one when they arrive.
+  const LANES = [-3, 0, 3];
+  function runStart() {
+    const g = enter3D();
+    if (SET) SET.group.visible = false;
+    MG.total = MG.q.rounds.length; MG.idx = 0; MG.lane = 1; MG.speed = 15; MG.running = true; MG.side = []; MG.waves = [];
+    // a road through the fields, lane lines, and trees and columns that rush past
+    const field = new THREE.Mesh(new THREE.PlaneGeometry(140, 240), M(0x6fae4f)); field.rotation.x = -Math.PI / 2; field.position.set(0, -0.02, -80); field.receiveShadow = true; g.add(field);
+    const road = new THREE.Mesh(new THREE.PlaneGeometry(9.6, 240), M(0xcdb88f)); road.rotation.x = -Math.PI / 2; road.position.set(0, 0, -80); road.receiveShadow = true; g.add(road);
+    const dashGeo = new THREE.BoxGeometry(0.18, 0.02, 2.2), dashMat = M(0xf4ecd6);
+    for (const x of [-1.5, 1.5]) for (let z = 10; z > -110; z -= 6) { const d = new THREE.Mesh(dashGeo, dashMat); d.position.set(x, 0.02, z); g.add(d); MG.side.push(d); }
+    const trunk = M(0x6a4a2a), leaf = M(0x3f7a35), stone = M(0xe8dfcc);
+    for (let i = 0; i < 18; i++) {
+      const sx = (i % 2 ? 1 : -1) * (7 + Math.random() * 6), z = 10 - i * 6.5, p = new THREE.Group();
+      if (i % 3 === 2) { const c = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.5, 4.4, 10), stone); c.position.y = 2.2; p.add(c); const cap = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.35, 1.2), stone); cap.position.y = 4.5; p.add(cap); }
+      else { const t = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.25, 1.6, 6), trunk); t.position.y = 0.8; p.add(t); const l = new THREE.Mesh(new THREE.ConeGeometry(1 + Math.random() * 0.5, 3.6 + Math.random() * 1.5, 7), leaf); l.position.y = 3.2; p.add(l); }
+      p.traverse(o => { o.castShadow = true; }); p.position.set(sx, 0, z); g.add(p); MG.side.push(p);
+    }
+    // invisible pads along each lane: tap anywhere on a lane to move there
+    LANES.forEach((x, i) => {
+      const pad = new THREE.Mesh(new THREE.BoxGeometry(3, 0.2, 60), new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false }));
+      pad.position.set(x, 0.1, -22); pad.userData.pick = { type: 'mini', lane: i }; g.add(pad); S.picks.push(pad);
+    });
+    hero.position.set(0, 0, 4); hero.rotation.set(0, Math.PI, 0);
+    MG.cam = { pos: new THREE.Vector3(0, 4.2, 11.5), look: new THREE.Vector3(0, 1.4, -10) };
+    runWave();
+  }
+  function runLane(i) {
+    if (!MG || MG.over) return;
+    const l = Math.max(0, Math.min(2, i));
+    if (l !== MG.lane) { MG.lane = l; KG.app.sfx('tap'); }
+  }
+  function runWave() {
+    if (!MG || MG.over) return;
+    if (MG.idx >= MG.q.rounds.length) { MG.running = false; return miniEnd(MG.hits >= MG.total - 1, `You ran through ${MG.hits} of ${MG.total} right gates.`); }
+    const r = MG.cur = MG.q.rounds[MG.idx++], wave = new THREE.Group(), post = M(0x8a6a4a), top = M(0xc9a26a);
+    miniBanner(r.promptGreek ? `Which use? ${r.prompt}` : `Run through the gate for ${r.prompt}`);
+    r.options.forEach((t, i) => {
+      const a = new THREE.Group();
+      for (const s of [-1, 1]) { const p = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.2, 3.6, 8), post); p.position.set(s * 1.3, 1.8, 0); p.castShadow = true; a.add(p); }
+      const lintel = new THREE.Mesh(new THREE.BoxGeometry(3, 0.3, 0.4), top); lintel.position.y = 3.6; a.add(lintel);
+      const b = board(t, 2.8, r.greek ? 1.15 : 1.35, r.greek); b.position.set(0, 4.5, 0.05); a.add(b);
+      b.userData.pick = { type: 'mini', lane: i }; S.picks.push(b);
+      a.position.x = LANES[i]; a.userData.board = b; wave.add(a);
+    });
+    wave.position.z = -60; wave.userData.r = r; MG.world.add(wave); MG.waves.push(wave);
+    MG.speed = 15 + MG.idx * 1.6;
+  }
+  function runUpdate(dt) {
+    const v = MG.speed * dt;
+    hero.position.x += (LANES[MG.lane] - hero.position.x) * Math.min(1, dt * 10);
+    hero.rotation.z = (hero.position.x - LANES[MG.lane]) * 0.08; aura.position.x = hero.position.x;
+    MG.cam.pos.x += (hero.position.x * 0.45 - MG.cam.pos.x) * Math.min(1, dt * 4); MG.cam.look.x = MG.cam.pos.x * 0.6;
+    for (const o of MG.side) { o.position.z += v; if (o.position.z > 14) o.position.z -= 120; }
+    for (const w of MG.waves) {
+      w.position.z += v;
+      if (!w.userData.done && w.position.z >= hero.position.z - 0.4) {
+        w.userData.done = true;
+        const r = w.userData.r, ok = MG.lane === r.answer, gate = w.children[MG.lane], at = worldPos(gate.userData.board);
+        if (r.vkey && MG.q.onWord) MG.q.onWord(r.vkey, ok);
+        if (ok) {
+          MG.hits++; hit(); KG.app.sfx('good'); particles(at, 0xffd166, 50, 6); popText(at.clone().add(new THREE.Vector3(0, 1, 0)), '+1', '#ffd166', 1.1);
+          tween(0.5, t => { gate.position.y = t * 8; gate.rotation.z = t * 0.6; });
+          miniBanner(`✓ ${r.why}`);
+          setTimeout(runWave, 700);
+        } else {
+          KG.app.sfx('bad'); miss(); S.shake = 0.35; heroFlinch(); burst(at, 0x8a6a4a, 12);
+          gate.visible = false; tween(0.6, t => { hero.rotation.x = Math.sin(t * Math.PI) * -0.4; });
+          const right = w.children[r.answer]; glowBoard(right.userData.board);
+          miniBanner(`✗ ${r.why}`);
+          setTimeout(runWave, 1700);
+        }
+      }
+    }
+    for (const w of [...MG.waves]) if (w.position.z > 16) { MG.world.remove(w); for (const a of w.children) S.picks = S.picks.filter(p => p !== a.userData.board); dispose(w); MG.waves.splice(MG.waves.indexOf(w), 1); }
+  }
+  function glowBoard(b) { b.userData.front.emissive.setHex(0x3fdc7a); tween(1.2, t => { b.userData.front.emissiveIntensity = 0.8 * (1 - t); }); }
+
+  // Jar Toss: clay jars on posts sway about the place, a word on each. Throw a stone at the right one.
+  function tossStart() {
+    enter3D();
+    MG.total = MG.q.rounds.length; MG.idx = 0; MG.jars = [];
+    tossRound();
+  }
+  function tossRound() {
+    if (!MG || MG.over) return;
+    for (const j of MG.jars) { MG.world.remove(j); S.picks = S.picks.filter(p => p !== j); dispose(j); }
+    MG.jars = [];
+    if (MG.idx >= MG.q.rounds.length) return miniEnd(MG.hits >= MG.total - 1, `You hit ${MG.hits} of ${MG.total} jars first time.`);
+    const r = MG.cur = MG.q.rounds[MG.idx++]; MG.slip = false; MG.lock = false;
+    miniBanner(r.promptGreek ? `Which use? ${r.prompt}` : `Hit the jar for ${r.prompt}`);
+    const clay = [0xb06a3a, 0xc27a45, 0x9a5a32, 0xb8804a], { portrait } = frame(); MG.narrow = portrait;
+    r.options.forEach((t, i) => {
+      // a row of four on a wide screen; on a phone two near and two further back, their boards higher
+      const j = new THREE.Group(), far = i >= 2;
+      const x = portrait ? (i % 2 ? 1 : -1) * (far ? 2.5 : 1.8) : -5.4 + i * 3.6, z = portrait ? (far ? -4.5 : 2.5) : -1 - ((i * 7 + MG.idx * 3) % 4) * 1.6;
+      const postM = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.18, 1.6, 8), M(0x7a5232)); postM.position.y = 0.8; j.add(postM);
+      const pot = new THREE.Group(); pot.position.y = 1.6; j.add(pot);
+      const body = new THREE.Mesh(new THREE.SphereGeometry(0.62, 14, 10), M(clay[i % 4], { flatShading: false })); body.scale.y = 0.95; body.position.y = 0.55; pot.add(body);
+      const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.26, 0.36, 0.45, 12), M(clay[i % 4])); neck.position.y = 1.2; pot.add(neck);
+      const lip = new THREE.Mesh(new THREE.TorusGeometry(0.28, 0.07, 6, 14), M(0x7a4a2a)); lip.rotation.x = Math.PI / 2; lip.position.y = 1.43; pot.add(lip);
+      const band = new THREE.Mesh(new THREE.TorusGeometry(0.6, 0.05, 6, 20), M(0xe8dfcc)); band.rotation.x = Math.PI / 2; band.position.y = 0.6; pot.add(band);
+      const b = board(t, portrait ? (far ? 3.0 : 2.7) : 3.1, r.greek ? 1.05 : 1.3, r.greek); b.position.set(0, portrait ? (far ? 5.9 : 2.75) : 3.9, 0); j.add(b);
+      // on a phone the near jars sit low and the far ones high, so no board hides another jar
+      if (portrait && far) { postM.scale.y = 2.4; postM.position.y = 1.9; pot.position.y = 3.8; }
+      if (portrait && !far) { postM.scale.y = 0.4; postM.position.y = 0.32; pot.position.y = 0.6; }
+      j.traverse(o => { if (o.isMesh) o.castShadow = true; });
+      j.position.set(x, 0, z); j.userData = { pick: { type: 'mini', i }, x0: x, ph: Math.random() * 6, pot, board: b, front: b.userData.front, w: 3, h: 1.2 };
+      j.scale.setScalar(0.01); tween(0.4, t => j.scale.setScalar(Math.max(0.01, ease(t))));
+      MG.world.add(j); S.picks.push(j); MG.jars.push(j);
+    });
+  }
+  function tossUpdate() {
+    // the jars sway further and faster each round
+    const amp = (0.4 + MG.idx * 0.18) * (MG.narrow ? 0.45 : 1), sp = 0.9 + MG.idx * 0.25;
+    for (const j of MG.jars) if (j.visible && !j.userData.hit) { j.position.x = j.userData.x0 + Math.sin(MG.t * sp + j.userData.ph) * amp; j.userData.pot.rotation.z = Math.sin(MG.t * sp * 2 + j.userData.ph) * 0.12; }
+  }
+  function tossTap(j) {
+    if (MG.lock || j.userData.hit) return;
+    const r = MG.cur, ok = j.userData.pick.i === r.answer;
+    MG.lock = true; heroCast(); KG.app.sfx('tap');
+    const target = worldPos(j.userData.pot).add(new THREE.Vector3(0, 0.6, 0));
+    orb(heroHand(), target, 0xd8ccb0, () => {
+      if (!MG || MG.over) return;
+      if (ok) {
+        j.userData.hit = true; j.userData.pot.visible = false; burst(target, 0xb06a3a, 14, 0.3); particles(target, 0xffd166, 40, 6);
+        if (!MG.slip) { MG.hits++; hit(); }
+        if (r.vkey && MG.q.onWord) MG.q.onWord(r.vkey, !MG.slip);
+        KG.app.sfx('good'); glowBoard(j.userData.board); miniBanner(`✓ ${r.why}`);
+        setTimeout(tossRound, 1100);
+      } else {
+        MG.slip = true; miss(); KG.app.sfx('bad'); S.shake = 0.15;
+        // a clang: the jar rocks, its board flashes red, and the stone drops
+        j.userData.front.emissive.setHex(0xe0453a); tween(0.7, t => { j.userData.pot.rotation.x = Math.sin(t * Math.PI * 4) * 0.35 * (1 - t); j.userData.front.emissiveIntensity = 0.7 * (1 - t); });
+        MG.lock = false;
+      }
+    }, 0.22);
+  }
+
   // Verse Race: pick the next piece of the translation before time runs out
   function raceStart() {
     const R = KG.readings[MG.q.reading];
@@ -933,6 +1110,8 @@ export function createStage(ctx) {
   S.key = e => {
     // the verse race's numbered tablets answer to 1–3 as well
     if (MG && !MG.over && MG.q.game === 'race' && /^[1-9]$/.test(e.key)) { const g = MG.items[+e.key - 1]; if (g && g.visible) { choose(g); return true; } }
+    if (MG && !MG.over && MG.q.game === 'run' && /^Arrow(Left|Right)$/.test(e.key)) { runLane(MG.lane + (e.key === 'ArrowLeft' ? -1 : 1)); return true; }
+    if (MG && !MG.over && MG.q.game === 'toss' && /^[1-9]$/.test(e.key)) { const g = MG.jars && MG.jars[+e.key - 1]; if (g && g.visible) { choose(g); return true; } }
     if (!S.q || S.locked) return false;
     if (/^[1-9]$/.test(e.key) && S.q.type === 'mc') { const g = S.picks.find(p => p.userData.pick.type === 'opt' && p.userData.pick.i === +e.key - 1); if (g) { choose(g); return true; } }
     return false;
@@ -945,8 +1124,9 @@ export function createStage(ctx) {
 
   S.update = (dt, t) => {
     // framed so the challenger stands above the answer tablets
-    camera.position.set(0, 3.4, 12.5);
-    camera.lookAt(0, 1.2, -2);
+    // (a game out in the place sets its own camera)
+    if (MG && MG.cam) { camera.position.copy(MG.cam.pos); camera.lookAt(MG.cam.look); }
+    else { camera.position.set(0, 3.4, 12.5); camera.lookAt(0, 1.2, -2); }
     if (S.shake > 0) { S.shake -= dt; camera.position.x += (Math.random() - 0.5) * S.shake; camera.position.y += (Math.random() - 0.5) * S.shake; }
     sky.position.copy(camera.position);
     camera.updateMatrixWorld();
@@ -961,7 +1141,7 @@ export function createStage(ctx) {
       if (opp.userData.wobble && opp.userData.body) opp.userData.body.rotation.z = Math.sin(t * 2) * 0.03;
       if (opp.userData.tick) opp.userData.tick(dt, t);
     }
-    ctx.animatePerson(hero, 0, dt);
+    ctx.animatePerson(hero, MG && MG.running ? 9 : 0, dt);
     if (pet) { if (pet.userData.fly) pet.position.y = 2.6 + Math.sin(t * 2.5) * 0.25; else pet.position.y = Math.abs(Math.sin(t * 3)) * 0.05; ctx.animatePet(pet, t, dt); }
     // a hot streak sets the hero's aura burning: gold, then orange, then blue
     if ((S.comboN || 0) >= 3 && (S.flameT = (S.flameT || 0) - dt) <= 0) {
@@ -971,7 +1151,7 @@ export function createStage(ctx) {
     aura.scale.setScalar(1 + Math.sin(t * 4) * 0.08 + (S.comboN || 0) * 0.02); aura.rotation.z += dt;
     if (S.big) S.big.position.y = S.big.userData.base.y + Math.sin(t * 2) * 0.06;
     for (const p of S.picks) if (p.visible && p.userData.base && !(S.sel === p)) p.rotation.y = Math.sin(t * 1.3 + p.userData.base.x) * 0.04;
-    if (MG && !MG.over) { MG.t += dt; ({ rain: rainUpdate, defense: defenseUpdate, race: raceUpdate, judge: judgeUpdate }[MG.q.game] || (() => {}))(dt); }
+    if (MG && !MG.over) { MG.t += dt; ({ rain: rainUpdate, defense: defenseUpdate, race: raceUpdate, judge: judgeUpdate, run: runUpdate, toss: tossUpdate }[MG.q.game] || (() => {}))(dt); }
     else if (!MG) hero.position.z += (5.2 - hero.position.z) * Math.min(1, dt * 4);
     // run this frame's animations; any started by one of them (a hit's damage number, shock ring, knockback) join the list instead of being lost
     const run = S.anims; S.anims = []; S.anims = run.filter(fn => fn(dt) !== false).concat(S.anims);

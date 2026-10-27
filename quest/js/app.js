@@ -317,6 +317,8 @@
     race: 'Tap the next piece of the translation. Wrong picks cost time!',
     flip: 'Tap two stones to turn them over. Find each Greek word and its meaning!',
     judge: 'Is the pairing right? Tap ✓ or ✗ before the bar runs out!',
+    run: 'Tap a lane (or ← →) to run through the gate with the right answer!',
+    toss: 'Tap the jar with the right answer to throw a stone at it!',
   };
   function renderMini(q) {
     main.innerHTML = `<div class="s3">${header()}<div class="s3center"><div class="minititle">🎮 ${esc(q.title)}</div></div><div class="foot s3foot" id="foot"><div class="muted center s3help">${MINI_HELP[q.game]}</div></div></div>`;

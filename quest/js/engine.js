@@ -488,7 +488,9 @@ window.KG = window.KG || {};
     if (gapWord) qs.push(clozeQ(R, gapWord));
     const out = shuffle(qs);
     // a Quick Judge on the sentence's words, halfway through
-    if (words.length >= 3) out.splice(Math.ceil(out.length / 2), 0, { type: 'mini', game: 'judge', title: 'Quick Judge', items: judgeWords(words, chapterWords(words[0])).slice(0, 6), seconds: 6, fallback: [vocabQ(words[0], chapterWords(words[0]), 'g2e')] });
+    const g3 = world3D({ type: 'reading', reading: id, index: R.words.length });
+    if (g3) out.splice(Math.ceil(out.length / 2), 0, g3);
+    else if (words.length >= 3) out.splice(Math.ceil(out.length / 2), 0, { type: 'mini', game: 'judge', title: 'Quick Judge', items: judgeWords(words, chapterWords(words[0])).slice(0, 6), seconds: 6, fallback: [vocabQ(words[0], chapterWords(words[0]), 'g2e')] });
     const order = { type: 'order', prompt: 'Build the translation', reading: id, chunks: R.chunks, extras: R.extras };
     out.push(R.chunks.length >= 3 ? { type: 'mini', game: 'race', title: 'Sentence Race', reading: id, chunks: R.chunks, extras: R.extras, fallback: [order] } : order);
     out.push({ type: 'free', prompt: 'Now translate it in your own words', reading: id });
@@ -511,7 +513,7 @@ window.KG = window.KG || {};
     if (words.length >= 4) {
       const pool = chapterWords(words[0]), items = shuffle(judgeWords(sample(words, 4), pool).slice(0, 4).concat(cards.length ? judgeCards(sample(cards, 4), chapterCards(ch)).slice(0, 4) : []));
       qs.splice(Math.floor(qs.length / 3), 0, { type: 'mini', game: 'judge', title: 'Quick Judge', items, seconds: 7, fallback: sample(words, 2).map(w => vocabQ(w, pool, 'g2e')) });
-      qs.splice(Math.floor(qs.length * 2 / 3), 0, { type: 'mini', game: 'rain', title: 'Word Rain', targets: sample(words, 6).map(w => ({ g: w.g, en: w.short })), pool: pool.map(w => w.g), fallback: sample(words, 2).map(w => vocabQ(w, pool, 'e2g')) });
+      qs.splice(Math.floor(qs.length * 2 / 3), 0, { type: 'mini', game: 'run', title: 'Lane Run', rounds: wordRounds(sample(words, 6), pool, 3), fallback: sample(words, 2).map(w => vocabQ(w, pool, 'e2g')) });
     }
     return qs;
   }
@@ -619,10 +621,47 @@ window.KG = window.KG || {};
     return null;
   }
   E.miniFor = miniFor;
-  // two different games for one lesson (just one when the lesson only has one that fits)
+  // ── games played in the 3D place itself: Lane Run and Jar Toss ──
+  // Each round: a prompt, and n choices (the right one at .answer) on gates or jars.
+  function wordRounds(words, pool, n) {
+    return sample(words, Math.min(6, words.length)).map(w => {
+      const near = shuffle(sameKind(w, pool).filter(x => x !== w && x.g !== w.g && x.short !== w.short)), opts = shuffle([w.g].concat(uniq(near.map(x => x.g)).slice(0, n - 1)));
+      return { prompt: `“${w.short}”`, options: opts, answer: opts.indexOf(w.g), greek: true, why: `${w.g} = ${w.short}`, vkey: w.g };
+    }).filter(r => r.options.length === n);
+  }
+  function useRounds(cards, pool, n) {
+    const lines = shuffle(cards.flatMap(c => examplesOf(c).filter(e => e.greek && KG.guillemet(e.greek).length <= 90).slice(0, 2).map(e => ({ c, e })))).slice(0, 6);
+    return lines.map(({ c, e }) => {
+      const rivals = uniq((KG.partners[c.id] || []).map(id => KG.cardById[id]).filter(Boolean).concat(shuffle(pool.filter(x => x.set === c.set)), shuffle(pool)))
+        .filter(x => x !== c && x.short !== c.short);
+      const opts = shuffle([c].concat(rivals.filter((x, i, a) => a.findIndex(y => y.short === x.short) === i).slice(0, n - 1)));
+      return { prompt: KG.guillemet(e.greek), options: opts.map(x => `${x.pic} ${x.short}`), answer: opts.indexOf(c), greek: false, promptGreek: true, why: `It's ${c.pic} ${c.name}`, cid: c.id };
+    }).filter(r => r.options.length === n);
+  }
+  const GAME3D = { run: ['Lane Run', 3], toss: ['Jar Toss', 4] };
+  function world3D(node, shift = 0) {
+    const idx = (node.index || 0) + (node.set || 0) + shift, game = idx % 2 ? 'toss' : 'run', [title, n] = GAME3D[game];
+    let rounds = [], fallback = [];
+    if (node.type === 'vocab' || node.type === 'reading') {
+      const words = node.type === 'vocab' ? E.vocabSet(node.set) : KG.readings[node.reading].uses.map(g => E.vocabByGreek[g]).filter(Boolean);
+      if (!words.length) return null;
+      const pool = chapterWords(words[0]);
+      rounds = wordRounds(words, pool, n); fallback = sample(words, 2).map(w => vocabQ(w, pool, 'e2g'));
+    } else if (node.type === 'grammar') {
+      const L = KG.grammar[node.lesson], pool = chapterCards(L.chapter);
+      const fam = L.cards.concat(shuffle(pool.filter(c => c.set === L.cards[0].set && !L.cards.includes(c))));
+      rounds = useRounds(L.cards, pool, n);
+      if (rounds.length < 4) rounds = rounds.concat(useRounds(fam.slice(L.cards.length, L.cards.length + 4), pool, n)); // borrow the neighbours
+      fallback = sample(L.cards, 2).map(c => spotQ(c, pool));
+    }
+    if (rounds.length < 3) return null;
+    return { type: 'mini', game, title, rounds: rounds.slice(0, 5), fallback };
+  }
+  E.world3D = world3D;
+  // two different games for one lesson: one out in the 3D place, one with tablets
   function minisFor(node) {
-    const a = miniFor(node), b = miniFor(node, 1);
-    return [a].concat(b && (!a || b.game !== a.game) ? [b] : []).filter(Boolean);
+    const a = world3D(node), b = miniFor(node);
+    return [a, b].filter(Boolean);
   }
   E.minisFor = minisFor;
 

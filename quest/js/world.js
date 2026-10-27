@@ -1643,6 +1643,11 @@ function step(dt) {
   }
   // indoors you look through the hero's eyes: left and right turn your head (and you walk where you look) instead of side-stepping
   if (INDOOR && !busy && r) { cam.yaw -= r * dt * 2.4; P.moveYaw = cam.yaw; r = 0; }
+  // outside, walking forward with some left or right steers: you turn as you go and the view turns with you
+  if (!INDOOR && !busy && f > 0.25 && Math.abs(r) > 0.1 && !input.drag) {
+    const m = Math.min(1, Math.hypot(f, r));
+    cam.yaw -= r * dt * 2.3; P.moveYaw = cam.yaw; P.inA = 0; f = m; r = 0;
+  }
   const mag = Math.min(1, Math.hypot(f, r));
   const run = input.keys.ShiftLeft || input.keys.ShiftRight;
   // on a stick, speed follows how far you push: a gentle walk, then a run at the edge
