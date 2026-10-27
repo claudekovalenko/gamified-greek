@@ -493,6 +493,8 @@ export function createStage(ctx) {
       else if (MG.q.game === 'judge') { if (p.judge !== undefined) judgeTap(g); }
       else if (MG.q.game === 'run') runLane(p.lane);
       else if (MG.q.game === 'toss') tossTap(g);
+      else if (MG.q.game === 'hop') hopTap(g);
+      else if (MG.q.game === 'herd') herdTap(g);
     }
     else if (p.type === 'mt') pickMatch(g);
     else if (p.type === 'stone') {
@@ -626,7 +628,7 @@ export function createStage(ctx) {
   S.mini = (q, done) => {
     clearUI(); S.q = q; S.answered = false; S.locked = false;
     MG = { q, done, hits: 0, total: 0, t: 0, over: false, items: [] };
-    ({ rain: rainStart, defense: defenseStart, forge: forgeStart, race: raceStart, flip: flipStart, judge: judgeStart, run: runStart, toss: tossStart })[q.game]();
+    ({ rain: rainStart, defense: defenseStart, forge: forgeStart, race: raceStart, flip: flipStart, judge: judgeStart, run: runStart, toss: tossStart, hop: hopStart, herd: herdStart })[q.game]();
   };
 
   // Word Rain: catch the Greek word that means the English target
@@ -882,7 +884,7 @@ export function createStage(ctx) {
   function runStart() {
     const g = enter3D();
     if (SET) SET.group.visible = false;
-    MG.total = MG.q.rounds.length; MG.idx = 0; MG.lane = 1; MG.speed = 15; MG.running = true; MG.side = []; MG.waves = [];
+    MG.total = MG.q.rounds.length; MG.idx = 0; MG.lane = 1; MG.speed = 8; MG.running = true; MG.side = []; MG.waves = [];
     // a road through the fields, lane lines, and trees and columns that rush past
     const field = new THREE.Mesh(new THREE.PlaneGeometry(140, 240), M(0x6fae4f)); field.rotation.x = -Math.PI / 2; field.position.set(0, -0.02, -80); field.receiveShadow = true; g.add(field);
     const road = new THREE.Mesh(new THREE.PlaneGeometry(9.6, 240), M(0xcdb88f)); road.rotation.x = -Math.PI / 2; road.position.set(0, 0, -80); road.receiveShadow = true; g.add(road);
@@ -911,7 +913,7 @@ export function createStage(ctx) {
   }
   function runWave() {
     if (!MG || MG.over) return;
-    if (MG.idx >= MG.q.rounds.length) { MG.running = false; return miniEnd(MG.hits >= MG.total - 1, `You ran through ${MG.hits} of ${MG.total} right gates.`); }
+    if (MG.idx >= MG.q.rounds.length) { MG.running = false; return miniEnd(MG.hits >= Math.ceil(MG.total * 0.6), `You ran through ${MG.hits} of ${MG.total} right gates.`); }
     const r = MG.cur = MG.q.rounds[MG.idx++], wave = new THREE.Group(), post = M(0x8a6a4a), top = M(0xc9a26a);
     miniBanner(r.promptGreek ? `Which use? ${r.prompt}` : `Run through the gate for ${r.prompt}`);
     r.options.forEach((t, i) => {
@@ -922,8 +924,9 @@ export function createStage(ctx) {
       b.userData.pick = { type: 'mini', lane: i }; S.picks.push(b);
       a.position.x = LANES[i]; a.userData.board = b; wave.add(a);
     });
-    wave.position.z = -60; wave.userData.r = r; MG.world.add(wave); MG.waves.push(wave);
-    MG.speed = 15 + MG.idx * 1.6;
+    // the gates wait a moment far off, so there's time to read before they come
+    wave.position.z = -48; wave.userData.r = r; wave.userData.wait = 1.4; MG.world.add(wave); MG.waves.push(wave);
+    MG.speed = Math.min(11, 8 + MG.idx * 0.6);
   }
   function runUpdate(dt) {
     const v = MG.speed * dt;
@@ -932,6 +935,7 @@ export function createStage(ctx) {
     MG.cam.pos.x += (hero.position.x * 0.45 - MG.cam.pos.x) * Math.min(1, dt * 4); MG.cam.look.x = MG.cam.pos.x * 0.6;
     for (const o of MG.side) { o.position.z += v; if (o.position.z > 14) o.position.z -= 120; }
     for (const w of MG.waves) {
+      if (w.userData.wait > 0) { w.userData.wait -= dt; continue; }
       w.position.z += v;
       if (!w.userData.done && w.position.z >= hero.position.z - 0.4) {
         w.userData.done = true;
@@ -965,7 +969,7 @@ export function createStage(ctx) {
     if (!MG || MG.over) return;
     for (const j of MG.jars) { MG.world.remove(j); S.picks = S.picks.filter(p => p !== j); dispose(j); }
     MG.jars = [];
-    if (MG.idx >= MG.q.rounds.length) return miniEnd(MG.hits >= MG.total - 1, `You hit ${MG.hits} of ${MG.total} jars first time.`);
+    if (MG.idx >= MG.q.rounds.length) return miniEnd(MG.hits >= Math.ceil(MG.total * 0.6), `You hit ${MG.hits} of ${MG.total} jars first time.`);
     const r = MG.cur = MG.q.rounds[MG.idx++]; MG.slip = false; MG.lock = false;
     miniBanner(r.promptGreek ? `Which use? ${r.prompt}` : `Hit the jar for ${r.prompt}`);
     const clay = [0xb06a3a, 0xc27a45, 0x9a5a32, 0xb8804a], { portrait } = frame(); MG.narrow = portrait;
@@ -991,7 +995,7 @@ export function createStage(ctx) {
   }
   function tossUpdate() {
     // the jars sway further and faster each round
-    const amp = (0.4 + MG.idx * 0.18) * (MG.narrow ? 0.45 : 1), sp = 0.9 + MG.idx * 0.25;
+    const amp = (0.25 + MG.idx * 0.06) * (MG.narrow ? 0.5 : 1), sp = 0.5 + MG.idx * 0.08;
     for (const j of MG.jars) if (j.visible && !j.userData.hit) { j.position.x = j.userData.x0 + Math.sin(MG.t * sp + j.userData.ph) * amp; j.userData.pot.rotation.z = Math.sin(MG.t * sp * 2 + j.userData.ph) * 0.12; }
   }
   function tossTap(j) {
@@ -1014,6 +1018,172 @@ export function createStage(ctx) {
         MG.lock = false;
       }
     }, 0.22);
+  }
+
+  // Stepping Stones: cross a river; three stones rise ahead each time, a word on each. Jump to the right one.
+  // A wrong stone sinks under you, and you climb back and try again.
+  const HOP = 5.5;
+  function hopStart() {
+    const g = enter3D();
+    if (SET) SET.group.visible = false;
+    MG.total = MG.q.rounds.length; MG.idx = 0; MG.jars = []; MG.z = 4; MG.x = 0; MG.pads = [];
+    const farZ = 4 - (MG.total + 1) * HOP + 1.5;
+    const water = new THREE.Mesh(new THREE.PlaneGeometry(160, 220), M(0x3f8fc0, { transparent: true, opacity: 0.88, roughness: 0.25, flatShading: false }));
+    water.rotation.x = -Math.PI / 2; water.position.set(0, -0.35, -40); g.add(water);
+    const bed = new THREE.Mesh(new THREE.PlaneGeometry(160, 220), M(0x2a5a6a)); bed.rotation.x = -Math.PI / 2; bed.position.set(0, -1.6, -40); g.add(bed);
+    const grass = M(0x6fae4f), dirt = M(0x8a6a4a);
+    const near = new THREE.Mesh(new THREE.BoxGeometry(160, 2, 30), grass); near.position.set(0, -1, 2.6 + 15); near.receiveShadow = true; g.add(near);
+    const far = new THREE.Mesh(new THREE.BoxGeometry(160, 2, 60), grass); far.position.set(0, -1, farZ - 30); far.receiveShadow = true; g.add(far);
+    for (const [z, d] of [[2.6, 1], [farZ, -1]]) { const edge = new THREE.Mesh(new THREE.BoxGeometry(160, 0.5, 0.6), dirt); edge.position.set(0, -0.25, z + d * 0.3); g.add(edge); }
+    const leaf = M(0x3f7a35), trunk = M(0x6a4a2a), reed = M(0x7a8a3a), pad = M(0x4f9a45);
+    for (let i = 0; i < 26; i++) {
+      const bank = i % 2, x = (Math.random() - 0.5) * 40, z = bank ? farZ - 3 - Math.random() * 18 : 6 + Math.random() * 6;
+      if (Math.abs(x) < 4 && !bank) continue;
+      const t = new THREE.Group(), tr = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.25, 1.6, 6), trunk); tr.position.y = 0.8; t.add(tr);
+      const l = new THREE.Mesh(new THREE.ConeGeometry(1.1 + Math.random() * 0.6, 3.4 + Math.random() * 2, 7), leaf); l.position.y = 3; t.add(l);
+      t.position.set(x, 0, z); t.traverse(o => { o.castShadow = true; }); g.add(t);
+    }
+    for (let i = 0; i < 40; i++) { const r = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.05, 1.2 + Math.random(), 4), reed); r.position.set((Math.random() - 0.5) * 30, 0.2, i % 2 ? 2.4 - Math.random() * 0.6 : farZ + Math.random() * 0.6); r.rotation.z = (Math.random() - 0.5) * 0.3; g.add(r); }
+    for (let i = 0; i < 24; i++) { const p = new THREE.Mesh(new THREE.CylinderGeometry(0.4 + Math.random() * 0.3, 0.4, 0.04, 9), pad); p.position.set((Math.random() < 0.5 ? -1 : 1) * (5 + Math.random() * 12), -0.32, farZ + 2 + Math.random() * (2.6 - farZ - 4)); g.add(p); MG.pads.push(p); }
+    MG.farZ = farZ;
+    hero.position.set(0, 0, 4); hero.rotation.set(0, Math.PI, 0); aura.position.x = 0;
+    MG.cam = { pos: new THREE.Vector3(0, 6.5, 13), look: new THREE.Vector3(0, 0, -6) };
+    hopRound();
+  }
+  function hopTo(x, z, y, done) {
+    const from = hero.position.clone(); KG.app.sfx('tap');
+    tween(0.55, t => { hero.position.set(from.x + (x - from.x) * t, from.y + (y - from.y) * t + Math.sin(t * Math.PI) * 1.8, from.z + (z - from.z) * t); aura.position.x = hero.position.x; }, done);
+  }
+  function splash(x, z) { particles(new THREE.Vector3(x, -0.2, z), 0xcfeaff, 40, 4); }
+  function hopRound() {
+    if (!MG || MG.over) return;
+    for (const st of MG.jars) { S.picks = S.picks.filter(p => p !== st); if (st !== MG.at) { const y0 = st.position.y; tween(0.6, t => { st.position.y = y0 - t * 2.5; }); } }
+    MG.jars = [];
+    if (MG.idx >= MG.q.rounds.length) {
+      // over the last stretch to the far bank
+      return hopTo(0, MG.farZ - 1.5, 0, () => { particles(hero.position.clone().add(new THREE.Vector3(0, 1, 0)), 0xffd166, 50, 6); miniEnd(MG.hits >= Math.ceil(MG.total * 0.6), `You crossed the river: ${MG.hits} of ${MG.total} stones right first time.`); });
+    }
+    const r = MG.cur = MG.q.rounds[MG.idx++], z = MG.z - HOP, { portrait } = frame(), gap = portrait ? 2.6 : 3.2;
+    MG.slip = false; MG.lock = false;
+    miniBanner(r.promptGreek ? `Which use? ${r.prompt}` : `Jump to the stone for ${r.prompt}`);
+    const rock = M(0x8a8378);
+    r.options.forEach((t, i) => {
+      const st = new THREE.Group(), stone = new THREE.Mesh(new THREE.CylinderGeometry(1.05, 1.25, 0.6, 9), rock); stone.position.y = -0.15; stone.castShadow = stone.receiveShadow = true; st.add(stone);
+      const b = board(t, portrait ? 2.45 : 2.9, r.greek ? 1.0 : 1.2, r.greek); b.position.set(0, 1.7, 0); b.rotation.x = -0.2; st.add(b);
+      const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 1.2, 5), M(0x6a4a2a)); pole.position.y = 0.7; st.add(pole);
+      st.position.set(MG.x * 0.3 + (i - 1) * gap, -2, z); st.userData = { pick: { type: 'mini', i }, ph: Math.random() * 6, board: b, front: b.userData.front, w: 2.9, h: 1.2 };
+      tween(0.6, k => { st.position.y = -2 + ease(k) * 2; });
+      MG.world.add(st); S.picks.push(st); MG.jars.push(st);
+    });
+  }
+  function hopTap(st) {
+    if (MG.lock || st.userData.sunk) return;
+    MG.lock = true;
+    const r = MG.cur, ok = st.userData.pick.i === r.answer, back = { x: hero.position.x, z: hero.position.z, y: hero.position.y };
+    hopTo(st.position.x, st.position.z, 0.15, () => {
+      if (!MG || MG.over) return;
+      if (ok) {
+        if (!MG.slip) { MG.hits++; hit(); }
+        if (r.vkey && MG.q.onWord) MG.q.onWord(r.vkey, !MG.slip);
+        splash(st.position.x, st.position.z); KG.app.sfx('good'); glowBoard(st.userData.board); miniBanner(`✓ ${r.why}`);
+        MG.z = st.position.z; MG.x = st.position.x; MG.at = st;
+        setTimeout(hopRound, 1000);
+      } else {
+        // the stone sinks under you: a splash, and back you climb
+        MG.slip = true; st.userData.sunk = true; miss(); KG.app.sfx('bad'); S.shake = 0.2; S.picks = S.picks.filter(p => p !== st);
+        splash(st.position.x, st.position.z);
+        st.userData.front.emissive.setHex(0xe0453a); st.userData.front.emissiveIntensity = 0.6;
+        tween(0.7, t => { st.position.y = -t * 2.4; hero.position.y = 0.15 - t * 1.1; });
+        miniBanner(`✗ Not that one. Try again!`);
+        setTimeout(() => { if (MG && !MG.over) hopTo(back.x, back.z, back.y, () => { if (MG) MG.lock = false; }); }, 900);
+      }
+    });
+  }
+  function hopUpdate(dt) {
+    const c = MG.cam, k = Math.min(1, dt * 2.5);
+    c.pos.z += (hero.position.z + 9 - c.pos.z) * k; c.pos.x += (hero.position.x * 0.4 - c.pos.x) * k;
+    c.look.set(c.pos.x * 0.5, 0, hero.position.z - 7);
+    for (const st of MG.jars) if (!st.userData.sunk && st !== MG.at && st.position.y > -0.05) st.rotation.z = Math.sin(MG.t * 1.5 + st.userData.ph) * 0.03;
+    for (const p of MG.pads) p.position.y = -0.32 + Math.sin(MG.t + p.position.x) * 0.03;
+  }
+
+  // Sheep Round-up: sheep amble about with a word on each. Tap the right one and it bounds off to the fold.
+  function sheep() {
+    const top = new THREE.Group(), g = new THREE.Group(), wool = M(0xf4f1e8, { flatShading: false }), dark = M(0x2a2420);
+    const body = new THREE.Mesh(new THREE.SphereGeometry(0.7, 12, 9), wool); body.scale.set(1.35, 1, 1); body.position.y = 0.95; g.add(body);
+    for (let i = 0; i < 5; i++) { const puff = new THREE.Mesh(new THREE.SphereGeometry(0.32, 8, 6), wool); puff.position.set(-0.6 + i * 0.3, 1.5 + (i % 2) * 0.08, (i % 2 ? 0.2 : -0.2)); g.add(puff); }
+    const head = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.48, 0.42), dark); head.position.set(1.0, 1.25, 0); g.add(head);
+    for (const s of [-1, 1]) { const ear = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.08, 0.28), dark); ear.position.set(0.95, 1.42, s * 0.3); ear.rotation.x = s * 0.5; g.add(ear); }
+    const legs = [];
+    for (const [x, z] of [[0.55, 0.3], [0.55, -0.3], [-0.55, 0.3], [-0.55, -0.3]]) { const l = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.07, 0.7, 5), dark); l.geometry.translate(0, -0.35, 0); l.position.set(x, 0.7, z); g.add(l); legs.push(l); }
+    g.traverse(o => { if (o.isMesh) o.castShadow = true; });
+    top.add(g); top.userData.legs = legs; top.userData.head = head; top.userData.model = g;
+    return top;
+  }
+  function herdStart() {
+    enter3D();
+    MG.total = MG.q.rounds.length; MG.idx = 0; MG.jars = [];
+    const { portrait } = frame(); MG.narrow = portrait;
+    // on a phone the far sheep graze up on a grassy rise, so the near boards never hide them
+    if (portrait) { const rise = new THREE.Mesh(new THREE.CylinderGeometry(7, 9, 1.6, 20), M(0x6fae4f)); rise.position.set(0, 0.8, -5.5); rise.receiveShadow = true; MG.world.add(rise); }
+    // the fold the right sheep run to
+    const rail = M(0x8a6a4a);
+    for (let i = 0; i < 6; i++) { const p = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.12, 1.3, 6), rail); p.position.set(8 + (i % 3) * 1.4, 0.65, -1 - Math.floor(i / 3) * 3); MG.world.add(p); }
+    for (const z of [-1, -4]) { const b = new THREE.Mesh(new THREE.BoxGeometry(3, 0.12, 0.12), rail); b.position.set(9.4, 1, z); MG.world.add(b); }
+    herdRound();
+  }
+  function herdRound() {
+    if (!MG || MG.over) return;
+    for (const s of MG.jars) { S.picks = S.picks.filter(p => p !== s); if (!s.userData.gone) { MG.world.remove(s); dispose(s); } }
+    MG.jars = [];
+    if (MG.idx >= MG.q.rounds.length) return miniEnd(MG.hits >= Math.ceil(MG.total * 0.6), `You rounded up ${MG.hits} of ${MG.total} sheep first time.`);
+    const r = MG.cur = MG.q.rounds[MG.idx++], portrait = MG.narrow; MG.slip = false; MG.lock = false;
+    miniBanner(r.promptGreek ? `Which use? ${r.prompt}` : `Tap the sheep for ${r.prompt}`);
+    r.options.forEach((t, i) => {
+      const far = i >= 2, s = sheep();
+      const x = portrait ? (i % 2 ? 1 : -1) * (far ? 2.4 : 1.55) : -5.4 + i * 3.6, z = portrait ? (far ? -4.8 : 2.8) : -1 - (i % 2) * 2.5, y = portrait && far ? 1.6 : 0;
+      s.userData.k = portrait && !far ? 0.8 : 1; s.userData.model.scale.setScalar(s.userData.k);
+      const b = board(t, portrait ? (far ? 3.0 : 2.7) : 3.0, r.greek ? 1.0 : 1.25, r.greek); b.position.set(0, portrait ? (far ? 2.7 : 1.95) : 2.9, 0); s.add(b);
+      if (portrait && !far) b.position.y = 2.3;
+      s.userData = Object.assign(s.userData, { pick: { type: 'mini', i }, x0: x, z0: z, y0: y, ph: Math.random() * 6, board: b, front: b.userData.front, w: 3, h: 1.2 });
+      // they trot in from the sides
+      const from = x < 0 ? -11 : 11; s.position.set(from, y, z);
+      tween(1.1, k => { s.position.x = from + (x - from) * ease(k); s.userData.walk = 1 - k; });
+      MG.world.add(s); S.picks.push(s); MG.jars.push(s);
+    });
+  }
+  function herdUpdate(dt) {
+    for (const s of MG.jars) {
+      const u = s.userData; if (u.gone) continue;
+      // amble a little about their spot, turning the way they walk
+      const dx = Math.sin(MG.t * 0.5 + u.ph) * 0.35, vx = Math.cos(MG.t * 0.5 + u.ph);
+      if (!u.walk) { s.position.x = u.x0 + dx; s.position.z = u.z0 + Math.sin(MG.t * 0.35 + u.ph * 2) * 0.2; }
+      u.model.scale.x += ((vx > 0 ? 1 : -1) * u.k - u.model.scale.x) * Math.min(1, dt * 6);
+      const sw = Math.sin(MG.t * 6 + u.ph) * (u.walk > 0 ? 0.6 : 0.25);
+      u.legs.forEach((l, k) => { l.rotation.z = (k % 2 ? sw : -sw); });
+      u.head.position.y = 1.25 + Math.sin(MG.t * 2 + u.ph) * 0.05;
+    }
+  }
+  function herdTap(s) {
+    const u = s.userData;
+    if (MG.lock || u.gone) return;
+    const r = MG.cur, ok = u.pick.i === r.answer;
+    heroCast();
+    if (ok) {
+      MG.lock = true; u.gone = true; S.picks = S.picks.filter(p => p !== s); u.model.scale.x = u.k; // facing the fold
+      if (!MG.slip) { MG.hits++; hit(); }
+      if (r.vkey && MG.q.onWord) MG.q.onWord(r.vkey, !MG.slip);
+      KG.app.sfx('good'); glowBoard(u.board); miniBanner(`✓ ${r.why}`);
+      particles(worldPos(s).add(new THREE.Vector3(0, 1.5, 0)), 0xffd166, 40, 5);
+      // a happy leap, then off it bounds to the fold
+      const x0 = s.position.x, y0 = s.position.y, z0 = s.position.z;
+      tween(1.3, t => { s.position.set(x0 + (9.4 - x0) * t, y0 * (1 - t) + Math.abs(Math.sin(t * Math.PI * 3)) * 1.1, z0 + (-2.5 - z0) * t); u.board.scale.setScalar(Math.max(0.01, 1 - t)); });
+      setTimeout(herdRound, 1500);
+    } else {
+      MG.slip = true; miss(); KG.app.sfx('bad');
+      popText(worldPos(s).add(new THREE.Vector3(0, 2.6, 0)), 'Baa!', '#ffffff', 0.9);
+      u.front.emissive.setHex(0xe0453a); tween(0.7, t => { u.head.rotation.x = Math.sin(t * Math.PI * 6) * 0.4 * (1 - t); u.front.emissiveIntensity = 0.7 * (1 - t); });
+    }
   }
 
   // Verse Race: pick the next piece of the translation before time runs out
@@ -1111,7 +1281,7 @@ export function createStage(ctx) {
     // the verse race's numbered tablets answer to 1–3 as well
     if (MG && !MG.over && MG.q.game === 'race' && /^[1-9]$/.test(e.key)) { const g = MG.items[+e.key - 1]; if (g && g.visible) { choose(g); return true; } }
     if (MG && !MG.over && MG.q.game === 'run' && /^Arrow(Left|Right)$/.test(e.key)) { runLane(MG.lane + (e.key === 'ArrowLeft' ? -1 : 1)); return true; }
-    if (MG && !MG.over && MG.q.game === 'toss' && /^[1-9]$/.test(e.key)) { const g = MG.jars && MG.jars[+e.key - 1]; if (g && g.visible) { choose(g); return true; } }
+    if (MG && !MG.over && ['toss', 'hop', 'herd'].includes(MG.q.game) && /^[1-9]$/.test(e.key)) { const g = MG.jars && MG.jars[+e.key - 1]; if (g && g.visible) { choose(g); return true; } }
     if (!S.q || S.locked) return false;
     if (/^[1-9]$/.test(e.key) && S.q.type === 'mc') { const g = S.picks.find(p => p.userData.pick.type === 'opt' && p.userData.pick.i === +e.key - 1); if (g) { choose(g); return true; } }
     return false;
@@ -1151,7 +1321,7 @@ export function createStage(ctx) {
     aura.scale.setScalar(1 + Math.sin(t * 4) * 0.08 + (S.comboN || 0) * 0.02); aura.rotation.z += dt;
     if (S.big) S.big.position.y = S.big.userData.base.y + Math.sin(t * 2) * 0.06;
     for (const p of S.picks) if (p.visible && p.userData.base && !(S.sel === p)) p.rotation.y = Math.sin(t * 1.3 + p.userData.base.x) * 0.04;
-    if (MG && !MG.over) { MG.t += dt; ({ rain: rainUpdate, defense: defenseUpdate, race: raceUpdate, judge: judgeUpdate, run: runUpdate, toss: tossUpdate }[MG.q.game] || (() => {}))(dt); }
+    if (MG && !MG.over) { MG.t += dt; ({ rain: rainUpdate, defense: defenseUpdate, race: raceUpdate, judge: judgeUpdate, run: runUpdate, toss: tossUpdate, hop: hopUpdate, herd: herdUpdate }[MG.q.game] || (() => {}))(dt); }
     else if (!MG) hero.position.z += (5.2 - hero.position.z) * Math.min(1, dt * 4);
     // run this frame's animations; any started by one of them (a hit's damage number, shock ring, knockback) join the list instead of being lost
     const run = S.anims; S.anims = []; S.anims = run.filter(fn => fn(dt) !== false).concat(S.anims);

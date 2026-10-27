@@ -638,9 +638,9 @@ window.KG = window.KG || {};
       return { prompt: KG.guillemet(e.greek), options: opts.map(x => `${x.pic} ${x.short}`), answer: opts.indexOf(c), greek: false, promptGreek: true, why: `It's ${c.pic} ${c.name}`, cid: c.id };
     }).filter(r => r.options.length === n);
   }
-  const GAME3D = { run: ['Lane Run', 3], toss: ['Jar Toss', 4] };
+  const GAME3D = { run: ['Lane Run', 3], toss: ['Jar Toss', 4], hop: ['Stepping Stones', 3], herd: ['Sheep Round-up', 4] }, ORDER3D = ['run', 'hop', 'toss', 'herd'];
   function world3D(node, shift = 0) {
-    const idx = (node.index || 0) + (node.set || 0) + shift, game = idx % 2 ? 'toss' : 'run', [title, n] = GAME3D[game];
+    const idx = (node.index || 0) + (node.set || 0) + shift, game = ORDER3D[idx % 4], [title, n] = GAME3D[game];
     let rounds = [], fallback = [];
     if (node.type === 'vocab' || node.type === 'reading') {
       const words = node.type === 'vocab' ? E.vocabSet(node.set) : KG.readings[node.reading].uses.map(g => E.vocabByGreek[g]).filter(Boolean);
@@ -659,9 +659,10 @@ window.KG = window.KG || {};
   }
   E.world3D = world3D;
   // two different games for one lesson: one out in the 3D place, one with tablets
+  // mostly games out in the 3D place: two of them, and a tablet game every third lesson
   function minisFor(node) {
-    const a = world3D(node), b = miniFor(node);
-    return [a, b].filter(Boolean);
+    const a = world3D(node), b = world3D(node, 1), c = ((node.index || 0) % 3 === 0) ? miniFor(node) : null;
+    return [a, b, c].filter(Boolean);
   }
   E.minisFor = minisFor;
 
@@ -699,15 +700,15 @@ window.KG = window.KG || {};
       });
       plan.push(trial(node));
       // a game, a few questions, another game, a last few: never a long run of the same thing
-      const [g1, g2] = minisFor(node), qs = conceptQuestions(node.lesson, first ? 5 : 7), cut = Math.ceil(qs.length / 2);
-      return plan.concat(g1 ? [g1] : [], qs.slice(0, cut), g2 ? [g2] : [], qs.slice(cut));
+      const [g1, g2, g3] = minisFor(node), qs = conceptQuestions(node.lesson, first ? 4 : 6), cut = Math.ceil(qs.length / 2);
+      return plan.concat(g1 ? [g1] : [], qs.slice(0, cut), g2 ? [g2] : [], qs.slice(cut), g3 ? [g3] : []);
     }
     if (node.type === 'vocab') {
       const words = E.vocabSet(node.set), pool = chapterWords(words[0]);
-      const [g1, g2] = minisFor(node);
+      const [g1, g2, g3] = minisFor(node);
       if (!first) {
-        const qs = vocabLessonQuestions(node.set).slice(0, 5), [r1, r2] = sample(words, 2);
-        return [trial(node), g1].concat(qs.slice(0, 3), [g2, typeQ(r1)], qs.slice(3), [spellQ(r2 || r1)]).filter(Boolean);
+        const qs = vocabLessonQuestions(node.set).slice(0, 4), [r1, r2] = sample(words, 2);
+        return [trial(node), g1].concat(qs.slice(0, 2), [g2, typeQ(r1)], qs.slice(2), [g3, spellQ(r2 || r1)]).filter(Boolean);
       }
       for (const c of chunks(U.shuffle(words), [3, 3])) {
         plan.push(teach({ words: c.map(w => ({ g: w.g, lex: w.lex, en: w.en, f: w.f, icon: w.icon, mn: w.mn })) }));
@@ -718,7 +719,8 @@ window.KG = window.KG || {};
       const [t1, t2, t3] = sample(words, 3);
       plan.push(g1, typeQ(t1));
       if (g2) plan.push(g2); else if (words.length >= 3) plan.push(matchWords(sample(words, 5)));
-      plan.push(spellQ(t2 || t1), vocabQ(t3 || t1, pool, U.pick(['e2g', 'hook', 'sleuth'])));
+      plan.push(spellQ(t2 || t1));
+      plan.push(g3 || vocabQ(t3 || t1, pool, U.pick(['e2g', 'hook', 'sleuth'])));
       const earlier = pool.filter(w => w.set < node.set);
       for (const w of sample(earlier, 1)) plan.push(E.recallQ(w, pool));
       return plan;
