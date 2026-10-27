@@ -8,6 +8,7 @@ import { makeFX } from './fx.js';
 import { makeSideQuests } from './sidequests.js';
 import { makeVenues, venueOrder, moodAtmos, moodMotes, MOODS } from './venues.js';
 import { tallyRaiders, raiderMesh, animateRaider } from './raiders.js';
+import { makeRoadPlay } from './roadplay.js';
 
 const KG = window.KG, E = KG.engine, U = KG.util;
 const W = KG.world = { ok: false, show() {}, hide() {}, onLessonDone() {} };
@@ -1194,6 +1195,35 @@ const SQ = makeSideQuests({
   dialog: (n, h, b) => dialog(n, h, b), free: (x, z) => openGround(x, z, 1.2),
   face: (x, z, tx, tz) => { player.position.set(x, groundAt(x, z), z); player.rotation.y = Math.atan2(tx - x, tz - z); cam.yaw = player.rotation.y + Math.PI; cam.pitch = 0.32; },
 });
+// things to do on the road itself between the teachers (js/roadplay.js): a ford, a rockfall, a pillar stair
+const RP = makeRoadPlay({
+  THREE, add: o => scene.add(o), groundAt: (x, z) => groundAt(x, z), mesh, plat: (x, z, r, h) => VEN.plat(x, z, r, h),
+  col: (x, z, r) => { const c = { x, z, r }; colliders.push(c); return c; }, keep: (x, z, r) => keepOut.push({ x, z, r }),
+  get waterMat() { return waterMat; }, player, P, SPK, DUST,
+  sfx: k => KG.app.sfx(k), toast: (h, c) => KG.app.toast(h, c), shake: s => { S_SHAKE = s; },
+  gain: (xp, coins) => { E.gainXP(xp, coins); updateHUD(); },
+  state: () => { const w = ws(); if (!w.road || w.road.day !== U.day()) w.road = { day: U.day(), done: [], coins: [] }; return w.road; },
+});
+function buildRoadPlay() {
+  const kinds = ['ford', 'rockfall', 'pillars'];
+  let n = 0;
+  for (let zi = 0; zi < NZ; zi++) {
+    const stops = KG.units[zi].nodes.filter(nd => nd.type !== 'boss').length;
+    // the gaps the riddle chests (before stops 1, 4, 7…) and word arches (before 2, 5, 8…) don't use: before 3, 6, 9…
+    for (let k = 2; k < stops - 1; k += 3) {
+      const z = stopZ(zi, k) - SP / 2, x = pathX(z);
+      if (Math.abs(z - RIVER_Z) < 16 || Math.hypot(x - LAKE.x, z - LAKE.z) < LAKE.r + 12) continue;
+      const fx = pathX(z - 1) - x, fz = -1, id = `${zi}_${k}`;
+      const busy = VEN.list.filter(v => Math.hypot(v.x - x, v.z - z) < 14);
+      let kind = kinds[n % 3];
+      if (busy.length && kind !== 'pillars') kind = 'pillars';
+      const side = busy.length ? -Math.sign(busy[0].x - x) || 1 : (n % 2 ? 1 : -1);
+      if (kind === 'pillars' && VEN.list.some(v => Math.hypot(v.x - (x + side * 8), v.z - z) < 10)) continue;
+      RP[kind]({ id, x, z, fx, fz, side });
+      n++;
+    }
+  }
+}
 // the review queue, due words first: what the side quests and shades ask about
 function reviewPool(n) {
   const t = U.day();
@@ -1918,6 +1948,7 @@ function step(dt) {
     if (!LOW && Math.random() < dt * 1.5) SPK.emit(tmp2.set(c.x, groundAt(c.x, c.z) + 0.7, c.z), { color: 0xffe08a, n: 1, speed: 0.4, up: 1, gravity: 0.5, size: 0.28, life: 0.8, spread: 0.5 });
   }
   SQ.update(dt, t, pos, P.onGround);
+  RP.update(dt, t, pos);
   VEN.update(dt, t, pos, P.onGround);
   if (!INDOOR) moodMotes(MOOD, SPK, pos, dt);
   // lightning in the storm: the whole valley flickers bright for a moment
@@ -2012,7 +2043,7 @@ W.onLessonDone = (node, r) => {
     if (e) burst(new THREE.Vector3(e.x, groundAt(e.x, e.z) + 2, e.z), 0xffffff);
   });
 };
-W.debug = { walkers, critters, BOW, BLOOM, BURSTS, ARENA, get moodNow() { return MOOD; }, get indoor() { return !!INDOOR; }, mood: m => { MOOD = m; blendAtmosphere(P.zone < 0 ? 0 : P.zone, 1); }, sim: (n, dt = 1 / 60) => { for (let i = 0; i < n; i++) step(dt); }, colliders, VEN, og: (x, z, r, t) => openGround(x, z, r, t), SQ, scene, startBattle: w => startBattle(w), player, camera, cam, P, ents, wisps, questTarget, teleport: (x, z) => { player.position.set(x, groundAt(x, z), z); snapCamera(); } };
+W.debug = { RP, walkers, critters, BOW, BLOOM, BURSTS, ARENA, get moodNow() { return MOOD; }, get indoor() { return !!INDOOR; }, mood: m => { MOOD = m; blendAtmosphere(P.zone < 0 ? 0 : P.zone, 1); }, sim: (n, dt = 1 / 60) => { for (let i = 0; i < n; i++) step(dt); }, colliders, VEN, og: (x, z, r, t) => openGround(x, z, r, t), SQ, scene, startBattle: w => startBattle(w), player, camera, cam, P, ents, wisps, questTarget, teleport: (x, z) => { player.position.set(x, groundAt(x, z), z); snapCamera(); } };
 
 // ── build ─────────────────────────────────────────────────────
 (async () => {
@@ -2023,6 +2054,7 @@ W.debug = { walkers, critters, BOW, BLOOM, BURSTS, ARENA, get moodNow() { return
   buildVillains();
   buildChests();
   buildSideQuests();
+  buildRoadPlay();
   scatterTrees();
   grass();
   buildCollectibles();

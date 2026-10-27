@@ -526,7 +526,7 @@ export function makeVenues(ctx) {
   }
 
   return {
-    place, ground, list,
+    place, ground, list, plat,
     inside: pos => list.some(v => v.inside && Math.abs(pos.x - v.x) < 6 && Math.abs(pos.z - v.z) < 6 && v.inside(pos)),
     // 1 by day, less at dusk and night: how bright the light through the windows is
     setDaylight: (k, color = 0xffffff) => { beamMat.opacity = k; beamMat.color.set(color); for (const m of windowMats) m.emissiveIntensity = k < 0.5 ? 2.2 : 0.7; },
