@@ -9,7 +9,7 @@ import { makeSideQuests } from './sidequests.js';
 import { makeVenues, venueOrder, moodAtmos, moodMotes, MOODS } from './venues.js';
 import { tallyRaiders, raiderMesh, animateRaider } from './raiders.js';
 import { makeRoadPlay } from './roadplay.js';
-import { makeLandmarks } from './landmarks.js';
+import { makeStructures } from './structures.js';
 
 const KG = window.KG, E = KG.engine, U = KG.util;
 const W = KG.world = { ok: false, show() {}, hide() {}, onLessonDone() {} };
@@ -1205,29 +1205,19 @@ const RP = makeRoadPlay({
   gain: (xp, coins) => { E.gainXP(xp, coins); updateHUD(); },
   state: () => { const w = ws(); if (!w.road || w.road.day !== U.day()) w.road = { day: U.day(), done: [], coins: [] }; return w.road; },
 });
-// the path up to each teacher is lined with what they teach (js/landmarks.js)
-const LM = makeLandmarks({
-  THREE, add: o => scene.add(o), groundAt: (x, z) => groundAt(x, z), mesh, textSprite, GREEK: GREEK_FONT,
-  get waterMat() { return waterMat; }, toast: h => KG.app.toast(h), speak: g => KG.app.speak(g),
+// each region's land is built around its grammar: statues for person, water for voice, weather for mood, time for tense (js/structures.js)
+const GS = makeStructures({
+  THREE, add: o => scene.add(o), groundAt: (x, z) => groundAt(x, z), pathX, mesh, person: look => person(look), textSprite, GREEK: GREEK_FONT,
+  get waterMat() { return waterMat; }, free: (x, z, r) => openGround(x, z, r, 2.2), keep: (x, z, r) => keepOut.push({ x, z, r }),
+  col: (x, z, r) => { const c = { x, z, r }; colliders.push(c); return c; }, SPK, toast: h => KG.app.toast(h), speak: g => KG.app.speak(g),
 });
-function buildLandmarks() {
-  for (const e of ents) {
-    if (e.kind !== 'mentor' || !e.node) continue;
-    const n = e.node, items = n.type === 'vocab' ? E.vocabSet(n.set).map(w => ['word', w]) : n.type === 'grammar' ? KG.grammar[n.lesson].cards.map(c => ['card', c]) : [];
-    if (!items.length) continue;
-    // an avenue either side of the trail from the road to the teacher's door; a short trail leaves a row by the road
-    const v = e.venue, ex = v ? v.entryX : e.x, ez = v ? v.entryZ : e.z, rz = v ? v.z : e.z, sx = pathX(rz) + Math.sign(ex - pathX(rz)) * 3, sz = rz;
-    const dx = ex - sx, dz = ez - sz, len = Math.hypot(dx, dz), ux = dx / (len || 1), uz = dz / (len || 1);
-    items.slice(0, 8).forEach(([k, it], i) => {
-      let x, z;
-      if (len > 6) { const f = 0.15 + 0.75 * (Math.floor(i / 2) + 0.5) / Math.ceil(Math.min(8, items.length) / 2), s = i % 2 ? 1 : -1; x = sx + dx * f - uz * s * 2.1; z = sz + dz * f + ux * s * 2.1; }
-      else { x = pathX(rz + 3 + i * 1.8) - Math.sign(ex - pathX(rz)) * 3.6; z = rz + 3 + i * 1.8; }
-      ({ x, z } = clearSpot(x, z));
-      LM[k](x, z, it);
-      keepOut.push({ x, z, r: 1.2 });
-    });
-  }
+function buildStructures() {
+  KG.units.forEach((u, zi) => {
+    const g = u.nodes.find(n => n.type === 'grammar'), set = g && KG.grammar[g.lesson] && KG.grammar[g.lesson].set;
+    if (set && GS[set] && !u.final) GS[set](-zi * L - 8, -(zi + 1) * L + 8);
+  });
 }
+let WX = null, WXband = null; // the weather of the mood region overrides the hour of the day while you're in it
 function buildRoadPlay() {
   const kinds = ['ford', 'rockfall', 'pillars'];
   let n = 0;
@@ -1973,7 +1963,11 @@ function step(dt) {
   }
   SQ.update(dt, t, pos, P.onGround);
   RP.update(dt, t, pos);
-  LM.update(dt, t, pos);
+  GS.update(dt, t, pos);
+  { const b = INDOOR ? null : GS.moodAt(pos);
+    if (b) { if (WX === null) WX = MOOD; MOOD = b.mood; if (b !== WXband && b.k === 'optative') BOW.show([Math.sin(cam.yaw), 0, Math.cos(cam.yaw)]); }
+    else if (WX !== null) { MOOD = WX; WX = null; }
+    WXband = b; }
   VEN.update(dt, t, pos, P.onGround);
   if (!INDOOR) moodMotes(MOOD, SPK, pos, dt);
   // lightning in the storm: the whole valley flickers bright for a moment
@@ -2068,7 +2062,7 @@ W.onLessonDone = (node, r) => {
     if (e) burst(new THREE.Vector3(e.x, groundAt(e.x, e.z) + 2, e.z), 0xffffff);
   });
 };
-W.debug = { RP, LM, walkers, critters, BOW, BLOOM, BURSTS, ARENA, get moodNow() { return MOOD; }, get indoor() { return !!INDOOR; }, mood: m => { MOOD = m; blendAtmosphere(P.zone < 0 ? 0 : P.zone, 1); }, sim: (n, dt = 1 / 60) => { for (let i = 0; i < n; i++) step(dt); }, colliders, VEN, og: (x, z, r, t) => openGround(x, z, r, t), SQ, scene, startBattle: w => startBattle(w), player, camera, cam, P, ents, wisps, questTarget, teleport: (x, z) => { player.position.set(x, groundAt(x, z), z); snapCamera(); } };
+W.debug = { RP, GS, walkers, critters, BOW, BLOOM, BURSTS, ARENA, get moodNow() { return MOOD; }, get indoor() { return !!INDOOR; }, mood: m => { MOOD = m; blendAtmosphere(P.zone < 0 ? 0 : P.zone, 1); }, sim: (n, dt = 1 / 60) => { for (let i = 0; i < n; i++) step(dt); }, colliders, VEN, og: (x, z, r, t) => openGround(x, z, r, t), SQ, scene, startBattle: w => startBattle(w), player, camera, cam, P, ents, wisps, questTarget, teleport: (x, z) => { player.position.set(x, groundAt(x, z), z); snapCamera(); } };
 
 // ── build ─────────────────────────────────────────────────────
 (async () => {
@@ -2080,7 +2074,7 @@ W.debug = { RP, LM, walkers, critters, BOW, BLOOM, BURSTS, ARENA, get moodNow() 
   buildChests();
   buildSideQuests();
   buildRoadPlay();
-  buildLandmarks();
+  buildStructures();
   scatterTrees();
   grass();
   buildCollectibles();

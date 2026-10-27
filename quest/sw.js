@@ -4,7 +4,7 @@
 const CACHE = 'going-deeper-quest-v34';
 const SHELL = [
   './', 'index.html', 'manifest.webmanifest', 'css/style.css', '../data/content.json',
-  'js/content.js', 'js/boot.js', 'js/engine.js', 'js/app.js', 'js/world.js', 'js/stage.js', 'js/stagesets.js', 'js/fx.js', 'js/sidequests.js', 'js/roadplay.js', 'js/landmarks.js', 'js/venues.js', 'js/raiders.js', 'js/cloud.js', 'js/vendor/three.module.min.js',
+  'js/content.js', 'js/boot.js', 'js/engine.js', 'js/app.js', 'js/world.js', 'js/stage.js', 'js/stagesets.js', 'js/fx.js', 'js/sidequests.js', 'js/roadplay.js', 'js/structures.js', 'js/venues.js', 'js/raiders.js', 'js/cloud.js', 'js/vendor/three.module.min.js',
   '../icons/icon.svg', '../icons/icon-192.png', '../icons/icon-512.png', '../icons/icon-180.png',
 ];
 
