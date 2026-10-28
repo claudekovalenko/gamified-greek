@@ -27,7 +27,8 @@ KG.setChapter = n => { try { localStorage.setItem(KG.CH_KEY, String(n)); } catch
 (function () {
   'use strict';
   const lemma = g => String(g || '').split(',')[0].trim();
-  const glossShort = s => String(s || '').split(/[;(]/)[0].trim();
+  // the first meaning; a gloss that opens with a bracket keeps it: "(olive) oil"
+  const glossShort = s => { const t = String(s || '').trim(); return (t.startsWith('(') ? t.split(';')[0] : t.split(/[;(]/)[0]).trim(); };
   const bare = s => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/ς/g, 'σ').toLowerCase();
   const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const mark = s => esc(s).replace(/\*([^*]+)\*/g, '<mark>$1</mark>');

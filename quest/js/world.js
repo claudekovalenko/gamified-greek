@@ -1445,6 +1445,40 @@ function talk(e) {
   }
 }
 
+// how a riddle or a shade is answered: tap a choice (uses), or for words, type the meaning or build the Greek
+function battleInput(q) {
+  if (q.type === 'type') return `<div class="recall"><input id="wbtin" class="typein" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="done" placeholder="Type the meaning in English…"><button class="btn primary" id="wbtcheck" disabled>Check</button></div>`;
+  if (q.type === 'spell') return `<div class="recall"><div class="spline gk" id="wbtline"></div><div class="spbank gk" id="wbtbank"></div><div class="row"><button class="btn ghost" id="wbtback">⌫</button><button class="btn primary" id="wbtcheck" disabled>Check</button></div></div>`;
+  return `<div class="wbt-opts">${q.options.map((o, i) => `<button class="wbt-opt ${q.greekOpts ? 'gk' : ''}" data-bo="${i}"><span class="k">${i + 1}</span>${q.greekOpts ? esc(o) : o}</button>`).join('')}</div>`;
+}
+function wireBattleInput(q) {
+  const b = $('wbattle'), chk = $('wbtcheck');
+  if (q.type === 'type') {
+    const inp = $('wbtin'), go = () => { if (inp.value.trim()) recallBattle(E.checkMeaning(inp.value, q), inp.value); };
+    inp.addEventListener('input', () => { chk.disabled = !inp.value.trim(); });
+    inp.addEventListener('keydown', e => { e.stopPropagation(); if (e.key === 'Enter') { e.preventDefault(); go(); } });
+    chk.onclick = go; setTimeout(() => inp.focus(), 60);
+  } else if (q.type === 'spell') {
+    const o = { bank: q.tiles.map(t => t), line: [] };
+    const draw = () => {
+      $('wbtline').innerHTML = o.line.length ? o.line.map((c, k) => `<button class="sptile" data-out="${k}">${esc(c)}</button>`).join('') : '<span class="muted small">Tap the letters in order…</span>';
+      $('wbtbank').innerHTML = o.bank.map((c, k) => `<button class="sptile" data-in="${k}">${esc(c)}</button>`).join('');
+      chk.disabled = !o.line.length;
+      b.querySelectorAll('[data-in]').forEach(el => el.onclick = () => { if (battle && !battle.done) { o.line.push(o.bank.splice(+el.dataset.in, 1)[0]); KG.app.sfx('tap'); draw(); } });
+      b.querySelectorAll('[data-out]').forEach(el => el.onclick = () => { if (battle && !battle.done) { o.bank.push(o.line.splice(+el.dataset.out, 1)[0]); draw(); } });
+    };
+    $('wbtback').onclick = () => { if (battle && !battle.done && o.line.length) { o.bank.push(o.line.pop()); draw(); } };
+    chk.onclick = () => { const got = o.line.join(''); recallBattle(got === q.target, got); };
+    draw();
+  } else b.querySelectorAll('[data-bo]').forEach(el => el.onclick = () => answerBattle(+el.dataset.bo, el));
+}
+function recallBattle(ok, got) {
+  if (!battle || battle.done) return;
+  const q = battle.q;
+  $('wbattle').querySelectorAll('.recall button, .recall input').forEach(x => { x.disabled = true; });
+  if (!ok) q.explain = `${got ? `You gave <b${q.type === 'spell' ? ' class="gk"' : ''}>${esc(got)}</b>. ` : ''}It's <b${q.type === 'spell' ? ' class="gk"' : ''}>${esc(q.display)}</b>.<br>${q.explain || ''}`;
+  answerBattle(ok ? q.answer ?? 0 : -1, null, ok);
+}
 // battles against the Shades of Forgetting
 let battle = null;
 function riddleQ(elite) {
@@ -1452,7 +1486,7 @@ function riddleQ(elite) {
   const pool = studied.length >= 4 ? studied : E.vocabSet(0).concat(E.vocabSet(1));
   const learned = E.nodes.some(n => n.type === 'grammar' && E.stars(n.id) > 0);
   if (learned && Math.random() < 0.45) return E.spotQ(U.pick(E.unlockedCards()), KG.cards);
-  return E.vocabQ(U.pick(pool), pool.length > 8 ? pool : KG.vocab, U.pick(elite ? ['e2g', 'hook'] : ['g2e', 'e2g', 'hook', 'sleuth']));
+  return E.vocabQ(U.pick(pool), pool.length > 8 ? pool : KG.vocab, U.pick(elite ? ['e2g', 'hook'] : ['g2e', 'g2e', 'e2g', 'sleuth']));
 }
 // riddle chests between the stops: answer one riddle to open it; they refill every day
 const chests = [];
@@ -1495,9 +1529,9 @@ function startChest(e) {
   const b = $('wbattle');
   b.innerHTML = `<div class="wbt-box riddlebox"><div class="wbt-h">🧰 A riddle chest! Answer to open it.</div>
     <div class="wbt-q">${q.prompt}</div><div class="wbt-big gk ${q.small ? 'small' : ''}">${esc(q.big || '')}</div>${q.sub && q.small ? `<div class="muted small">${esc(q.sub)}</div>` : ''}
-    <div class="wbt-opts">${q.options.map((o, i) => `<button class="wbt-opt ${q.greekOpts ? 'gk' : ''}" data-bo="${i}"><span class="k">${i + 1}</span>${q.greekOpts ? esc(o) : o}</button>`).join('')}</div><div id="wbtfb"></div></div>`;
+    ${battleInput(q)}<div id="wbtfb"></div></div>`;
   b.classList.add('on');
-  b.querySelectorAll('[data-bo]').forEach(el => el.onclick = () => answerBattle(+el.dataset.bo, el));
+  wireBattleInput(q);
 }
 // battles against the Shades of Forgetting: spaced review out in the world. A shade asks
 // for something from your review queue (a due word, or a use that has come due); an elite
@@ -1536,9 +1570,9 @@ function battleQ() {
   const hp = battle.items.length > 1 ? `<div class="wbt-hp">${battle.items.map((_, k) => `<i class="${k < battle.hp ? 'on' : ''}"></i>`).join('')}</div>` : '';
   b.innerHTML = `<div class="wbt-box ${w.elite || w.raider ? 'elite' : ''}"><div class="wbt-h">${w.raider ? '⚔️ A Raider of Forgetting! It came while you were away and carries off the words you haven\'t reviewed…' : w.elite ? '🔥 An ELITE Shade! It feeds on your weakest words…' : '👻 A Shade of Forgetting!'}</div>${hp}<div class="muted small">${battle.items.length > 1 ? 'Three right answers in a row banish it.' : it.card ? 'It is made of a use you are starting to forget. Spot it!' : 'Banish it by remembering.'}</div>
     <div class="wbt-q">${q.prompt}</div><div class="wbt-big gk ${q.small ? 'small' : ''}">${esc(q.big || '')}</div>${q.sub && q.small ? `<div class="muted small">${esc(q.sub)}</div>` : ''}
-    <div class="wbt-opts">${q.options.map((o, i) => `<button class="wbt-opt ${q.greekOpts ? 'gk' : ''}" data-bo="${i}"><span class="k">${i + 1}</span>${q.greekOpts ? esc(o) : o}</button>`).join('')}</div><div id="wbtfb"></div></div>`;
+    ${battleInput(q)}<div id="wbtfb"></div></div>`;
   b.classList.add('on');
-  b.querySelectorAll('[data-bo]').forEach(el => el.onclick = () => answerBattle(+el.dataset.bo, el));
+  wireBattleInput(q);
   if (q.speak) KG.app.speak(q.speak);
 }
 // a bolt of light from the hand to a target
@@ -1552,13 +1586,13 @@ function bolt(to, color, onHit) {
     if (k >= 1) { SPK.emit(dest, { color, n: 40, speed: 6, up: 0.6, gravity: -2, size: 0.5 }); SPK.emit(dest, { color: 0xffffff, n: 12, speed: 2, size: 0.9, life: 0.4 }); if (onHit) onHit(); return false; }
   });
 }
-function answerBattle(i, el) {
+function answerBattle(i, el, recalled) {
   if (!battle || battle.done) return;
-  const { q, w } = battle, ok = i === q.answer;
+  const { q, w } = battle, ok = recalled ?? i === q.answer;
   battle.done = true;
   E.recordAnswer(q, ok, true);
   $('wbattle').querySelectorAll('.wbt-opt').forEach((b, k) => { b.disabled = true; if (k === q.answer) b.classList.add('right'); });
-  if (!ok) el.classList.add('wrong');
+  if (!ok && el) el.classList.add('wrong');
   if (battle.chest) {
     const e = battle.chest, C = chestState(), coins = 4 + Math.floor(Math.random() * 6);
     if (ok) {
@@ -1626,7 +1660,7 @@ addEventListener('keydown', e => {
   if (!active) return;
   if (mode === 'stage') { if (stage.key(e)) e.preventDefault(); return; }
   if (SQ.active() && SQ.key(e)) { e.preventDefault(); return; }
-  if (battle) { if (/^[1-4]$/.test(e.key)) { const b = document.querySelector(`[data-bo="${+e.key - 1}"]`); if (b) b.click(); } else if (e.key === 'Enter') { const g = $('wbtgo'); if (g) g.click(); } return; }
+  if (battle) { if (e.target && /INPUT|TEXTAREA/.test(e.target.tagName)) return; if (/^[1-4]$/.test(e.key)) { const b = document.querySelector(`[data-bo="${+e.key - 1}"]`); if (b) b.click(); } else if (e.key === 'Enter') { const g = $('wbtgo'); if (g) g.click(); } return; }
   if (dlgOpen) { if (e.key === 'Escape') closeDialog(); return; }
   input.keys[e.code] = true;
   if (e.code === 'Space') { input.jump = true; e.preventDefault(); }

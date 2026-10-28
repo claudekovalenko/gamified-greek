@@ -277,30 +277,27 @@ window.KG = window.KG || {};
   // wrong options of the same kind (verbs against verbs, the rest against the rest) are harder to rule out
   const kindOf = w => (/^(I|it) /.test(w.en) ? 'v' : 'n');
   const sameKind = (w, pool) => { const k = pool.filter(x => kindOf(x) === kindOf(w)); return k.length >= 6 ? k : pool; };
+  // Vocabulary is never multiple choice: every way of asking makes you produce the answer.
+  //   g2e → type the meaning; e2g → build the Greek; hook → build the Greek from its hook;
+  //   sleuth → type the meaning of a word as it stands in a sentence
   function vocabQ(w, pool, dir) {
-    if (dir === 'type') return typeQ(w);
-    if (dir === 'spell') return spellQ(w);
-    pool = sameKind(w, pool);
-    const explain = wordExplain(w), base = { vkey: w.g, speak: w.g, explain, hint: dir === 'hook' ? '' : soundOf(w.mn) };
-    if (dir === 'e2g') return mc(`Which word means "<b>${esc(w.en)}</b>"?`, w.g, others(w.g, pool.map(x => x.g)), Object.assign({ greekOpts: true }, base));
-    if (dir === 'hook' && w.mn) return mc(`🪝 Whose hook is this? “${esc(w.mn)}”`, w.g, others(w.g, pool.map(x => x.g)), Object.assign({ greekOpts: true }, base));
+    if (dir === 'type' || dir === 'g2e') return typeQ(w);
+    if (dir === 'spell' || dir === 'e2g') return spellQ(w);
+    if (dir === 'hook') return w.mn ? spellQ(w, { prompt: `🪝 Whose hook is this? Build the Greek.<br><span class="muted">“${esc(w.mn)}”</span>` }) : spellQ(w);
     if (dir === 'sleuth') {
-      const rs = Object.values(KG.readings).filter(r => r.uses.includes(w.g));
-      if (rs.length) {
-        const R = U.pick(rs);
-        // the choices are all words from the sentence itself, so you have to know which one means it (not just spot which is there)
-        const near = pool.map(x => x.g).filter(g => g !== w.g && R.uses.includes(g));
-        if (near.length >= 2) return mc(`🕵️ Which word in this sentence means “<b>${esc(w.en)}</b>”?`, w.g, others(w.g, near),
-          Object.assign({ greekOpts: true, big: sentence(R), small: true }, base, { explain: `${explain}<br><i>${esc(R.tr)}</i>` }));
-      }
+      const R = U.pick(Object.values(KG.readings).filter(r => r.uses.includes(w.g)));
+      return R ? typeQ(w, { prompt: `🕵️ In this sentence, what does <b class="gk">${esc(w.g)}</b> mean? Type it.`, big: sentence(R), small: true, sub: '' }) : typeQ(w);
     }
-    return mc('What does this word mean?', w.en, others(w.en, pool.map(x => x.en)), Object.assign({ big: w.g, sub: w.lex !== w.g ? w.lex : '' }, base));
+    return typeQ(w);
   }
   // ── recall: the answer is not on the screen ──────────────────
   // Recognising the right one of four is the easy half of knowing a word; producing it is what
   // makes it stick. Typed meanings forgive spelling slips; Greek is built from letter tiles.
   const normEn = s => String(s).toLowerCase().replace(/[^a-z' ]/g, ' ').replace(/\b(i|it|to|a|an|the|am|is|are|be|one's|oneself|myself)\b/g, ' ').replace(/\s+/g, ' ').trim();
-  const senses = en => uniq(String(en).replace(/\([^)]*\)/g, ' ').split(/[,;/]|\bor\b/).map(normEn).filter(Boolean));
+  // each meaning, with and without its bracketed part: "(olive) oil" takes "oil" and "olive oil"
+  const senses = en => uniq(String(en).replace(/\([^)]*\)/g, m => m.replace(/[,;/]/g, '|')).split(/[,;/]|\bor\b/)
+    .flatMap(p => { const opts = (p.match(/\(([^)]*)\)/) || [, ''])[1].split('|').filter(Boolean); return [p.replace(/\([^)]*\)/g, ' ')].concat(opts.map(o => p.replace(/\([^)]*\)/, ' ' + o + ' '))); })
+    .map(normEn).filter(Boolean));
   function lev(a, b) {
     const d = Array.from({ length: a.length + 1 }, (_, i) => [i]);
     for (let j = 1; j <= b.length; j++) d[0][j] = j;
@@ -309,14 +306,17 @@ window.KG = window.KG || {};
   }
   // right if it is one of the senses, give or take a slip (one letter in a short word, two in a long one)
   E.checkMeaning = (typed, q) => {
+    // several meanings typed at once ("weakness, sickness"): right if any of them is
+    const parts = String(typed).split(/[,;/]|\bor\b/).map(x => x.trim()).filter(Boolean);
+    if (parts.length > 1 && parts.some(p => E.checkMeaning(p, q))) return true;
     const t = normEn(typed); if (!t) return false;
     return q.answers.some(a => a === t || lev(a, t) <= (a.length >= 9 ? 2 : a.length >= 4 ? 1 : 0) || (a.split(' ').length > 1 && a.split(' ').some(w => w.length >= 5 && w === t)));
   };
   const greekLetters = s => U.bare(s).replace(/[^α-ω]/g, '');
   E.greekLetters = greekLetters;
-  function typeQ(w) {
-    return { type: 'type', prompt: '✍️ Type what it means', big: w.g, sub: w.lex !== w.g ? w.lex : '', answers: senses(w.en), display: w.en,
-      vkey: w.g, speak: w.g, explain: wordExplain(w), hint: soundOf(w.mn) };
+  function typeQ(w, extra = {}) {
+    return Object.assign({ type: 'type', prompt: '✍️ Type what it means', big: w.g, sub: w.lex !== w.g ? w.lex : '', answers: senses(w.en), display: w.en,
+      vkey: w.g, speak: w.g, explain: wordExplain(w), hint: soundOf(w.mn) }, extra);
   }
   function spellQ(w, extra = {}) {
     const target = greekLetters(w.g);
@@ -337,8 +337,8 @@ window.KG = window.KG || {};
   E.recallQ = (w, pool = chapterWords(w)) => {
     const box = (E.state.vocab[w.g] || {}).box || 0;
     if (box >= 4) return U.pick([spellQ, typeQ, spellQ])(w);
-    if (box >= 2) return U.pick([typeQ, typeQ, spellQ, w2 => vocabQ(w2, pool, 'e2g')])(w);
-    return U.pick([typeQ, w2 => vocabQ(w2, pool, 'g2e'), w2 => vocabQ(w2, pool, 'hook')])(w);
+    if (box >= 2) return U.pick([typeQ, typeQ, spellQ, w2 => vocabQ(w2, pool, 'hook')])(w);
+    return U.pick([typeQ, typeQ, w2 => vocabQ(w2, pool, 'sleuth')])(w);
   };
   E.spellQ = spellQ; E.typeQ = typeQ;
   const WORD_MIX = ['g2e', 'type', 'e2g', 'hook', 'sleuth', 'spell'];
@@ -479,7 +479,7 @@ window.KG = window.KG || {};
     const R = KG.readings[id], qs = [], S = sentence(R);
     const words = R.uses.map(g => E.vocabByGreek[g]).filter(Boolean);
     for (const w of sample(words, Math.min(3, words.length))) {
-      qs.push(mc(`In this sentence, what does <b>${esc(w.g)}</b> mean?`, w.en, others(w.en, chapterWords(w).map(x => x.en)), { big: S, small: true, vkey: w.g, explain: wordExplain(w) }));
+      qs.push(typeQ(w, { prompt: `In this sentence, what does <b class="gk">${esc(w.g)}</b> mean? Type it.`, big: S, small: true, sub: '' }));
     }
     const rivals = Object.values(KG.readings).filter(x => x !== R).map(x => x.tr);
     qs.push(mc('What does it say?', R.tr, others(R.tr, rivals), { big: S, small: true, speak: S, explain: esc(R.note) }));
