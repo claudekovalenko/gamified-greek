@@ -43,18 +43,53 @@
       else if (kind === 'level') [392, 523, 659, 784, 1047, 1319].forEach((f, i) => tone(f, i * 0.09, 0.35, 'triangle'));
     } catch (e) { /* audio unavailable */ }
   }
-  // Greek voices read modern monotonic Greek, so strip breathings/extra accents first.
-  function monotonic(s) {
-    return s.normalize('NFD').replace(/[̓̔̈ͅ]/g, '').replace(/[̀͂]/g, '́')
-      .replace(/́(?=.*́)/g, '').normalize('NFC').replace(/[’᾽]/g, '');
+  // Polis Institute Koine transliteration for TTS.
+  // ω is long o ("oh"), υ is "oo", diphthongs are real vowel glides.
+  const POLIS_SINGLE = { α:"ah", ε:"eh", η:"ay", ι:"ee", ο:"o", υ:"oo", ω:"oh",
+    β:"v", γ:"gh", δ:"dh", ζ:"z", θ:"th", κ:"k", λ:"l", μ:"m", ν:"n",
+    ξ:"x", π:"p", ρ:"r", σ:"s", ς:"s", τ:"t", φ:"f", χ:"kh", ψ:"ps" };
+  const POLIS_DIGRAPH = { αι:"ah-ee", ει:"eh-ee", οι:"oh-ee", υι:"oo-ee",
+    αυ:"ah-oo", ευ:"eh-oo", ηυ:"ay-oo", ου:"oo" };
+  const ROUGH_B = 0x0314, DIAERESIS_B = 0x0308, VOWELS_B = "αεηιουω";
+  function greekLettersB(word) {
+    const nfd = word.normalize('NFD'); const letters = [];
+    for (let i = 0; i < nfd.length; i++) {
+      const cp = nfd.codePointAt(i);
+      if (cp > 0xFFFF) i++;
+      const ch = String.fromCodePoint(cp);
+      if ((ch >= '\u0370' && ch <= '\u03FF') || (ch >= '\u1F00' && ch <= '\u1FFF')) {
+        letters.push({ base: nfd[nfd.indexOf(ch)].normalize('NFC'), marks: [] });
+      } else if (letters.length) {
+        letters[letters.length - 1].marks.push(cp);
+      }
+    }
+    return letters;
+  }
+  function polisTranslit(word) {
+    // Strip non-Greek chars; fall back to original word if nothing transliterates
+    const L = greekLettersB(word); if (!L.length) return word;
+    let out = "", i = 0;
+    while (i < L.length) {
+      const cur = L[i], next = L[i + 1];
+      if (cur.base === "γ" && next && "γκχξ".includes(next.base)) { out += "ng"; i++; continue; }
+      if (next && VOWELS_B.includes(cur.base)) {
+        const pair = cur.base + next.base;
+        if (POLIS_DIGRAPH[pair] && !next.marks.includes(DIAERESIS_B)) {
+          out += (next.marks.includes(ROUGH_B) ? "h" : "") + POLIS_DIGRAPH[pair]; i += 2; continue;
+        }
+      }
+      const h = cur.marks.includes(ROUGH_B) ? "h" : "";
+      const s = POLIS_SINGLE[cur.base] ?? cur.base;
+      out += cur.base === "ρ" ? s + h : h + s; i++;
+    }
+    return out.replace(/-+/g, "-").replace(/^-|-$/g, "") || word;
   }
   function speak(text) {
     if (!S().settings.speech || !('speechSynthesis' in window)) return;
     try {
-      const u = new SpeechSynthesisUtterance(text.split(' ').map(monotonic).join(' '));
-      u.lang = 'el-GR'; u.rate = 0.8;
-      const v = speechSynthesis.getVoices().find(v => /^el/i.test(v.lang));
-      if (v) u.voice = v;
+      const respelled = text.split(' ').map(polisTranslit).join(' ');
+      const u = new SpeechSynthesisUtterance(respelled);
+      u.lang = navigator.language || 'en-US'; u.rate = 0.8;
       speechSynthesis.cancel(); speechSynthesis.speak(u);
     } catch (e) { /* ignore */ }
   }
@@ -888,7 +923,7 @@
       <div class="card settings"><h3>Settings</h3>
         <label>Daily goal <select id="goalsel">${[20, 50, 100, 200].map(g => `<option value="${g}" ${g === s.dailyGoal ? 'selected' : ''}>${g} XP · ${{ 20: 'Casual', 50: 'Regular', 100: 'Serious', 200: 'Intense' }[g]}</option>`).join('')}</select></label>
         <label class="tg"><input type="checkbox" id="setsound" ${s.settings.sound ? 'checked' : ''}><span>Sound effects</span></label>
-        <label class="tg"><input type="checkbox" id="setspeech" ${s.settings.speech ? 'checked' : ''}><span>Read Greek aloud <span class="muted small">(uses your device's Greek voice, modern pronunciation)</span></span></label>
+        <label class="tg"><input type="checkbox" id="setspeech" ${s.settings.speech ? 'checked' : ''}><span>Read Greek aloud <span class="muted small">(Polis Institute Koine pronunciation)</span></span></label>
         <label>After each answer <select id="autosel">${[['fast', 'Move on quickly'], ['normal', 'Move on automatically'], ['relaxed', 'Move on slowly (more time to read)'], ['off', 'Wait for me to tap Continue']].map(([k, t]) => `<option value="${k}" ${(s.settings.autoAdvance || 'normal') === k ? 'selected' : ''}>${t}</option>`).join('')}</select></label>
         <label>Graphics <select id="gfxsel"><option value="high" ${(s.settings.gfx || 'high') === 'high' ? 'selected' : ''}>High (grass, shadows, effects)</option><option value="low" ${s.settings.gfx === 'low' ? 'selected' : ''}>Low (smoother on older phones)</option></select></label>
         <label>If I miss a day <select id="raidsel">${[['off', 'Nothing happens'], ['some', 'A few raiders come'], ['many', 'A horde of raiders comes']].map(([k, t]) => `<option value="${k}" ${(s.settings.raiders || 'some') === k ? 'selected' : ''}>${t}</option>`).join('')}</select></label>
